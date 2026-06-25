@@ -1,0 +1,14 @@
+# Production overlay: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+services:
+  postgres:
+    restart: always
+    # Do not expose ports — internal network only
+
+  postgrest:
+    restart: always
+
+  web:
+    restart: always
+    # Put TLS reverse proxy in front; expose only 80 internally or map to localhost
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8080}:80"

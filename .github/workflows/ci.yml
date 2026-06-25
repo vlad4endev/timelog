@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+      - run: npm run icons
+      - run: cp .env.example .env && ./scripts/setup.sh
+      - run: test -f icon-192.png && test -f icon-512.png
+      - run: grep -q '^ANON_KEY=eyJ' .env
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: cp .env.example .env && chmod +x scripts/setup.sh docker/postgres/init/02-roles.sh docker/docker-entrypoint.sh && ./scripts/setup.sh
+
+      - run: docker compose config
+
+      - run: docker compose up -d --build --wait
+
+      - name: Health check
+        run: |
+          curl -sf http://localhost:8080/health
+          ANON_KEY=$(grep '^ANON_KEY=' .env | cut -d= -f2-)
+          curl -sf "http://localhost:8080/rest/v1/projects?limit=1" \
+            -H "apikey: ${ANON_KEY}" \
+            -H "Authorization: Bearer ${ANON_KEY}"
+
+      - run: docker compose down -v

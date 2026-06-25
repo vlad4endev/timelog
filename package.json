@@ -1,0 +1,14 @@
+{
+  "name": "timelog",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "icons": "node scripts/generate-icons.mjs",
+    "jwt": "node scripts/generate-jwt.mjs"
+  },
+  "devDependencies": {
+    "jose": "^5.9.6",
+    "pngjs": "^7.0.0"
+  }
+}

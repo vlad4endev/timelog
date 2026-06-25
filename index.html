@@ -9,6 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="TimeLog">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<script src="config.js"></script>
 <title>TimeLog — Учёт рабочего времени</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -2104,12 +2106,13 @@ function renderSettings() {
       </div>` : ''}
     </div>
 
-    <div class="section-title">🗄️ База данных — Supabase</div>
+    <div class="section-title">🗄️ База данных</div>
     <div class="card mb16">
+      ${window.TIMELOG_CONFIG?.autoConnect ? `<div style="padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--radius2);margin-bottom:16px;font-size:13px;color:var(--green)">🐳 Docker: PostgreSQL + API подключены автоматически</div>` : ''}
       ${s.supabase.enabled ? `
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--radius2);margin-bottom:16px">
         <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
-        <div style="flex:1;font-size:13px;color:var(--green)">Подключено к Supabase — данные синхронизируются в облако</div>
+        <div style="flex:1;font-size:13px;color:var(--green)">Подключено к облачной БД — данные синхронизируются</div>
         <button class="btn btn-ghost btn-sm" onclick="sbSync()">↻ Синхронизировать</button>
         <button class="btn btn-danger btn-sm" onclick="sbDisconnect()">Отключить</button>
       </div>` : `
@@ -2529,8 +2532,20 @@ function initApp() {
   if (params.get('action') === 'add') setTimeout(openAddEntryModal, 100);
 }
 
+// ─── DOCKER / SELF-HOSTED CONFIG ─────────────────────────────────────────
+function applyDockerConfig() {
+  const cfg = window.TIMELOG_CONFIG;
+  if (!cfg || !cfg.autoConnect || !cfg.anonKey) return false;
+  state.settings.supabase.url = cfg.apiUrl || window.location.origin;
+  state.settings.supabase.anonKey = cfg.anonKey;
+  state.settings.supabase.enabled = true;
+  save();
+  return true;
+}
+
 // Boot sequence — локальный пароль, без Supabase Auth
 load();
+applyDockerConfig();
 authBootScreen();
 
 if (auth.isLoggedIn()) {

@@ -1,0 +1,1 @@
+window.TIMELOG_CONFIG = {};

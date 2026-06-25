@@ -1,8 +1,11 @@
-const CACHE_NAME = 'timelog-v2';
+const CACHE_NAME = 'timelog-v3';
 const ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/config.js',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
