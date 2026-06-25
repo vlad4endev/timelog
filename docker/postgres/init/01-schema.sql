@@ -75,3 +75,16 @@ CREATE INDEX IF NOT EXISTS idx_time_entries_report_id ON time_entries(report_id)
 CREATE INDEX IF NOT EXISTS idx_time_entries_archived ON time_entries(archived);
 CREATE INDEX IF NOT EXISTS idx_billing_reports_status ON billing_reports(status);
 CREATE INDEX IF NOT EXISTS idx_billing_reports_created ON billing_reports(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS active_timer (
+  id          TEXT PRIMARY KEY DEFAULT 'current',
+  running     BOOLEAN NOT NULL DEFAULT FALSE,
+  start_time  BIGINT,
+  project_id  TEXT,
+  task        TEXT,
+  task_id     TEXT,
+  paused      BOOLEAN DEFAULT FALSE,
+  paused_ms   BIGINT DEFAULT 0,
+  pause_start BIGINT,
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
