@@ -19,6 +19,27 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script src="config.js"></script>
 <title>TimeLog — Учёт рабочего времени</title>
+<script>
+(function(){
+  function cookieGet(name) {
+    var m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[$()*+.?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  try {
+    var login = localStorage.getItem('tl_login') || cookieGet('tl_login');
+    var session = localStorage.getItem('tl_session') || cookieGet('tl_session');
+    if (session === 'ok' && login) {
+      document.documentElement.classList.add('tl-restore');
+      if (!localStorage.getItem('tl_login')) localStorage.setItem('tl_login', login);
+      if (localStorage.getItem('tl_session') !== 'ok') localStorage.setItem('tl_session', 'ok');
+    } else {
+      document.documentElement.classList.add('tl-auth-boot');
+    }
+  } catch (_) {
+    document.documentElement.classList.add('tl-auth-boot');
+  }
+})();
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -317,6 +338,17 @@ tr:hover td{background:var(--bg3)}
 .auth-link-row{text-align:center;margin-top:16px;font-size:13px;color:var(--text2)}
 .auth-link-row button{background:none;border:none;padding:0;color:var(--accent2);font-size:13px;font-weight:600;cursor:pointer}
 .auth-link-row button:hover{text-decoration:underline}
+.auth-boot-panel{display:none;flex-direction:column;align-items:center;gap:14px;padding:28px 0 8px}
+.auth-boot-spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:authSpin .7s linear infinite}
+.auth-boot-text{font-size:14px;color:var(--text2)}
+html.tl-restore #auth-screen{display:none!important}
+html.tl-restore #main-app{display:flex!important}
+html.tl-restore #session-boot-overlay{display:flex}
+html.tl-auth-boot #auth-card .auth-tabs,
+html.tl-auth-boot #auth-card .auth-panel,
+html.tl-auth-boot #auth-card #auth-msg{display:none!important}
+html.tl-auth-boot #auth-boot-panel{display:flex!important}
+.session-boot-overlay{position:fixed;inset:0;z-index:10000;background:var(--bg);display:none;align-items:center;justify-content:center}
 .hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
 .btn-pause{background:var(--amber);color:#fff}
 .btn-pause:hover{background:#d97706}
@@ -857,6 +889,10 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
       <div class="auth-logo-sub">Учёт рабочего времени для разработчиков</div>
     </div>
     <div class="auth-card" id="auth-card">
+      <div id="auth-boot-panel" class="auth-boot-panel" aria-live="polite">
+        <div class="auth-boot-spinner" aria-hidden="true"></div>
+        <div class="auth-boot-text">Загрузка…</div>
+      </div>
       <div id="auth-msg" class="auth-msg"></div>
 
       <div id="auth-success-overlay" class="auth-success-overlay" aria-hidden="true">
@@ -956,6 +992,9 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 </div>
 
 <div class="app" id="main-app" style="display:none">
+<div id="session-boot-overlay" class="session-boot-overlay" aria-hidden="true">
+  <div class="auth-boot-spinner" aria-hidden="true"></div>
+</div>
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
@@ -1636,6 +1675,32 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 
 <script src="native-bridge.js"></script>
 <script>
+// ─── Session cookies (mirror localStorage for persistence across reloads) ─
+const sessionCookies = {
+  SESSION_DAYS: 400,
+  set(name, value, days) {
+    const maxAge = Math.floor((days ?? this.SESSION_DAYS) * 86400);
+    const secure = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
+  },
+  get(name) {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[$()*+.?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  },
+  remove(name) {
+    document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
+  },
+  persist(login) {
+    if (!login) return;
+    this.set('tl_session', 'ok');
+    this.set('tl_login', login);
+  },
+  clear() {
+    this.remove('tl_session');
+    this.remove('tl_login');
+  }
+};
+
 // ─── AUTH (логин + пароль + Face ID) ─────────────────────────────────────
 const auth = {
   _serverHash: null,
@@ -1683,12 +1748,19 @@ const auth = {
     if (l) localStorage.removeItem(this.pwKey(l));
   },
 
-  getLogin() { return this._currentLogin || localStorage.getItem('tl_login') || ''; },
+  getLogin() {
+    return this._currentLogin || localStorage.getItem('tl_login') || sessionCookies.get('tl_login') || '';
+  },
   setLogin(login) {
     this._currentLogin = login;
-    if (login) localStorage.setItem('tl_login', login);
+    if (login) {
+      localStorage.setItem('tl_login', login);
+      sessionCookies.set('tl_login', login);
+    }
   },
-  getLastLogin() { return localStorage.getItem('tl_login') || ''; },
+  getLastLogin() {
+    return localStorage.getItem('tl_login') || sessionCookies.get('tl_login') || '';
+  },
 
   pwKey(login) { return `tl_pw_hash_${login}`; },
   tokenKey(login) { return `tl_api_token_${login}`; },
@@ -1729,7 +1801,7 @@ const auth = {
     if (!base) return null;
     const headers = { 'Content-Type': 'application/json' };
     const pathOnly = path.split('?')[0];
-    const isPublic = /^\/auth\/(token|register|exists|has-users|health)$/.test(pathOnly);
+    const isPublic = /^\/auth\/(token|register|exists|has-users|health|session|logout)$/.test(pathOnly);
     if (!isPublic && !opts.noAuth) {
       const token = this.getApiToken();
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -1738,6 +1810,7 @@ const auth = {
       const r = await fetch(`${base}${path}`, {
         method: body !== undefined ? 'POST' : 'GET',
         headers,
+        credentials: 'same-origin',
         body: body !== undefined ? JSON.stringify(body) : undefined
       });
       const data = await r.json().catch(() => ({}));
@@ -1792,11 +1865,28 @@ const auth = {
     return { ok: true };
   },
 
+  async restoreSessionFromServer() {
+    if (!this.useServerAuth()) return false;
+    const base = this.authBaseUrl();
+    if (!base) return false;
+    try {
+      const r = await fetch(`${base}/auth/session`, { credentials: 'same-origin' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok || !data.login || !data.token) return false;
+      this.persistSession(data.login, data.token);
+      return true;
+    } catch (e) {
+      console.error('Session restore failed:', e);
+      return false;
+    }
+  },
+
   async ensureSession(login, password = null) {
     if (!this.useServerAuth()) return true;
     const l = login || this.getLogin();
     if (!l) return false;
     if (this.getApiToken()) return true;
+    if (await this.restoreSessionFromServer()) return true;
     const pass = password || this._sessionPass;
     if (!pass) return false;
     if (await this.fetchApiToken(l, pass)) return true;
@@ -2012,15 +2102,41 @@ const auth = {
     }
   },
 
-  isLoggedIn() { return localStorage.getItem('tl_session') === 'ok' && !!this.getLogin(); },
-  login(login) {
+  isLoggedIn() {
+    const login = this.getLogin();
+    if (localStorage.getItem('tl_session') === 'ok' && login) return true;
+    if (sessionCookies.get('tl_session') === 'ok' && login) {
+      localStorage.setItem('tl_session', 'ok');
+      if (!localStorage.getItem('tl_login')) localStorage.setItem('tl_login', login);
+      return true;
+    }
+    return false;
+  },
+
+  persistSession(login, token) {
     this.setLogin(login);
     localStorage.setItem('tl_session', 'ok');
+    sessionCookies.persist(login);
+    if (token) this.setApiToken(login, token);
   },
-  logout() {
+
+  login(login) {
+    this.persistSession(login, this.getApiToken());
+  },
+
+  async logout() {
+    if (this.useServerAuth()) {
+      const base = this.authBaseUrl();
+      if (base) {
+        try {
+          await fetch(`${base}/auth/logout`, { method: 'POST', credentials: 'same-origin' });
+        } catch (_) { /* ignore */ }
+      }
+    }
     this.clearApiToken();
     this._sessionPass = null;
     localStorage.removeItem('tl_session');
+    sessionCookies.clear();
     this._currentLogin = null;
   },
 
@@ -2348,7 +2464,6 @@ function authUpdateBiometricUI() {
 }
 
 async function authBootScreen() {
-  authMsg('Загрузка…', '');
   const lastLogin = auth.getLastLogin();
   const loginEl = document.getElementById('auth-login');
   const setupLoginEl = document.getElementById('auth-setup-login');
@@ -2421,7 +2536,7 @@ async function authUnlock() {
       await auth.syncHashToServerIfNeeded(login);
       if (auth.useServerAuth() && !auth.getApiToken()) {
         authMsg('Вход выполнен, но сессия сервера не создана. Проверьте пароль (мин. 8 символов).', 'err');
-        auth.logout();
+        await auth.logout();
         authShakeCard();
         return;
       }
@@ -2546,7 +2661,7 @@ async function authSetup() {
   auth.login(login);
   if (auth.useServerAuth() && !auth.getApiToken()) {
     authMsg('Аккаунт создан, но сессия сервера не получена. Попробуйте войти с паролем.', 'err');
-    auth.logout();
+    await auth.logout();
     await authBootScreen();
     return;
   }
@@ -2595,6 +2710,9 @@ async function authAfterSuccess(isRegister) {
 
 function authSuccess() {
   appStarted = true;
+  document.documentElement.classList.remove('tl-restore', 'tl-auth-boot');
+  const bootOverlay = document.getElementById('session-boot-overlay');
+  if (bootOverlay) bootOverlay.style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'flex';
   updateTopbarUser();
@@ -2602,24 +2720,29 @@ function authSuccess() {
 }
 
 function authLogout() {
-  auth.logout();
-  state.projects = [];
-  state.entries = [];
-  state.payments = [];
-  state.boardTasks = [];
-  state.reports = [];
-  state.schedule = normalizeSchedule({});
-  state.timer = normalizeTimer({});
-  document.getElementById('main-app').style.display = 'none';
-  const screen = document.getElementById('auth-screen');
-  if (screen) {
-    screen.style.display = 'flex';
-    screen.classList.remove('leaving');
-  }
-  document.getElementById('auth-pass').value = '';
-  document.getElementById('auth-new-pass').value = '';
-  document.getElementById('auth-new-pass2').value = '';
-  authBootScreen();
+  auth.logout().finally(() => {
+    state.projects = [];
+    state.entries = [];
+    state.payments = [];
+    state.boardTasks = [];
+    state.reports = [];
+    state.schedule = normalizeSchedule({});
+    state.timer = normalizeTimer({});
+    document.documentElement.classList.remove('tl-restore');
+    document.documentElement.classList.add('tl-auth-boot');
+    const bootOverlay = document.getElementById('session-boot-overlay');
+    if (bootOverlay) bootOverlay.style.display = 'none';
+    document.getElementById('main-app').style.display = 'none';
+    const screen = document.getElementById('auth-screen');
+    if (screen) {
+      screen.style.display = 'flex';
+      screen.classList.remove('leaving');
+    }
+    document.getElementById('auth-pass').value = '';
+    document.getElementById('auth-new-pass').value = '';
+    document.getElementById('auth-new-pass2').value = '';
+    authBootScreen();
+  });
 }
 
 function updateTopbarUser() {
@@ -7456,9 +7579,14 @@ applyDockerConfig();
   while (auth._authBusy) await new Promise(r => setTimeout(r, 50));
 
   if (auth.isLoggedIn()) {
+    if (auth.useServerAuth() && !auth.getApiToken()) {
+      await auth.restoreSessionFromServer();
+    }
     if (auth.useServerAuth() && !(await auth.ensureSession(auth.getLogin()))) {
       if (!appStarted) {
-        auth.logout();
+        document.documentElement.classList.remove('tl-restore');
+        await auth.logout();
+        document.documentElement.classList.remove('tl-auth-boot');
         authMsg('Сессия истекла. Войдите с паролем ещё раз.', 'err');
         document.getElementById('main-app').style.display = 'none';
         document.getElementById('auth-screen').style.display = 'flex';
@@ -7471,6 +7599,7 @@ applyDockerConfig();
       authSuccess();
     }
   } else {
+    document.documentElement.classList.remove('tl-restore', 'tl-auth-boot');
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('auth-screen').style.display = 'flex';
   }

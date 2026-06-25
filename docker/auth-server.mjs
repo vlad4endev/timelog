@@ -189,6 +189,7 @@ function json(res, status, data, req) {
   const origin = req?.headers?.origin;
   if (origin && isAllowedOrigin(origin, req)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin');
   }
   const body = JSON.stringify(data);
