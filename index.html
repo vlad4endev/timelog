@@ -3918,11 +3918,10 @@ function updateTopbar(page) {
   const dotEl = document.getElementById('topbar-project-dot');
   if (titleEl) titleEl.textContent = title;
   if (tagEl) tagEl.textContent = tag;
-  const project = getHeaderProject();
-  if (projEl) projEl.textContent = project?.name || 'TimeLog';
+  if (projEl) projEl.textContent = 'TimeLog';
   if (dotEl) {
-    dotEl.style.background = project?.color || 'var(--accent)';
-    dotEl.style.opacity = project ? '1' : '.35';
+    dotEl.style.background = 'var(--accent)';
+    dotEl.style.opacity = '1';
   }
 }
 function showPage(page) {
@@ -4183,7 +4182,6 @@ function timerProjectChanged(prefix) {
   }
   if (wrap) wrap.style.display = projectId && select && select.options.length > 1 ? 'block' : 'none';
   if (taskEl && select?.value) taskEl.value = '';
-  if (prefix === 'dash' || prefix === 'timer') updateTopbar();
   checkTimerFormReady(prefix);
 }
 function timerBoardTaskSelected(prefix) {
