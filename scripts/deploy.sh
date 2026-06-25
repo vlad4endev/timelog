@@ -39,8 +39,15 @@ fi
 
 if [[ "$MODE" == "update" ]]; then
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "→ git pull"
-    git pull --ff-only
+    branch="$(git rev-parse --abbrev-ref HEAD)"
+    echo "→ git fetch origin/${branch}"
+    git fetch origin "$branch"
+    if [[ -n "$(git status --porcelain)" ]]; then
+      echo "→ discarding local changes before deploy ($(git status --porcelain | wc -l | tr -d ' ') file(s))"
+      git reset --hard HEAD
+    fi
+    echo "→ sync to origin/${branch}"
+    git reset --hard "origin/${branch}"
   fi
   MODE="${DEPLOY_MODE:-prod}"
 fi
