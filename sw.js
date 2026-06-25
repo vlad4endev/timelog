@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timelog-v10';
+const CACHE_NAME = 'timelog-v11';
 const TIMER_DB = 'timelog-timer';
 const TIMER_STORE = 'timer';
 const TIMER_NOTIF_TAG = 'timelog-active-timer';
@@ -42,6 +42,8 @@ function isIconRequest(request) {
 
 function cachePut(request, response) {
   if (!response || response.status !== 200) return;
+  const path = requestPath(request);
+  if (SHELL_PATHS.has(path) || path.endsWith('.html') || path.endsWith('.js')) return;
   const clone = response.clone();
   caches.open(CACHE_NAME).then(cache => cache.put(request, clone)).catch(() => {});
 }

@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <style id="boot-critical">
 html,body{background:#f4f6f8;min-height:100%;margin:0}
-#auth-screen,#main-app,#global-boot-splash{display:none!important}
-html.tl-auth-boot #global-boot-splash{display:flex!important}
+#auth-screen,#main-app{display:none!important}
+#global-boot-splash{display:flex!important}
 html.tl-restore #main-app{display:flex!important}
 html.tl-restore #session-boot-overlay{display:flex!important}
 html.tl-restore #global-boot-splash{display:none!important}
 html.tl-show-auth #auth-screen{display:flex!important}
+html.tl-show-auth #global-boot-splash{display:none!important}
+html.tl-app-ready #global-boot-splash{display:none!important}
 </style>
 <script>
 (function(){
@@ -1811,6 +1813,18 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   </div>
 </div>
 
+<script>
+window.TimeLogNative = window.TimeLogNative || (function () {
+  function noop() { return Promise.resolve(); }
+  return {
+    isNativePlatform: function () { return false; },
+    initNativeTimer: function () {},
+    startNativeTimer: noop,
+    updateNativeTimer: noop,
+    stopNativeTimer: noop,
+  };
+})();
+</script>
 <script src="native-bridge.js"></script>
 <script>
 // ─── Session cookies (mirror localStorage for persistence across reloads) ─
@@ -2866,12 +2880,20 @@ function authRevealLoginScreen() {
 function authSuccess() {
   appStarted = true;
   document.documentElement.classList.remove('tl-restore', 'tl-auth-boot', 'tl-show-auth');
-  const bootOverlay = document.getElementById('session-boot-overlay');
-  if (bootOverlay) bootOverlay.style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'flex';
   updateTopbarUser();
-  initApp();
+  try {
+    initApp();
+  } catch (e) {
+    console.error('initApp failed:', e);
+    appStarted = false;
+    authForceLoginScreen('Ошибка запуска. Попробуйте обновить страницу.');
+    return;
+  }
+  const bootOverlay = document.getElementById('session-boot-overlay');
+  if (bootOverlay) bootOverlay.style.display = 'none';
+  document.documentElement.classList.add('tl-app-ready');
 }
 
 function authLogout() {
@@ -7893,12 +7915,18 @@ applyDockerConfig();
   }
 })();
 
+window.addEventListener('error', (e) => {
+  if (appStarted || document.documentElement.classList.contains('tl-show-auth')) return;
+  console.error('Boot error:', e.error || e.message);
+  authForceLoginScreen('Ошибка загрузки. Попробуйте обновить страницу.');
+});
+
 setTimeout(() => {
   if (!appStarted && !document.documentElement.classList.contains('tl-show-auth')) {
     console.warn('Boot timeout — showing login');
     authForceLoginScreen('Долгая загрузка. Проверьте сеть или войдите снова.');
   }
-}, 12000);
+}, 8000);
 </script>
 </body>
 </html>
