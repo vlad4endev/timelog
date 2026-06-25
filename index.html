@@ -289,6 +289,70 @@ tr:hover td{background:var(--bg3)}
 .analytics-task-row:last-child{border-bottom:none}
 .analytics-task-row:hover{background:var(--bg3)}
 
+/* Planning / Schedule */
+.plan-week-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.plan-week-label{font-size:15px;font-weight:600;text-align:center;flex:1}
+.plan-day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.plan-day-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 10px;cursor:pointer;transition:border .15s,box-shadow .15s;min-height:120px;display:flex;flex-direction:column}
+.plan-day-card:hover{border-color:var(--accent-border);box-shadow:var(--shadow)}
+.plan-day-card.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-light)}
+.plan-day-card.off{background:var(--bg3);opacity:.85}
+.plan-day-card.off .plan-day-planned{text-decoration:line-through;color:var(--text3)}
+.plan-day-name{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
+.plan-day-num{font-size:20px;font-weight:700;line-height:1.2;margin:4px 0 8px}
+.plan-day-planned{font-size:11px;color:var(--text3);margin-bottom:2px}
+.plan-day-actual{font-size:13px;font-weight:600;color:var(--accent2)}
+.plan-day-delta{font-size:11px;font-weight:600;margin-top:4px}
+.plan-day-delta.pos{color:var(--green)}
+.plan-day-delta.neg{color:var(--red)}
+.plan-day-delta.neutral{color:var(--text3)}
+.plan-day-bar{height:4px;background:var(--bg3);border-radius:2px;margin-top:auto;overflow:hidden}
+.plan-day-bar-fill{height:100%;border-radius:2px;transition:width .3s}
+.plan-day-bar-fill.ok{background:var(--green)}
+.plan-day-bar-fill.under{background:var(--amber)}
+.plan-day-bar-fill.over{background:var(--teal)}
+.plan-day-bar-fill.off-day{background:var(--text3)}
+.plan-template-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.plan-template-day{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius2);padding:12px;text-align:center}
+.plan-template-day label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px}
+.plan-template-day input{text-align:center;font-weight:600}
+.plan-timeline{position:relative;background:var(--bg3);border-radius:var(--radius2);border:1px solid var(--border);overflow:hidden}
+.plan-timeline-hours{display:flex;border-bottom:1px solid var(--border);background:var(--card2)}
+.plan-timeline-hour{flex:1;text-align:center;font-size:10px;color:var(--text3);padding:4px 0;border-right:1px solid var(--border)}
+.plan-timeline-hour:last-child{border-right:none}
+.plan-timeline-body{position:relative;height:200px}
+.plan-timeline-grid{position:absolute;inset:0;display:flex}
+.plan-timeline-col{flex:1;border-right:1px solid rgba(0,0,0,.04)}
+.plan-timeline-col:last-child{border-right:none}
+.plan-timeline-block{position:absolute;left:4px;right:4px;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:500;color:#fff;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.plan-timeline-block.planned{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.plan-timeline-block.actual{background:rgba(217,119,6,.85);border:1px dashed rgba(255,255,255,.5)}
+.plan-override-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.plan-override-off{background:#f3f4f6;color:var(--text2)}
+.plan-override-vacation{background:#fdf2f8;color:#be185d}
+.plan-override-sick{background:#fffbeb;color:#b45309}
+.plan-override-custom{background:#f0fdfa;color:#0f766e}
+.plan-stat-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
+.plan-stat-row:last-child{border-bottom:none}
+.plan-compare-chart{display:flex;align-items:flex-end;gap:6px;height:140px;padding:8px 0}
+.plan-compare-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;min-width:32px}
+.plan-compare-bars{display:flex;gap:3px;align-items:flex-end;width:100%;justify-content:center;height:100px}
+.plan-compare-bar{width:45%;border-radius:4px 4px 0 0;min-height:2px;transition:height .3s}
+.plan-compare-bar.planned{background:var(--bg3);border:1px dashed var(--border2)}
+.plan-compare-bar.actual{background:linear-gradient(180deg,var(--accent),var(--accent2))}
+.plan-compare-label{font-size:10px;color:var(--text3)}
+.plan-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin-top:8px}
+.plan-legend-item{display:flex;align-items:center;gap:6px}
+.plan-legend-dot{width:10px;height:10px;border-radius:2px}
+@media(max-width:900px){
+  .plan-day-grid{grid-template-columns:repeat(4,1fr)}
+  .plan-template-grid{grid-template-columns:repeat(4,1fr)}
+}
+@media(max-width:600px){
+  .plan-day-grid{grid-template-columns:repeat(2,1fr)}
+  .plan-template-grid{grid-template-columns:repeat(2,1fr)}
+}
+
 /* Paid status */
 .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
 .status-paid .status-dot{background:var(--green)}
@@ -333,6 +397,42 @@ tr:hover td{background:var(--bg3)}
 .mobile-timer-btn{width:var(--touch-min);height:36px;border-radius:8px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;font-weight:600}
 .mobile-timer-btn-pause{background:rgba(255,255,255,.2);color:#fff}
 .mobile-timer-btn-stop{background:var(--red);color:#fff}
+
+/* Mobile fullscreen timer */
+.mobile-timer-screen{position:fixed;inset:0;z-index:250;display:flex;flex-direction:column;--mts-accent:#059669;--mts-accent-rgb:5,150,105;background:#0f172a;color:#fff;opacity:1;visibility:visible;transition:opacity .25s ease,visibility .25s}
+.mobile-timer-screen.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.mts-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 20%,rgba(var(--mts-accent-rgb),.35),transparent 70%),radial-gradient(ellipse 60% 50% at 80% 90%,rgba(var(--mts-accent-rgb),.15),transparent 60%),linear-gradient(165deg,#0f172a 0%,#1e293b 45%,#0f172a 100%);pointer-events:none}
+.mts-bg::after{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px);background-size:24px 24px;opacity:.5}
+.mts-content{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(16px + var(--safe-top)) 24px calc(24px + var(--safe-bottom));min-height:100dvh;gap:0}
+.mts-minimize{position:absolute;top:calc(12px + var(--safe-top));right:calc(12px + var(--safe-right));display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.85);font-size:13px;font-weight:500;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.mts-minimize:active{opacity:.75}
+.mts-status{display:flex;align-items:center;gap:8px;margin-bottom:20px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.55)}
+.mts-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.25);flex-shrink:0}
+.mts-dot.paused{background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.25);animation:none}
+.mts-dot.running{animation:mtsPulse 2s ease-in-out infinite}
+@keyframes mtsPulse{0%,100%{box-shadow:0 0 0 3px rgba(74,222,128,.25)}50%{box-shadow:0 0 0 8px rgba(74,222,128,.08)}}
+.mts-time{font-size:clamp(52px,16vw,72px);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.04em;line-height:1;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.25);margin-bottom:8px}
+.mts-time.paused{color:#fbbf24}
+.mts-earned{font-size:clamp(22px,6vw,28px);font-weight:700;color:#4ade80;font-variant-numeric:tabular-nums;min-height:34px;margin-bottom:4px}
+.mts-earned:empty{display:none}
+.mts-earned.paused{color:#fbbf24}
+.mts-billable{font-size:14px;font-weight:600;color:rgba(255,255,255,.65);font-variant-numeric:tabular-nums;min-height:20px;margin-bottom:28px}
+.mts-billable:empty{display:none}
+.mts-meta{width:100%;max-width:340px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px 16px;margin-bottom:28px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.mts-project{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:6px}
+.mts-project-dot{width:8px;height:8px;border-radius:50%;background:var(--mts-accent);flex-shrink:0}
+.mts-project-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mts-project-sub{font-size:11px;font-weight:500;color:rgba(255,255,255,.45);margin-bottom:8px;padding-left:16px}
+.mts-task{font-size:13px;color:rgba(255,255,255,.7);line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.mts-started{font-size:11px;color:rgba(255,255,255,.35);margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
+.mts-actions{display:flex;gap:12px;width:100%;max-width:340px}
+.mts-btn{flex:1;min-height:52px;border-radius:14px;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;border:none;transition:transform .15s,opacity .15s}
+.mts-btn:active{transform:scale(.97);opacity:.9}
+.mts-btn-pause{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.18)}
+.mts-btn-stop{background:var(--red);color:#fff;box-shadow:0 4px 20px rgba(220,38,38,.35)}
+body.mts-open .mobile-timer-bar{display:none!important}
+body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
+body.mts-open .content{visibility:hidden}
 
 /* PWA install banner */
 .pwa-install-banner{position:fixed;bottom:calc(var(--bottom-nav-h) + var(--safe-bottom) + 8px);left:12px;right:12px;z-index:300;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;animation:slideUp .3s ease}
@@ -448,9 +548,6 @@ tr:hover td{background:var(--bg3)}
   .money-input-wrap .form-input{font-size:16px}
   .form-input,.form-select,.form-textarea,.auth-input{font-size:16px}
   .settings-wrap{max-width:100%!important}
-  .card .flex.items-center.justify-between.mb8{flex-wrap:wrap;gap:8px}
-  .project-card-actions{display:flex;flex-wrap:wrap;gap:6px;width:100%}
-  .project-card-actions .btn{flex:1;min-width:calc(50% - 3px);justify-content:center}
 }
 @media(max-width:480px){
   .grid3,.grid4{grid-template-columns:1fr}
@@ -581,9 +678,17 @@ tr:hover td{background:var(--bg3)}
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Аналитика
     </div>
+    <div class="nav-item" data-page="planning" onclick="showPage('planning')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+      Планирование
+    </div>
     <div class="nav-item" data-page="projects" onclick="showPage('projects')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3zM3 10h11v4H3zM3 17h8v4H3z"/></svg>
       Проекты
+    </div>
+    <div class="nav-item" data-page="board" onclick="showPage('board')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+      Доска задач
     </div>
     <div class="nav-item" data-page="timelog" onclick="showPage('timelog')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
@@ -1073,6 +1178,90 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-schedule-day">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="schedule-day-title">День</div>
+      <button class="btn-icon" onclick="closeModal('modal-schedule-day')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="schedule-day-date">
+      <div class="form-group">
+        <label class="form-label">Тип дня</label>
+        <select class="form-select" id="schedule-day-type" onchange="scheduleDayTypeChanged()">
+          <option value="default">По графику</option>
+          <option value="off">Выходной</option>
+          <option value="vacation">Отпуск</option>
+          <option value="sick">Больничный</option>
+          <option value="custom">Свои часы</option>
+        </select>
+      </div>
+      <div class="form-group" id="schedule-day-hours-wrap" style="display:none">
+        <label class="form-label">Часов в этот день</label>
+        <input type="number" class="form-input" id="schedule-day-hours" min="0" max="24" step="0.5" placeholder="8">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Заметка</label>
+        <input type="text" class="form-input" id="schedule-day-note" placeholder="Комментарий к дню">
+      </div>
+      <div id="schedule-day-summary" class="card-sm mb12" style="padding:12px"></div>
+      <div class="section-title" style="margin-top:0">Плановые блоки</div>
+      <div id="schedule-day-blocks" class="mb12"></div>
+      <button class="btn btn-ghost btn-sm" onclick="openScheduleBlockModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Добавить блок
+      </button>
+      <div class="section-title">Фактическое время</div>
+      <div id="schedule-day-entries"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="schedule-day-clear-btn" onclick="clearScheduleDayOverride()">Сбросить</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-schedule-day')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveScheduleDay()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-schedule-block">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title" id="schedule-block-title">Плановый блок</div>
+      <button class="btn-icon" onclick="closeModal('modal-schedule-block')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="schedule-block-id">
+      <input type="hidden" id="schedule-block-date">
+      <div class="form-group">
+        <label class="form-label">Название</label>
+        <input type="text" class="form-input" id="schedule-block-title-input" placeholder="Работа, встреча, обед...">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Начало</label>
+          <input type="time" class="form-input" id="schedule-block-start" value="09:00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Конец</label>
+          <input type="time" class="form-input" id="schedule-block-end" value="18:00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Заметка</label>
+        <input type="text" class="form-input" id="schedule-block-note" placeholder="Необязательно">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm hidden" id="schedule-block-delete-btn" onclick="deleteScheduleBlock()">Удалить</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-schedule-block')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveScheduleBlock()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── AUTH ────────────────────────────────────────────────────────────────
 // ─── AUTH (локальный пароль) ──────────────────────────────────────────────
@@ -1188,6 +1377,11 @@ let state = {
   payments: [],
   boardTasks: [],
   reports: [],
+  schedule: {
+    weekTemplate: { mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0, sun: 0 },
+    overrides: {},
+    blocks: []
+  },
   timer: { running: false, startTime: null, projectId: null, task: '', taskId: null, paused: false, pausedMs: 0, pauseStart: null, updatedAt: 0 },
   settings: {
     defaultRate: 0,
@@ -1206,7 +1400,7 @@ let state = {
 // ─── STORAGE ─────────────────────────────────────────────────────────────
 function save() {
   try {
-    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, timer: state.timer, settings: state.settings };
+    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings };
     localStorage.setItem('timelog_v1', JSON.stringify(d));
   } catch(e) {}
 }
@@ -1220,6 +1414,7 @@ function load() {
       state.payments = d.payments || [];
       state.boardTasks = d.boardTasks || [];
       state.reports = d.reports || [];
+      state.schedule = normalizeSchedule(d.schedule);
       state.timer    = normalizeTimer(d.timer);
       if (d.settings) {
         state.settings = Object.assign({}, state.settings, d.settings);
@@ -1273,6 +1468,15 @@ const sb = {
   reportToRow(r) {
     return { id: r.id, title: r.title||null, period_from: r.from, period_to: r.to, project_id: r.projectId||null, entry_ids: r.entryIds||[], text: r.text, total_hours: r.totalHours||0, total_amount: r.totalAmount||0, status: r.status||'unpaid', paid_at: r.paidAt ? new Date(r.paidAt).toISOString() : null, created_at: new Date(r.createdAt||Date.now()).toISOString() };
   },
+  scheduleSettingsToRow(s) {
+    return { id: 'default', week_template: s.weekTemplate, updated_at: new Date().toISOString() };
+  },
+  overrideToRow(date, o) {
+    return { date, type: o.type, hours: o.hours ?? null, note: o.note || null };
+  },
+  blockToRow(b) {
+    return { id: b.id, date: b.date, start_time: b.start, end_time: b.end, title: b.title || null, note: b.note || null, created_at: new Date(b.createdAt||Date.now()).toISOString() };
+  },
   rowToProject(r) {
     return { id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#059669', status: r.status||'active', desc: r.description||'', createdAt: new Date(r.created_at).getTime() };
   },
@@ -1287,6 +1491,9 @@ const sb = {
   },
   rowToReport(r) {
     return { id: r.id, title: r.title||'', from: r.period_from, to: r.period_to, projectId: r.project_id||null, entryIds: r.entry_ids||[], text: r.text||'', totalHours: r.total_hours||0, totalAmount: r.total_amount||0, status: r.status||'unpaid', paidAt: r.paid_at ? new Date(r.paid_at).getTime() : null, createdAt: new Date(r.created_at).getTime() };
+  },
+  rowToBlock(r) {
+    return { id: r.id, date: r.date, start: r.start_time, end: r.end_time, title: r.title || '', note: r.note || '', createdAt: new Date(r.created_at).getTime() };
   },
   timerToRow(t) {
     return {
@@ -1308,13 +1515,16 @@ const sb = {
 
   // Pull everything from Supabase into state
   async pull() {
-    const [projects, entries, payments, boardTasks, reports, timerRow] = await Promise.all([
+    const [projects, entries, payments, boardTasks, reports, timerRow, scheduleSettings, scheduleOverrides, scheduleBlocks] = await Promise.all([
       sb.req('GET', 'projects?order=created_at.asc'),
       sb.req('GET', 'time_entries?order=created_at.desc'),
       sb.req('GET', 'payments?order=created_at.desc'),
       sb.req('GET', 'board_tasks?order=position.asc'),
       sb.req('GET', 'billing_reports?order=created_at.desc'),
-      sb.req('GET', 'active_timer?id=eq.current&limit=1')
+      sb.req('GET', 'active_timer?id=eq.current&limit=1'),
+      sb.req('GET', 'schedule_settings?id=eq.default&limit=1'),
+      sb.req('GET', 'schedule_overrides?order=date.asc'),
+      sb.req('GET', 'schedule_blocks?order=date.asc')
     ]);
     if (projects !== null) state.projects = projects.map(sb.rowToProject);
     if (entries  !== null) state.entries  = entries.map(sb.rowToEntry);
@@ -1323,6 +1533,22 @@ const sb = {
     if (reports !== null) state.reports = reports.map(sb.rowToReport);
     if (timerRow !== null && timerRow[0]) {
       state.timer = mergeTimers(state.timer, sb.rowToTimer(timerRow[0]));
+    }
+    if (scheduleSettings !== null) {
+      const row = scheduleSettings[0];
+      if (row?.week_template) {
+        state.schedule.weekTemplate = Object.assign({}, getDefaultSchedule().weekTemplate, row.week_template);
+      }
+    }
+    if (scheduleOverrides !== null) {
+      const overrides = {};
+      scheduleOverrides.forEach(r => {
+        overrides[r.date] = { type: r.type, hours: r.hours, note: r.note || '' };
+      });
+      state.schedule.overrides = overrides;
+    }
+    if (scheduleBlocks !== null) {
+      state.schedule.blocks = scheduleBlocks.map(sb.rowToBlock);
     }
     save(); // mirror to localStorage
   },
@@ -1334,6 +1560,9 @@ const sb = {
   async upsertBoardTask(t){ return await sb.req('POST', 'board_tasks',  sb.boardTaskToRow(t)); },
   async upsertReport(r)   { return await sb.req('POST', 'billing_reports', sb.reportToRow(r)); },
   async upsertTimer(t)    { return await sb.req('POST', 'active_timer', sb.timerToRow(t)); },
+  async upsertScheduleSettings(s) { return await sb.req('POST', 'schedule_settings', sb.scheduleSettingsToRow(s)); },
+  async upsertScheduleOverride(date, o) { return await sb.req('POST', 'schedule_overrides', sb.overrideToRow(date, o)); },
+  async upsertScheduleBlock(b) { return await sb.req('POST', 'schedule_blocks', sb.blockToRow(b)); },
   async clearTimerRemote(){ return await sb.req('DELETE', 'active_timer?id=eq.current'); },
 
   // Delete single records
@@ -1342,6 +1571,15 @@ const sb = {
   async deletePayment(id) { return await sb.req('DELETE', `payments?id=eq.${id}`); },
   async deleteBoardTask(id){ return await sb.req('DELETE', `board_tasks?id=eq.${id}`); },
   async deleteReport(id)  { return await sb.req('DELETE', `billing_reports?id=eq.${id}`); },
+  async deleteScheduleOverride(date) { return await sb.req('DELETE', `schedule_overrides?date=eq.${date}`); },
+  async deleteScheduleBlock(id) { return await sb.req('DELETE', `schedule_blocks?id=eq.${id}`); },
+
+  async syncSchedule() {
+    await sb.upsertScheduleSettings(state.schedule);
+    const dates = Object.keys(state.schedule.overrides);
+    await Promise.all(dates.map(d => sb.upsertScheduleOverride(d, state.schedule.overrides[d])));
+    await Promise.all(state.schedule.blocks.map(b => sb.upsertScheduleBlock(b)));
+  },
 
   // Push all local data to Supabase (migration)
   async pushAll() {
@@ -1350,7 +1588,10 @@ const sb = {
       ...state.entries.map(e  => sb.upsertEntry(e)),
       ...state.payments.map(p => sb.upsertPayment(p)),
       ...state.boardTasks.map(t => sb.upsertBoardTask(t)),
-      ...state.reports.map(r => sb.upsertReport(r))
+      ...state.reports.map(r => sb.upsertReport(r)),
+      sb.upsertScheduleSettings(state.schedule),
+      ...Object.entries(state.schedule.overrides).map(([d, o]) => sb.upsertScheduleOverride(d, o)),
+      ...state.schedule.blocks.map(b => sb.upsertScheduleBlock(b))
     ]);
     return results.every(r => r !== null);
   },
@@ -1738,7 +1979,7 @@ function openQuickTimer() {
 }
 
 // ─── PAGES ───────────────────────────────────────────────────────────────
-const pageTitles = { dashboard: 'Дашборд', analytics: 'Аналитика', projects: 'Проекты', board: 'Kanban', timelog: 'Записи времени', reports: 'Отчёты', payments: 'Оплата', settings: 'Настройки' };
+const pageTitles = { dashboard: 'Дашборд', analytics: 'Аналитика', planning: 'Планирование', projects: 'Проекты', board: 'Доска задач', timelog: 'Записи времени', reports: 'Отчёты', payments: 'Оплата', settings: 'Настройки' };
 function showPage(page) {
   state.currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => {
@@ -1770,7 +2011,7 @@ function handleBottomFab() {
 }
 function renderPage() {
   const el = document.getElementById('main-content');
-  const pages = { dashboard: renderDashboard, analytics: renderAnalytics, projects: renderProjects, board: renderBoard, timelog: renderTimelog, reports: renderReports, payments: renderPayments, settings: renderSettings };
+  const pages = { dashboard: renderDashboard, analytics: renderAnalytics, planning: renderPlanning, projects: renderProjects, board: renderBoard, timelog: renderTimelog, reports: renderReports, payments: renderPayments, settings: renderSettings };
   el.innerHTML = (pages[state.currentPage] || renderDashboard)();
   bindPageEvents();
   if (state.currentPage === 'settings') updateRatePreview();
@@ -2117,32 +2358,50 @@ function renderProjectFull(p) {
   const paidAmount = sum(state.payments.filter(pay=>pay.projectId===p.id).map(pay=>pay.amount));
   const unpaid = Math.max(0, earned - paidAmount);
   const tasksInProgress = projectTasks.filter(t => t.status === 'in_progress').length;
+  const color = p.color || '#059669';
+  const subParts = [
+    p.client ? escHtml(p.client) : '',
+    `${entries.length} зап.`,
+    `${projectTasks.length} задач`,
+    tasksInProgress ? `${tasksInProgress} в работе` : '',
+    p.rate ? fmtMoney(unpaid) + ' не опл.' : ''
+  ].filter(Boolean);
 
-  return `<div class="card" style="border-top:3px solid ${p.color||'#059669'}">
-    <div class="flex items-center justify-between mb8">
-      <div style="font-size:16px;font-weight:700">${escHtml(p.name)}</div>
-      <span class="badge ${badgeClass}">${statusLabel}</span>
+  return `<div class="project-card-compact">
+    <div class="project-card-stripe" style="background:${color}"></div>
+    <div class="project-card-main">
+      <div class="project-card-title-row">
+        <span class="project-card-name">${escHtml(p.name)}</span>
+        <span class="badge ${badgeClass}">${statusLabel}</span>
+      </div>
+      <div class="project-card-sub">${subParts.join(' · ')}</div>
     </div>
-    ${p.client ? `<div class="text-sm text-muted mb8">👤 ${escHtml(p.client)}</div>` : ''}
-    ${p.desc ? `<div class="text-sm text-muted mb12" style="line-height:1.5">${escHtml(p.desc)}</div>` : ''}
-    <div class="divider"></div>
-    <div class="grid2" style="gap:8px;margin-bottom:12px">
-      <div><div class="text-xs text-muted">Часов</div><div style="font-size:18px;font-weight:700;color:var(--accent2)">${fmtHours(hrs)}</div></div>
-      <div><div class="text-xs text-muted">Ставка/час</div><div style="font-size:18px;font-weight:700">${p.rate ? fmtMoney(p.rate) : '—'}</div></div>
-      <div><div class="text-xs text-muted">Заработано</div><div style="font-size:16px;font-weight:600;color:var(--green)">${p.rate ? fmtMoney(earned) : '—'}</div></div>
-      <div><div class="text-xs text-muted">Не оплачено</div><div style="font-size:16px;font-weight:600;color:var(--amber)">${p.rate ? fmtMoney(unpaid) : '—'}</div></div>
+    <div class="project-card-stats">
+      <div class="project-card-stat">
+        <span class="project-card-stat-val" style="color:var(--accent2)">${fmtHours(hrs)}</span>
+        <span class="project-card-stat-lbl">Часов</span>
+      </div>
+      ${p.rate ? `<div class="project-card-stat">
+        <span class="project-card-stat-val">${fmtMoney(earned)}</span>
+        <span class="project-card-stat-lbl">Заработано</span>
+      </div>
+      <div class="project-card-stat">
+        <span class="project-card-stat-val" style="color:var(--amber)">${fmtMoney(unpaid)}</span>
+        <span class="project-card-stat-lbl">Не оплачено</span>
+      </div>` : ''}
     </div>
-    <div class="text-xs text-muted mb8">${entries.length} записей · ${projectTasks.length} задач${tasksInProgress ? ` · ${tasksInProgress} в работе` : ''}</div>
-    <div class="flex gap8 project-card-actions">
-      <button class="btn btn-ghost btn-sm flex-1" onclick="editProject('${p.id}')">Редактировать</button>
-      <button class="btn btn-ghost btn-sm" onclick="showBoardForProject('${p.id}')" title="Задачи Kanban">
+    <div class="project-card-btns">
+      <button class="btn-icon btn-sm" onclick="editProject('${p.id}')" title="Редактировать">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="btn-icon btn-sm" onclick="showBoardForProject('${p.id}')" title="Доска задач">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
       </button>
-      <button class="btn btn-ghost btn-sm" onclick="filterByProject('${p.id}')" title="Записи">
+      <button class="btn-icon btn-sm" onclick="filterByProject('${p.id}')" title="Записи времени">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       </button>
-      <button class="btn btn-danger btn-sm" onclick="deleteProject('${p.id}')">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>
+      <button class="btn-icon btn-sm" onclick="deleteProject('${p.id}')" title="Удалить" style="color:var(--red)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
       </button>
     </div>
   </div>`;
@@ -2833,6 +3092,477 @@ function setAnalyticsPeriod(period) {
     analyticsTo = today;
   }
   renderPage();
+}
+
+// ─── PLANNING / SCHEDULE ─────────────────────────────────────────────────
+const SCHEDULE_DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const SCHEDULE_DAY_LABELS = { mon: 'Пн', tue: 'Вт', wed: 'Ср', thu: 'Чт', fri: 'Пт', sat: 'Сб', sun: 'Вс' };
+const SCHEDULE_OVERRIDE_LABELS = { off: 'Выходной', vacation: 'Отпуск', sick: 'Больничный', custom: 'Свои часы' };
+const SCHEDULE_OVERRIDE_BADGES = { off: 'plan-override-off', vacation: 'plan-override-vacation', sick: 'plan-override-sick', custom: 'plan-override-custom' };
+let planningWeekOffset = 0;
+let planningTab = 'week';
+let planningSelectedDate = '';
+
+function getDefaultSchedule() {
+  return { weekTemplate: { mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0, sun: 0 }, overrides: {}, blocks: [] };
+}
+function normalizeSchedule(s) {
+  const d = getDefaultSchedule();
+  if (!s) return d;
+  return {
+    weekTemplate: Object.assign({}, d.weekTemplate, s.weekTemplate || {}),
+    overrides: Object.assign({}, s.overrides || {}),
+    blocks: Array.isArray(s.blocks) ? s.blocks.slice() : []
+  };
+}
+function getDayKeyFromDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const idx = d.getDay();
+  return SCHEDULE_DAY_KEYS[idx === 0 ? 6 : idx - 1];
+}
+function getWeekDatesFromOffset(offset) {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return { start: dates[0], end: dates[6], dates };
+}
+function getTemplateHoursForDate(dateStr) {
+  const key = getDayKeyFromDate(dateStr);
+  return state.schedule.weekTemplate[key] ?? 0;
+}
+function getScheduleOverride(dateStr) {
+  return state.schedule.overrides[dateStr] || null;
+}
+function getPlannedHours(dateStr) {
+  const ov = getScheduleOverride(dateStr);
+  if (!ov) return getTemplateHoursForDate(dateStr);
+  if (ov.type === 'off' || ov.type === 'vacation' || ov.type === 'sick') return 0;
+  if (ov.type === 'custom') return ov.hours ?? 0;
+  return getTemplateHoursForDate(dateStr);
+}
+function getActualHours(dateStr) {
+  return sum(state.entries.filter(e => e.date === dateStr && !e.archived).map(e => e.hours));
+}
+function getScheduleDelta(dateStr) {
+  return Math.round((getActualHours(dateStr) - getPlannedHours(dateStr)) * 100) / 100;
+}
+function isDayOff(dateStr) {
+  const ov = getScheduleOverride(dateStr);
+  if (ov && (ov.type === 'off' || ov.type === 'vacation' || ov.type === 'sick')) return true;
+  return getPlannedHours(dateStr) === 0 && !ov;
+}
+function getBlocksForDate(dateStr) {
+  return state.schedule.blocks.filter(b => b.date === dateStr).sort((a, b) => a.start.localeCompare(b.start));
+}
+function parseTimeToMinutes(t) {
+  if (!t) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+function minutesToTime(m) {
+  m = Math.max(0, Math.min(24 * 60, m));
+  return pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+}
+function blockDurationHours(b) {
+  return Math.max(0, (parseTimeToMinutes(b.end) - parseTimeToMinutes(b.start)) / 60);
+}
+function fmtScheduleDelta(delta, planned) {
+  if (planned === 0 && delta === 0) return { text: '—', cls: 'neutral' };
+  if (delta > 0) return { text: '+' + fmtHours(delta), cls: 'pos' };
+  if (delta < 0) return { text: '−' + fmtHours(Math.abs(delta)), cls: 'neg' };
+  return { text: '0ч', cls: 'neutral' };
+}
+function getBarFillClass(actual, planned, off) {
+  if (off || planned === 0) return 'off-day';
+  const ratio = actual / planned;
+  if (ratio >= 1) return ratio > 1.1 ? 'over' : 'ok';
+  if (ratio >= 0.7) return 'under';
+  return 'under';
+}
+function persistSchedule() {
+  save();
+  if (sb.isEnabled()) sb.syncSchedule();
+}
+function shiftPlanningWeek(delta) {
+  planningWeekOffset += delta;
+  renderPage();
+}
+function setPlanningTab(tab) {
+  planningTab = tab;
+  renderPage();
+}
+function applyScheduleTemplatePreset(preset) {
+  const t = state.schedule.weekTemplate;
+  if (preset === '5x8') {
+    Object.assign(t, { mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0, sun: 0 });
+  } else if (preset === '4x10') {
+    Object.assign(t, { mon: 10, tue: 10, wed: 10, thu: 10, fri: 0, sat: 0, sun: 0 });
+  } else if (preset === 'part') {
+    Object.assign(t, { mon: 4, tue: 4, wed: 4, thu: 4, fri: 4, sat: 0, sun: 0 });
+  } else if (preset === '6x6') {
+    Object.assign(t, { mon: 6, tue: 6, wed: 6, thu: 6, fri: 6, sat: 6, sun: 0 });
+  }
+  persistSchedule();
+  renderPage();
+  showToast('Шаблон графика применён', 'success');
+}
+function saveWeekTemplate() {
+  SCHEDULE_DAY_KEYS.forEach(key => {
+    const el = document.getElementById('tpl-' + key);
+    if (el) state.schedule.weekTemplate[key] = Math.max(0, Math.min(24, parseFloat(el.value) || 0));
+  });
+  persistSchedule();
+  showToast('График сохранён', 'success');
+}
+function openScheduleDayModal(dateStr) {
+  planningSelectedDate = dateStr;
+  const ov = getScheduleOverride(dateStr);
+  document.getElementById('schedule-day-date').value = dateStr;
+  document.getElementById('schedule-day-title').textContent = fmtDateLong(dateStr);
+  document.getElementById('schedule-day-type').value = ov ? ov.type : 'default';
+  document.getElementById('schedule-day-hours').value = ov?.hours ?? getTemplateHoursForDate(dateStr);
+  document.getElementById('schedule-day-note').value = ov?.note || '';
+  scheduleDayTypeChanged();
+  renderScheduleDayModalContent();
+  openModal('modal-schedule-day');
+}
+function scheduleDayTypeChanged() {
+  const type = document.getElementById('schedule-day-type').value;
+  const wrap = document.getElementById('schedule-day-hours-wrap');
+  if (wrap) wrap.style.display = type === 'custom' ? '' : 'none';
+}
+function renderScheduleDayModalContent() {
+  const dateStr = planningSelectedDate;
+  const planned = getPlannedHours(dateStr);
+  const actual = getActualHours(dateStr);
+  const delta = getScheduleDelta(dateStr);
+  const d = fmtScheduleDelta(delta, planned);
+  const summary = document.getElementById('schedule-day-summary');
+  if (summary) {
+    summary.innerHTML = `<div class="flex justify-between items-center">
+      <div><div class="text-xs text-muted">План</div><div class="fw-7" style="font-size:18px">${fmtHours(planned)}</div></div>
+      <div style="text-align:center"><div class="text-xs text-muted">Факт</div><div class="fw-7" style="font-size:18px;color:var(--accent2)">${fmtHours(actual)}</div></div>
+      <div style="text-align:right"><div class="text-xs text-muted">Разница</div><div class="fw-7 plan-day-delta ${d.cls}" style="font-size:18px">${d.text}</div></div>
+    </div>`;
+  }
+  const blocksEl = document.getElementById('schedule-day-blocks');
+  const blocks = getBlocksForDate(dateStr);
+  if (blocksEl) {
+    blocksEl.innerHTML = blocks.length
+      ? blocks.map(b => `<div class="entry-item" style="margin-bottom:6px" onclick="editScheduleBlock('${b.id}')">
+          <div class="entry-info">
+            <div class="entry-task">${escHtml(b.title || 'Блок')}</div>
+            <div class="entry-meta">${b.start} — ${b.end} · ${fmtHours(blockDurationHours(b))}${b.note ? ' · ' + escHtml(b.note) : ''}</div>
+          </div>
+        </div>`).join('')
+      : '<div class="text-xs text-muted">Нет плановых блоков</div>';
+  }
+  const entriesEl = document.getElementById('schedule-day-entries');
+  const entries = state.entries.filter(e => e.date === dateStr && !e.archived);
+  if (entriesEl) {
+    entriesEl.innerHTML = entries.length
+      ? entries.map(e => entryItem(e)).join('')
+      : emptyState('Нет записей', 'За этот день время не залогировано');
+  }
+  const clearBtn = document.getElementById('schedule-day-clear-btn');
+  if (clearBtn) clearBtn.style.display = getScheduleOverride(dateStr) ? '' : 'none';
+}
+function saveScheduleDay() {
+  const dateStr = document.getElementById('schedule-day-date').value;
+  const type = document.getElementById('schedule-day-type').value;
+  const note = document.getElementById('schedule-day-note').value.trim();
+  if (type === 'default') {
+    delete state.schedule.overrides[dateStr];
+    if (sb.isEnabled()) sb.deleteScheduleOverride(dateStr);
+  } else {
+    const ov = { type, note };
+    if (type === 'custom') ov.hours = Math.max(0, parseFloat(document.getElementById('schedule-day-hours').value) || 0);
+    state.schedule.overrides[dateStr] = ov;
+    if (sb.isEnabled()) sb.upsertScheduleOverride(dateStr, ov);
+  }
+  save();
+  closeModal('modal-schedule-day');
+  renderPage();
+  showToast('День обновлён', 'success');
+}
+function clearScheduleDayOverride() {
+  const dateStr = document.getElementById('schedule-day-date').value;
+  delete state.schedule.overrides[dateStr];
+  if (sb.isEnabled()) sb.deleteScheduleOverride(dateStr);
+  save();
+  closeModal('modal-schedule-day');
+  renderPage();
+  showToast('День сброшен к графику');
+}
+function openScheduleBlockModal(blockId) {
+  const dateStr = planningSelectedDate || new Date().toISOString().slice(0, 10);
+  document.getElementById('schedule-block-date').value = dateStr;
+  document.getElementById('schedule-block-id').value = blockId || '';
+  const delBtn = document.getElementById('schedule-block-delete-btn');
+  if (blockId) {
+    const b = state.schedule.blocks.find(x => x.id === blockId);
+    document.getElementById('schedule-block-title').textContent = 'Редактировать блок';
+    document.getElementById('schedule-block-title-input').value = b?.title || '';
+    document.getElementById('schedule-block-start').value = b?.start || '09:00';
+    document.getElementById('schedule-block-end').value = b?.end || '18:00';
+    document.getElementById('schedule-block-note').value = b?.note || '';
+    if (delBtn) delBtn.classList.remove('hidden');
+  } else {
+    document.getElementById('schedule-block-title').textContent = 'Новый блок';
+    document.getElementById('schedule-block-title-input').value = '';
+    document.getElementById('schedule-block-start').value = '09:00';
+    document.getElementById('schedule-block-end').value = '13:00';
+    document.getElementById('schedule-block-note').value = '';
+    if (delBtn) delBtn.classList.add('hidden');
+  }
+  openModal('modal-schedule-block');
+}
+function editScheduleBlock(id) {
+  openScheduleBlockModal(id);
+}
+function saveScheduleBlock() {
+  const id = document.getElementById('schedule-block-id').value;
+  const dateStr = document.getElementById('schedule-block-date').value;
+  const start = document.getElementById('schedule-block-start').value;
+  const end = document.getElementById('schedule-block-end').value;
+  const title = document.getElementById('schedule-block-title-input').value.trim();
+  const note = document.getElementById('schedule-block-note').value.trim();
+  if (!start || !end || parseTimeToMinutes(end) <= parseTimeToMinutes(start)) {
+    showToast('Укажите корректное время', 'error');
+    return;
+  }
+  const block = id
+    ? Object.assign(state.schedule.blocks.find(b => b.id === id) || {}, { date: dateStr, start, end, title, note })
+    : { id: uid(), date: dateStr, start, end, title, note, createdAt: Date.now() };
+  if (!id) state.schedule.blocks.push(block);
+  if (sb.isEnabled()) sb.upsertScheduleBlock(block);
+  save();
+  closeModal('modal-schedule-block');
+  if (document.getElementById('modal-schedule-day')?.classList.contains('open')) renderScheduleDayModalContent();
+  else renderPage();
+  showToast('Блок сохранён', 'success');
+}
+function deleteScheduleBlock() {
+  const id = document.getElementById('schedule-block-id').value;
+  if (!id || !confirm('Удалить блок?')) return;
+  state.schedule.blocks = state.schedule.blocks.filter(b => b.id !== id);
+  if (sb.isEnabled()) sb.deleteScheduleBlock(id);
+  save();
+  closeModal('modal-schedule-block');
+  if (document.getElementById('modal-schedule-day')?.classList.contains('open')) renderScheduleDayModalContent();
+  else renderPage();
+  showToast('Блок удалён');
+}
+function renderPlanningDayCard(dateStr) {
+  const today = new Date().toISOString().slice(0, 10);
+  const planned = getPlannedHours(dateStr);
+  const actual = getActualHours(dateStr);
+  const delta = getScheduleDelta(dateStr);
+  const d = fmtScheduleDelta(delta, planned);
+  const off = isDayOff(dateStr);
+  const ov = getScheduleOverride(dateStr);
+  const dt = new Date(dateStr + 'T00:00:00');
+  const dayName = SCHEDULE_DAY_LABELS[getDayKeyFromDate(dateStr)];
+  const barPct = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : (actual > 0 ? 100 : 0);
+  const barCls = getBarFillClass(actual, planned, off);
+  const ovBadge = ov && ov.type !== 'custom'
+    ? `<span class="plan-override-badge ${SCHEDULE_OVERRIDE_BADGES[ov.type] || ''}">${SCHEDULE_OVERRIDE_LABELS[ov.type] || ov.type}</span>`
+    : '';
+  return `<div class="plan-day-card${dateStr === today ? ' today' : ''}${off ? ' off' : ''}" onclick="openScheduleDayModal('${dateStr}')">
+    <div class="plan-day-name">${dayName}</div>
+    <div class="plan-day-num">${dt.getDate()}</div>
+    ${ovBadge}
+    <div class="plan-day-planned">План: ${fmtHours(planned)}</div>
+    <div class="plan-day-actual">${fmtHours(actual)}</div>
+    <div class="plan-day-delta ${d.cls}">${d.text}</div>
+    <div class="plan-day-bar"><div class="plan-day-bar-fill ${barCls}" style="width:${barPct}%"></div></div>
+  </div>`;
+}
+function renderPlanningWeekView() {
+  const week = getWeekDatesFromOffset(planningWeekOffset);
+  const today = new Date().toISOString().slice(0, 10);
+  let totalPlanned = 0, totalActual = 0;
+  week.dates.forEach(d => { totalPlanned += getPlannedHours(d); totalActual += getActualHours(d); });
+  const totalDelta = Math.round((totalActual - totalPlanned) * 100) / 100;
+  const td = fmtScheduleDelta(totalDelta, totalPlanned);
+  const weekLabel = `${fmtDate(week.start)} — ${fmtDate(week.end)}`;
+  const compareBars = week.dates.map(d => {
+    const planned = getPlannedHours(d);
+    const actual = getActualHours(d);
+    const maxH = Math.max(planned, actual, 1);
+    const pH = Math.max(2, Math.round((planned / maxH) * 100));
+    const aH = Math.max(2, Math.round((actual / maxH) * 100));
+    const lbl = SCHEDULE_DAY_LABELS[getDayKeyFromDate(d)];
+    return `<div class="plan-compare-bar-wrap">
+      <div class="plan-compare-bars">
+        <div class="plan-compare-bar planned" style="height:${pH}%" title="План: ${fmtHours(planned)}"></div>
+        <div class="plan-compare-bar actual" style="height:${aH}%" title="Факт: ${fmtHours(actual)}"></div>
+      </div>
+      <div class="plan-compare-label">${lbl}</div>
+    </div>`;
+  }).join('');
+  return `
+  <div class="plan-week-nav">
+    <button class="btn btn-ghost btn-sm" onclick="shiftPlanningWeek(-1)">← Пред.</button>
+    <div class="plan-week-label">${weekLabel}${planningWeekOffset === 0 ? ' · эта неделя' : ''}</div>
+    <button class="btn btn-ghost btn-sm" onclick="shiftPlanningWeek(1)">След. →</button>
+  </div>
+  <div class="grid4 mb16">
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--text2)">${fmtHours(totalPlanned)}</div>
+      <div class="stat-label">План на неделю</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--accent2)">${fmtHours(totalActual)}</div>
+      <div class="stat-label">Факт</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val plan-day-delta ${td.cls}" style="font-size:22px">${td.text}</div>
+      <div class="stat-label">Отклонение</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--teal)">${totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0}%</div>
+      <div class="stat-label">Выполнение плана</div>
+    </div>
+  </div>
+  <div class="plan-day-grid mb16">${week.dates.map(d => renderPlanningDayCard(d)).join('')}</div>
+  <div class="card">
+    <div class="section-title" style="margin-top:0">План vs факт по дням</div>
+    <div class="plan-compare-chart">${compareBars}</div>
+    <div class="plan-legend">
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:var(--bg3);border:1px dashed var(--border2)"></div> План</div>
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:var(--accent)"></div> Факт</div>
+    </div>
+  </div>`;
+}
+function renderPlanningTemplateView() {
+  const tpl = state.schedule.weekTemplate;
+  const weekTotal = sum(SCHEDULE_DAY_KEYS.map(k => tpl[k] || 0));
+  const templateDays = SCHEDULE_DAY_KEYS.map(key => `
+    <div class="plan-template-day">
+      <label>${SCHEDULE_DAY_LABELS[key]}</label>
+      <input type="number" class="form-input" id="tpl-${key}" min="0" max="24" step="0.5" value="${tpl[key] ?? 0}">
+    </div>`).join('');
+  return `
+  <div class="card mb16">
+    <div class="page-header" style="margin-bottom:16px">
+      <div>
+        <div class="page-title" style="font-size:17px">Базовый недельный график</div>
+        <div class="page-sub">${fmtHours(weekTotal)} в неделю по шаблону</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveWeekTemplate()">Сохранить</button>
+    </div>
+    <div class="plan-template-grid mb16">${templateDays}</div>
+    <div class="text-xs text-muted mb8">Быстрые шаблоны:</div>
+    <div class="filter-bar-actions">
+      <button class="btn btn-ghost btn-sm" onclick="applyScheduleTemplatePreset('5x8')">5×8ч (пн–пт)</button>
+      <button class="btn btn-ghost btn-sm" onclick="applyScheduleTemplatePreset('4x10')">4×10ч</button>
+      <button class="btn btn-ghost btn-sm" onclick="applyScheduleTemplatePreset('part')">Частичная (4ч/день)</button>
+      <button class="btn btn-ghost btn-sm" onclick="applyScheduleTemplatePreset('6x6')">6×6ч</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-title" style="margin-top:0">Исключения и выходные</div>
+    <p class="text-sm text-muted mb12">Нажмите на день в календаре, чтобы отметить выходной, отпуск, больничный или задать особые часы. Исключения перекрывают базовый график.</p>
+    ${Object.keys(state.schedule.overrides).length === 0 ? emptyState('Нет исключений', 'Откройте день в календаре и настройте его') :
+      Object.entries(state.schedule.overrides).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 20).map(([date, ov]) => `
+        <div class="entry-item" style="margin-bottom:6px" onclick="openScheduleDayModal('${date}')">
+          <div class="entry-info">
+            <div class="entry-task">${fmtDateLong(date)}</div>
+            <div class="entry-meta">${SCHEDULE_OVERRIDE_LABELS[ov.type] || ov.type}${ov.type === 'custom' ? ' · ' + fmtHours(ov.hours || 0) : ''}${ov.note ? ' · ' + escHtml(ov.note) : ''}</div>
+          </div>
+          <span class="plan-override-badge ${SCHEDULE_OVERRIDE_BADGES[ov.type] || ''}">${fmtDate(date)}</span>
+        </div>`).join('')}
+  </div>`;
+}
+function renderPlanningStatsView() {
+  const week = getWeekDatesFromOffset(planningWeekOffset);
+  const monthStart = new Date().toISOString().slice(0, 7) + '-01';
+  const today = new Date().toISOString().slice(0, 10);
+  const monthDates = getDateRange(monthStart, today);
+  let weekPlanned = 0, weekActual = 0, monthPlanned = 0, monthActual = 0;
+  let overDays = 0, underDays = 0, hitDays = 0, offDays = 0;
+  week.dates.forEach(d => {
+    const p = getPlannedHours(d), a = getActualHours(d);
+    weekPlanned += p; weekActual += a;
+    if (isDayOff(d)) offDays++;
+    else if (p > 0) {
+      if (a > p + 0.1) overDays++;
+      else if (a < p - 0.1) underDays++;
+      else hitDays++;
+    }
+  });
+  monthDates.forEach(d => { monthPlanned += getPlannedHours(d); monthActual += getActualHours(d); });
+  const weekDelta = weekActual - weekPlanned;
+  const monthDelta = monthActual - monthPlanned;
+  const wd = fmtScheduleDelta(weekDelta, weekPlanned);
+  const md = fmtScheduleDelta(monthDelta, monthPlanned);
+  const dayRows = week.dates.map(d => {
+    const p = getPlannedHours(d), a = getActualHours(d);
+    const delta = a - p;
+    const dd = fmtScheduleDelta(delta, p);
+    return `<div class="plan-stat-row">
+      <span>${fmtDateLong(d)}</span>
+      <span class="text-muted">${fmtHours(p)} → ${fmtHours(a)}</span>
+      <span class="plan-day-delta ${dd.cls} fw-6">${dd.text}</span>
+    </div>`;
+  }).join('');
+  return `
+  <div class="grid2 mb16">
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Неделя (${fmtDate(week.start)} — ${fmtDate(week.end)})</div>
+      <div class="plan-stat-row"><span>План</span><span class="fw-6">${fmtHours(weekPlanned)}</span></div>
+      <div class="plan-stat-row"><span>Факт</span><span class="fw-6" style="color:var(--accent2)">${fmtHours(weekActual)}</span></div>
+      <div class="plan-stat-row"><span>Отклонение</span><span class="plan-day-delta ${wd.cls} fw-6">${wd.text}</span></div>
+      <div class="plan-stat-row"><span>Выполнение</span><span class="fw-6">${weekPlanned > 0 ? Math.round((weekActual / weekPlanned) * 100) : 0}%</span></div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Месяц (с ${fmtDate(monthStart)})</div>
+      <div class="plan-stat-row"><span>План</span><span class="fw-6">${fmtHours(monthPlanned)}</span></div>
+      <div class="plan-stat-row"><span>Факт</span><span class="fw-6" style="color:var(--accent2)">${fmtHours(monthActual)}</span></div>
+      <div class="plan-stat-row"><span>Отклонение</span><span class="plan-day-delta ${md.cls} fw-6">${md.text}</span></div>
+      <div class="plan-stat-row"><span>Средний день</span><span class="fw-6">${fmtHours(monthDates.length ? monthActual / monthDates.length : 0)}</span></div>
+    </div>
+  </div>
+  <div class="grid3 mb16">
+    <div class="stat-card"><div class="stat-val" style="color:var(--green)">${hitDays}</div><div class="stat-label">Дней в плане</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--teal)">${overDays}</div><div class="stat-label">Переработка</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--amber)">${underDays}</div><div class="stat-label">Недоработка</div></div>
+  </div>
+  <div class="card">
+    <div class="section-title" style="margin-top:0">Детализация по дням недели</div>
+    ${dayRows}
+  </div>`;
+}
+function renderPlanning() {
+  const tabs = [
+    { id: 'week', label: 'Календарь' },
+    { id: 'template', label: 'График' },
+    { id: 'stats', label: 'Статистика' }
+  ];
+  const tabBar = `<div class="tabs">${tabs.map(t =>
+    `<div class="tab${planningTab === t.id ? ' active' : ''}" onclick="setPlanningTab('${t.id}')">${t.label}</div>`
+  ).join('')}</div>`;
+  const content = planningTab === 'template' ? renderPlanningTemplateView()
+    : planningTab === 'stats' ? renderPlanningStatsView()
+    : renderPlanningWeekView();
+  return `
+  <div class="page-header">
+    <div>
+      <div class="page-title">Планирование времени</div>
+      <div class="page-sub">График работы, план vs факт, выходные и отпуск</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="planningWeekOffset=0;planningTab='week';renderPage()">Сегодня</button>
+  </div>
+  ${tabBar}
+  ${content}`;
 }
 
 // ─── REPORTS ──────────────────────────────────────────────────────────────
@@ -4073,7 +4803,7 @@ function openAIResultModal(entryId, original, improved) {
 }
 
 function exportData() {
-  const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, settings: state.settings, exportedAt: new Date().toISOString() };
+  const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, settings: state.settings, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `timelog-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
@@ -4090,6 +4820,7 @@ function importData(e) {
       state.payments = d.payments || state.payments;
       state.boardTasks = d.boardTasks || state.boardTasks;
       state.reports = d.reports || state.reports;
+      state.schedule = normalizeSchedule(d.schedule);
       save(); renderPage(); showToast('Данные импортированы');
     } catch { showToast('Ошибка формата файла', 'error'); }
   };
@@ -4099,6 +4830,7 @@ function clearAllData() {
   if (!confirm('Удалить ВСЕ данные? Это действие нельзя отменить.')) return;
   if (!confirm('Вы уверены? Все проекты, записи и платежи будут удалены.')) return;
   state.projects = []; state.entries = []; state.payments = []; state.boardTasks = []; state.reports = [];
+  state.schedule = getDefaultSchedule();
   save(); renderPage(); showToast('Все данные удалены');
 }
 
