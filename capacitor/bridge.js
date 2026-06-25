@@ -14,6 +14,9 @@ const ANDROID_FGS_SPECIAL_USE = 1073741824;
 let nativeActive = false;
 let channelReady = false;
 let listenersBound = false;
+let currentTimer = null;
+let iosAppActive = true;
+let iosLastPaused = null;
 
 export function isNativePlatform() {
   return Capacitor.isNativePlatform();
@@ -95,9 +98,44 @@ async function ensureIosPermissions() {
   }
 }
 
+async function hideIosTimerNotification() {
+  await LocalNotifications.cancel({ notifications: [{ id: TIMER_NOTIF_ID }] });
+  try {
+    await LocalNotifications.removeDeliveredNotifications({
+      notifications: [{ id: TIMER_NOTIF_ID }],
+    });
+  } catch {
+    // Older plugin versions may not support this on all platforms.
+  }
+}
+
+async function showIosTimerNotification(timer) {
+  if (!timer?.running) return;
+  await ensureIosPermissions();
+  await hideIosTimerNotification();
+  const { title, body } = buildContent(timer);
+  await LocalNotifications.schedule({
+    notifications: [
+      {
+        id: TIMER_NOTIF_ID,
+        title,
+        body,
+      },
+    ],
+  });
+}
+
+async function syncIosTimerNotification(force = false) {
+  if (!nativeActive || !currentTimer?.running || iosAppActive) return;
+  if (!force && iosLastPaused === currentTimer.paused) return;
+  iosLastPaused = currentTimer.paused;
+  await showIosTimerNotification(currentTimer);
+}
+
 export async function startNativeTimer(timer) {
   if (!isNativePlatform() || !timer?.running) return;
   nativeActive = true;
+  currentTimer = timer;
   const { title, body } = buildContent(timer);
 
   if (Capacitor.getPlatform() === 'android') {
@@ -116,23 +154,14 @@ export async function startNativeTimer(timer) {
   }
 
   if (Capacitor.getPlatform() === 'ios') {
-    await ensureIosPermissions();
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          id: TIMER_NOTIF_ID,
-          title,
-          body,
-          ongoing: true,
-          autoCancel: false,
-        },
-      ],
-    });
+    iosLastPaused = timer.paused;
+    if (!iosAppActive) await showIosTimerNotification(timer);
   }
 }
 
 export async function updateNativeTimer(timer) {
   if (!isNativePlatform() || !nativeActive || !timer?.running) return;
+  currentTimer = timer;
   const { title, body } = buildContent(timer);
 
   if (Capacitor.getPlatform() === 'android') {
@@ -150,23 +179,16 @@ export async function updateNativeTimer(timer) {
   }
 
   if (Capacitor.getPlatform() === 'ios') {
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          id: TIMER_NOTIF_ID,
-          title,
-          body,
-          ongoing: true,
-          autoCancel: false,
-        },
-      ],
-    });
+    // iOS delivers a new notification on every schedule() call — never update every second.
+    await syncIosTimerNotification();
   }
 }
 
 export async function stopNativeTimer() {
   if (!isNativePlatform()) return;
   nativeActive = false;
+  currentTimer = null;
+  iosLastPaused = null;
 
   if (Capacitor.getPlatform() === 'android') {
     await ForegroundService.stopForegroundService();
@@ -174,7 +196,7 @@ export async function stopNativeTimer() {
   }
 
   if (Capacitor.getPlatform() === 'ios') {
-    await LocalNotifications.cancel({ notifications: [{ id: TIMER_NOTIF_ID }] });
+    await hideIosTimerNotification();
   }
 }
 
@@ -194,6 +216,11 @@ export function initNativeTimer(onAction) {
   }
 
   App.addListener('appStateChange', ({ isActive }) => {
+    iosAppActive = isActive;
+    if (Capacitor.getPlatform() === 'ios' && nativeActive) {
+      if (isActive) hideIosTimerNotification().catch(() => {});
+      else syncIosTimerNotification(true).catch(() => {});
+    }
     if (isActive && typeof onAction === 'function') {
       onAction('sync');
     }
