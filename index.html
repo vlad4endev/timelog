@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script src="config.js"></script>
@@ -2268,8 +2268,15 @@ async function authSetup() {
     btn.disabled = false;
     btn.textContent = 'Создать аккаунт и войти';
   }
-  if (sb.isEnabled() && (state.projects.length || state.entries.length)) {
-    await sb.pushAll();
+  if (sb.isEnabled()) {
+    const claim = await auth.claimLegacyServerData('default');
+    importLegacyLocalToState();
+    if (state.projects.length || state.entries.length) {
+      const ok = await sb.pushAll();
+      if (!ok) authMsg('Аккаунт создан, но не удалось загрузить данные в БД. Войдите снова после деплоя.', 'err');
+    } else if (claim?.claimed) {
+      save();
+    }
   }
   auth.login(login);
   if (auth.useServerAuth() && !auth.getApiToken()) {
@@ -2682,6 +2689,33 @@ const sb = {
 
   isEnabled() { return state.settings.supabase.enabled && state.settings.supabase.url && state.settings.supabase.anonKey; }
 };
+
+async function syncWithServer() {
+  if (!sb.isEnabled()) return;
+  if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) {
+    showToast('Сессия истекла — войдите с паролем для синхронизации с БД', 'error');
+    return;
+  }
+  let claimedLegacy = false;
+  if (auth.useServerAuth() && auth.getApiToken()) {
+    const claim = await auth.claimLegacyServerData('default');
+    claimedLegacy = !!claim?.claimed;
+  }
+  await sb.pull();
+  if (!state.projects.length && !state.entries.length && importLegacyLocalToState()) {
+    await sb.pushAll();
+    save();
+  } else if (claimedLegacy) {
+    save();
+  }
+  if (state.timer.running) startTimerTick();
+  updateTimerUI();
+  renderPage();
+  persistTimerBackground();
+  checkAllProjectHourLimits();
+  if (claimedLegacy) showToast('✓ Перенесены данные с прежнего аккаунта (default)', 'success');
+  else showToast('✓ Данные синхронизированы', 'success');
+}
 
 // Wrap the original save() to also sync to Supabase if enabled
 const _localSave = save;
@@ -7051,19 +7085,7 @@ function initApp() {
   updateTopbarUser();
   checkAllProjectHourLimits();
   if (sb.isEnabled()) {
-    (async () => {
-      if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) {
-        showToast('Сессия истекла — войдите с паролем для синхронизации с БД', 'error');
-        return;
-      }
-      await sb.pull();
-      if (state.timer.running) startTimerTick();
-      updateTimerUI();
-      renderPage();
-      persistTimerBackground();
-      checkAllProjectHourLimits();
-      showToast('✓ Данные синхронизированы', 'success');
-    })().catch(()=>{});
+    syncWithServer().catch(() => showToast('Не удалось синхронизировать с БД', 'error'));
   }
   const params = new URLSearchParams(location.search);
   if (params.get('page') && pageTitles[params.get('page')]) showPage(params.get('page'));

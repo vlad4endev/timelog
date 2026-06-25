@@ -29,3 +29,8 @@
   for = "/config.js"
   [headers.values]
     Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/apple-touch-icon.png"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"

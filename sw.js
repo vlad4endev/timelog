@@ -1,9 +1,10 @@
-const CACHE_NAME = 'timelog-v8';
+const CACHE_NAME = 'timelog-v9';
 const TIMER_DB = 'timelog-timer';
 const TIMER_STORE = 'timer';
 const TIMER_NOTIF_TAG = 'timelog-active-timer';
 
 const OFFLINE_ASSETS = [
+  '/apple-touch-icon.png',
   '/icon-192.png',
   '/icon-512.png'
 ];
@@ -16,14 +17,27 @@ const SHELL_PATHS = new Set([
   '/sw.js'
 ]);
 
+const ICON_PATHS = new Set([
+  '/apple-touch-icon.png',
+  '/icon-192.png',
+  '/icon-512.png'
+]);
+
+function requestPath(request) {
+  try {
+    return new URL(request.url).pathname;
+  } catch {
+    return '';
+  }
+}
+
 function isShellRequest(request) {
   if (request.mode === 'navigate') return true;
-  try {
-    const path = new URL(request.url).pathname;
-    return SHELL_PATHS.has(path);
-  } catch {
-    return false;
-  }
+  return SHELL_PATHS.has(requestPath(request));
+}
+
+function isIconRequest(request) {
+  return ICON_PATHS.has(requestPath(request));
 }
 
 function cachePut(request, response) {
@@ -215,7 +229,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  if (isShellRequest(event.request)) {
+  if (isShellRequest(event.request) || isIconRequest(event.request)) {
     event.respondWith(networkFirst(event.request));
     return;
   }
