@@ -27,17 +27,28 @@ echo "=== Web container health ==="
 docker compose ps web --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' 2>/dev/null || true
 
 echo ""
-echo "=== API smoke test ==="
+echo "=== Auth API ==="
+if curl -sf "http://127.0.0.1:${PORT}/auth/health" | grep -q '"ok":true'; then
+  echo "✓ Auth server ok"
+else
+  echo "✕ Auth server failed — docker compose logs auth --tail 30"
+fi
+
+echo ""
+echo "=== PostgREST (RLS: anon has no table access) ==="
 ANON_KEY="${ANON_KEY:-}"
 if [[ -n "$ANON_KEY" ]]; then
-  if curl -sf "http://127.0.0.1:${PORT}/rest/v1/projects?limit=1" \
-    -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" >/dev/null; then
-    echo "✓ PostgREST ok"
+  HTTP_CODE="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/rest/v1/projects?limit=1" \
+    -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY")"
+  if [[ "$HTTP_CODE" == "401" || "$HTTP_CODE" == "403" ]]; then
+    echo "✓ PostgREST ok (anon blocked by RLS — expected after migrate-rls.sh)"
+  elif [[ "$HTTP_CODE" == "200" ]]; then
+    echo "✓ PostgREST ok (legacy anon access — run ./scripts/migrate-rls.sh for multi-user)"
   else
-    echo "✕ PostgREST failed — docker compose logs postgrest --tail 30"
+    echo "✕ PostgREST unexpected HTTP $HTTP_CODE — docker compose logs postgrest --tail 30"
   fi
 else
-  echo "⊘ Set ANON_KEY in .env to test API"
+  echo "⊘ Set ANON_KEY in .env to test PostgREST"
 fi
 
 echo ""

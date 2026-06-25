@@ -191,28 +191,33 @@ async function authenticateCredentials(login, body) {
   return { ok: false, reason: 'invalid' };
 }
 
+const USER_DATA_TABLES = [
+  'projects', 'board_tasks', 'time_entries', 'billing_reports',
+  'payments', 'schedule_overrides', 'schedule_blocks',
+];
+
+async function reassignUserData(client, oldLogin, newLogin) {
+  for (const table of USER_DATA_TABLES) {
+    await client.query(
+      `UPDATE ${table} SET user_login = $1 WHERE user_login = $2`,
+      [newLogin, oldLogin]
+    );
+  }
+  await client.query(
+    'UPDATE active_timer SET id = $1 WHERE id = $2',
+    [newLogin, oldLogin]
+  );
+  await client.query(
+    'UPDATE schedule_settings SET id = $1 WHERE id = $2',
+    [newLogin, oldLogin]
+  );
+}
+
 async function migrateLogin(oldLogin, newLogin) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const tables = [
-      'projects', 'board_tasks', 'time_entries', 'billing_reports',
-      'payments', 'schedule_overrides', 'schedule_blocks',
-    ];
-    for (const table of tables) {
-      await client.query(
-        `UPDATE ${table} SET user_login = $1 WHERE user_login = $2`,
-        [newLogin, oldLogin]
-      );
-    }
-    await client.query(
-      'UPDATE active_timer SET id = $1 WHERE id = $2',
-      [newLogin, oldLogin]
-    );
-    await client.query(
-      'UPDATE schedule_settings SET id = $1 WHERE id = $2',
-      [newLogin, oldLogin]
-    );
+    await reassignUserData(client, oldLogin, newLogin);
     const hash = await getUserHash(oldLogin);
     if (!hash) throw new Error('User not found');
     await client.query(
@@ -221,6 +226,37 @@ async function migrateLogin(oldLogin, newLogin) {
     );
     await client.query('DELETE FROM app_users WHERE login = $1', [oldLogin]);
     await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+async function claimLegacyData(login, legacyLogin = 'default') {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const hasOwn = await client.query(
+      'SELECT 1 FROM projects WHERE user_login = $1 LIMIT 1',
+      [login]
+    );
+    if (hasOwn.rows.length) {
+      await client.query('ROLLBACK');
+      return { claimed: false, reason: 'already_has_data' };
+    }
+    const legacy = await client.query(
+      'SELECT COUNT(*)::int AS n FROM projects WHERE user_login = $1',
+      [legacyLogin]
+    );
+    if ((legacy.rows[0]?.n ?? 0) === 0) {
+      await client.query('ROLLBACK');
+      return { claimed: false, reason: 'no_legacy_data' };
+    }
+    await reassignUserData(client, legacyLogin, login);
+    await client.query('COMMIT');
+    return { claimed: true, from: legacyLogin, projects: legacy.rows[0].n };
   } catch (e) {
     await client.query('ROLLBACK');
     throw e;
@@ -364,6 +400,28 @@ const server = http.createServer(async (req, res) => {
     }
     const token = await signToken(newLogin);
     json(res, 200, { token, login: newLogin }, req);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/auth/claim-legacy') {
+    const tokenLogin = await verifyBearerToken(req.headers.authorization || '');
+    if (!tokenLogin) {
+      json(res, 401, { error: 'unauthorized' }, req);
+      return;
+    }
+    const body = await readBody(req);
+    if (body === null) {
+      json(res, 400, { error: 'invalid json' }, req);
+      return;
+    }
+    const legacyLogin = normalizeLogin(body.from || 'default');
+    try {
+      const result = await claimLegacyData(tokenLogin, legacyLogin);
+      json(res, result.claimed ? 200 : 409, result, req);
+    } catch (e) {
+      console.error('claim-legacy failed:', e);
+      json(res, 500, { error: 'claim failed' }, req);
+    }
     return;
   }
 
