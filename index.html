@@ -1777,6 +1777,12 @@ const auth = {
     return res;
   },
 
+  async fetchSessionInfo() {
+    if (!this.useServerAuth() || !this.getApiToken()) return null;
+    const res = await this.authFetch('/auth/me');
+    return res?.ok ? res : null;
+  },
+
   async changePasswordApi(login, currentPassword, newPassword) {
     const res = await this.authFetch('/auth/change-password', {
       login, currentPassword, newPassword
@@ -2870,6 +2876,9 @@ const sb = {
       sb.req('GET', sb.scope('schedule_overrides?order=date.asc')),
       sb.req('GET', sb.scope('schedule_blocks?order=date.asc'))
     ]);
+    if (projects === null && auth.useServerAuth()) {
+      return { ok: false, reason: 'api_error' };
+    }
     if (projects !== null) state.projects = projects.map(sb.rowToProject);
     if (entries  !== null) state.entries  = entries.map(sb.rowToEntry);
     if (payments !== null) state.payments = payments.map(sb.rowToPayment);
@@ -2894,7 +2903,14 @@ const sb = {
     if (scheduleBlocks !== null) {
       state.schedule.blocks = scheduleBlocks.map(sb.rowToBlock);
     }
-    save(); // mirror to localStorage
+    if (projects !== null && projects.length === 0 && auth.useServerAuth() && auth.getApiToken()) {
+      const me = await auth.fetchSessionInfo();
+      if (me && me.projectsInDb > 0) {
+        return { ok: false, reason: 'rls_or_proxy', serverProjects: me.projectsInDb };
+      }
+    }
+    save();
+    return { ok: true };
   },
 
   // Upsert single records
@@ -2968,7 +2984,15 @@ async function syncWithServer() {
     const claim = await auth.claimLegacyServerData('default');
     claimedLegacy = !!claim?.claimed;
   }
-  await sb.pull();
+  const pullResult = await sb.pull();
+  if (pullResult?.ok === false) {
+    if (pullResult.reason === 'rls_or_proxy') {
+      showToast(`В БД ${pullResult.serverProjects} проект(ов), но API вернул пусто. На сервере: ./scripts/migrate-rls.sh и ./scripts/test-user-api.sh`, 'error');
+    } else {
+      showToast('Не удалось загрузить данные из API — выйдите и войдите с паролем снова', 'error');
+    }
+    return;
+  }
   if (!state.projects.length && !state.entries.length && importLegacyLocalToState()) {
     await sb.pushAll();
     save();
@@ -7410,15 +7434,18 @@ window.addEventListener('beforeinstallprompt', (e) => {
 function applyDockerConfig() {
   const cfg = window.TIMELOG_CONFIG;
   if (!cfg) return false;
-  if (cfg.apiUrl) state.settings.supabase.url = cfg.apiUrl;
-  if (cfg.anonKey) state.settings.supabase.anonKey = cfg.anonKey;
   if (cfg.authEnabled) state.settings.supabase.authEnabled = true;
+  if (cfg.anonKey) state.settings.supabase.anonKey = cfg.anonKey;
+  if (cfg.apiUrl) {
+    state.settings.supabase.url = cfg.apiUrl;
+  } else if (cfg.autoConnect && cfg.anonKey) {
+    state.settings.supabase.url = window.location.origin;
+  }
   if (cfg.autoConnect && cfg.anonKey) {
-    if (!cfg.apiUrl) state.settings.supabase.url = window.location.origin;
     state.settings.supabase.enabled = true;
     return true;
   }
-  return !!(cfg.apiUrl && cfg.anonKey);
+  return !!(state.settings.supabase.url && cfg.anonKey);
 }
 
 // Boot sequence — логин + пароль, Face ID

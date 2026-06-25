@@ -426,6 +426,24 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/auth/me') {
+    const tokenLogin = await verifyBearerToken(req.headers.authorization || '');
+    if (!tokenLogin) {
+      json(res, 401, { error: 'unauthorized' }, req);
+      return;
+    }
+    const [pr, en] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS n FROM projects WHERE user_login = $1', [tokenLogin]),
+      pool.query('SELECT COUNT(*)::int AS n FROM time_entries WHERE user_login = $1', [tokenLogin]),
+    ]);
+    json(res, 200, {
+      login: tokenLogin,
+      projectsInDb: pr.rows[0]?.n ?? 0,
+      entriesInDb: en.rows[0]?.n ?? 0,
+    }, req);
+    return;
+  }
+
   if (req.method === 'POST' && url.pathname === '/auth/change-password') {
     const body = await readBody(req);
     if (body === null) {
