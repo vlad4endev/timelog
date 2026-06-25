@@ -250,7 +250,7 @@ tr:hover td{background:var(--bg3)}
 .rate-preset{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:.15s}
 .rate-preset:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
 /* Auth screen */
-.auth-screen{position:fixed;inset:0;background:linear-gradient(160deg,#f4f6f8 0%,#ecfdf5 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-screen{position:fixed;inset:0;background:linear-gradient(160deg,#f4f6f8 0%,#ecfdf5 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden}
 .auth-box{width:100%;max-width:400px}
 .auth-logo{text-align:center;margin-bottom:32px}
 .auth-logo-icon{width:56px;height:56px;border-radius:14px;display:inline-block;margin-bottom:14px;overflow:hidden;box-shadow:0 8px 24px rgba(5,150,105,.25)}
@@ -259,13 +259,13 @@ tr:hover td{background:var(--bg3)}
 .auth-logo-sub{font-size:13px;color:var(--text2);margin-top:4px}
 .auth-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 28px 24px;box-shadow:var(--shadow)}
 .auth-tabs{display:flex;margin-bottom:24px;border-bottom:1px solid var(--border)}
-.auth-tab{flex:1;padding:10px;text-align:center;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s}
+.auth-tab{flex:1;padding:10px;text-align:center;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
 .auth-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
 .auth-field{margin-bottom:16px}
 .auth-field label{display:block;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .auth-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:11px 14px;color:var(--text);font-size:15px;transition:border .15s}
 .auth-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(5,150,105,.12);outline:none}
-.auth-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;transition:background .15s,transform .15s;margin-top:6px;box-shadow:0 2px 8px rgba(5,150,105,.2)}
+.auth-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;transition:background .15s,transform .15s;margin-top:6px;box-shadow:0 2px 8px rgba(5,150,105,.2);display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .auth-btn:hover:not(:disabled){background:var(--accent2)}
 .auth-btn:disabled{opacity:.6;cursor:default}
 .auth-msg{padding:10px 14px;border-radius:var(--radius2);font-size:13px;margin-bottom:14px;display:none}
@@ -283,6 +283,40 @@ tr:hover td{background:var(--bg3)}
 .auth-biometric-btn{width:100%;padding:13px;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius2);font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:border-color .15s,background .15s}
 .auth-biometric-btn:hover{border-color:var(--accent);background:var(--accent-light)}
 .auth-biometric-btn svg{color:var(--accent)}
+.auth-screen::before,.auth-screen::after{content:'';position:absolute;border-radius:50%;filter:blur(80px);opacity:.45;pointer-events:none;animation:authBlob 12s ease-in-out infinite alternate}
+.auth-screen::before{width:320px;height:320px;background:rgba(5,150,105,.22);top:-80px;right:-60px}
+.auth-screen::after{width:280px;height:280px;background:rgba(59,130,246,.12);bottom:-60px;left:-40px;animation-delay:-6s}
+@keyframes authBlob{0%{transform:translate(0,0) scale(1)}100%{transform:translate(24px,-18px) scale(1.08)}}
+.auth-card{position:relative;overflow:hidden}
+.auth-panel{animation:authPanelIn .28s ease}
+@keyframes authPanelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.auth-input-wrap{position:relative}
+.auth-input.err{border-color:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+.auth-input.ok{border-color:var(--green)}
+.auth-field-error{font-size:12px;color:var(--red);margin-top:6px;min-height:0;display:none}
+.auth-field-error.show{display:block}
+.auth-pass-strength{height:4px;border-radius:2px;background:var(--border);margin-top:8px;overflow:hidden}
+.auth-pass-strength-bar{height:100%;width:0;border-radius:2px;transition:width .25s,background .25s}
+.auth-pass-hint{font-size:11px;color:var(--text2);margin-top:6px;min-height:16px}
+.auth-btn .auth-spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:authSpin .7s linear infinite;display:none}
+.auth-btn.loading .auth-spinner{display:inline-block}
+.auth-btn.loading .auth-btn-text{opacity:.85}
+@keyframes authSpin{to{transform:rotate(360deg)}}
+@keyframes authShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.auth-card.shake{animation:authShake .45s ease}
+.auth-success-overlay{position:absolute;inset:0;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10;opacity:0;pointer-events:none;transition:opacity .35s}
+.auth-success-overlay.show{opacity:1;pointer-events:auto}
+.auth-success-ring{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;box-shadow:0 12px 32px rgba(5,150,105,.35);transform:scale(.6);opacity:0;animation:authSuccessPop .55s cubic-bezier(.34,1.56,.64,1) forwards}
+.auth-success-ring svg{stroke:#fff;stroke-dasharray:48;stroke-dashoffset:48;animation:authCheckDraw .4s .35s ease forwards}
+@keyframes authSuccessPop{to{transform:scale(1);opacity:1}}
+@keyframes authCheckDraw{to{stroke-dashoffset:0}}
+.auth-success-title{font-size:18px;font-weight:700;color:var(--text)}
+.auth-success-sub{font-size:13px;color:var(--text2)}
+.auth-screen.leaving{animation:authScreenOut .5s ease forwards}
+@keyframes authScreenOut{to{opacity:0;transform:scale(1.02)}}
+.auth-link-row{text-align:center;margin-top:16px;font-size:13px;color:var(--text2)}
+.auth-link-row button{background:none;border:none;padding:0;color:var(--accent2);font-size:13px;font-weight:600;cursor:pointer}
+.auth-link-row button:hover{text-decoration:underline}
 .hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
 .btn-pause{background:var(--amber);color:#fff}
 .btn-pause:hover{background:#d97706}
@@ -822,30 +856,50 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
       <div class="auth-logo-name">TimeLog</div>
       <div class="auth-logo-sub">Учёт рабочего времени для разработчиков</div>
     </div>
-    <div class="auth-card">
+    <div class="auth-card" id="auth-card">
       <div id="auth-msg" class="auth-msg"></div>
 
-      <!-- Unlock form (shown when password already set) -->
-      <div id="auth-unlock-form">
+      <div id="auth-success-overlay" class="auth-success-overlay" aria-hidden="true">
+        <div class="auth-success-ring">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div class="auth-success-title" id="auth-success-title">Добро пожаловать!</div>
+        <div class="auth-success-sub" id="auth-success-sub"></div>
+      </div>
+
+      <div class="auth-tabs" id="auth-tabs">
+        <button type="button" class="auth-tab on" id="auth-tab-login" onclick="authSwitchTab('login')">Вход</button>
+        <button type="button" class="auth-tab" id="auth-tab-register" onclick="authSwitchTab('register')">Регистрация</button>
+      </div>
+
+      <div id="auth-login-panel" class="auth-panel">
         <form onsubmit="event.preventDefault();authUnlock();">
-        <div class="auth-field">
-          <label>Логин</label>
-          <input class="auth-input" type="text" id="auth-login" placeholder="Телефон, email или логин"
-            autocomplete="username" inputmode="text"
-            oninput="authOnLoginInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-pass')?.focus()}">
-          <div id="auth-login-hint" class="text-xs text-muted" style="margin-top:6px;min-height:16px"></div>
-        </div>
-        <div class="auth-field">
-          <label>Пароль</label>
-          <div style="position:relative">
-            <input class="auth-input" type="password" id="auth-pass" placeholder="Введите пароль"
-              autocomplete="current-password">
-            <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-pass')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+          <div class="auth-field">
+            <label for="auth-login">Логин</label>
+            <input class="auth-input" type="text" id="auth-login" placeholder="Телефон, email или логин"
+              autocomplete="username" inputmode="text"
+              oninput="authOnLoginInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-pass')?.focus()}">
+            <div id="auth-login-hint" class="auth-pass-hint"></div>
+            <div id="auth-login-field-err" class="auth-field-error"></div>
           </div>
-        </div>
-        <button type="submit" class="auth-btn" id="auth-unlock-btn">Войти</button>
+          <div class="auth-field">
+            <label for="auth-pass">Пароль</label>
+            <div class="auth-input-wrap">
+              <input class="auth-input" type="password" id="auth-pass" placeholder="Введите пароль"
+                autocomplete="current-password" style="padding-right:44px"
+                oninput="authClearFieldError('auth-pass')">
+              <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-pass')" aria-label="Показать пароль" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div id="auth-pass-field-err" class="auth-field-error"></div>
+          </div>
+          <button type="submit" class="auth-btn" id="auth-unlock-btn">
+            <span class="auth-spinner"></span>
+            <span class="auth-btn-text">Войти</span>
+          </button>
         </form>
         <div id="auth-biometric-wrap" style="display:none">
           <div class="auth-divider">или</div>
@@ -854,47 +908,48 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
             <span id="auth-biometric-label">Face ID</span>
           </button>
         </div>
-        <div id="auth-reset-block" style="margin-top:20px;padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)">
-          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Первый раз на этом устройстве без сервера?</div>
-          <button onclick="authShowSetup()" style="width:100%;padding:9px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius2);color:var(--accent);font-size:13px;font-weight:500;cursor:pointer">
-            Установить пароль
-          </button>
-        </div>
+        <div class="auth-link-row">Нет аккаунта? <button type="button" onclick="authSwitchTab('register')">Зарегистрироваться</button></div>
       </div>
 
-      <!-- Setup form (first time only) -->
-      <div id="auth-setup-form" style="display:none">
-        <div id="auth-setup-hint" style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
-          Придумайте пароль для входа в приложение.
+      <div id="auth-register-panel" class="auth-panel" style="display:none">
+        <div id="auth-setup-hint" style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.55">
+          Создайте учётную запись — проекты и записи времени будут доступны только вам.
         </div>
         <form onsubmit="event.preventDefault();authSetup();">
-        <div class="auth-field">
-          <label>Логин</label>
-          <input class="auth-input" type="text" id="auth-setup-login" placeholder="Телефон, email или логин"
-            autocomplete="username" inputmode="text"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-new-pass')?.focus()}">
-          <div style="font-size:11px;color:var(--text2);margin-top:6px">Телефон: 89001234567 или +79001234567 · email · логин</div>
-        </div>
-        <div class="auth-field">
-          <label>Новый пароль</label>
-          <div style="position:relative">
-            <input class="auth-input" type="password" id="auth-new-pass" placeholder="Минимум 8 символов"
-              autocomplete="new-password">
-            <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-new-pass')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+          <div class="auth-field">
+            <label for="auth-setup-login">Логин</label>
+            <input class="auth-input" type="text" id="auth-setup-login" placeholder="Телефон, email или логин"
+              autocomplete="username" inputmode="text"
+              oninput="authOnRegisterLoginInput()"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-new-pass')?.focus()}">
+            <div class="auth-pass-hint">Телефон: 89001234567 · email · логин от 3 символов</div>
+            <div id="auth-setup-login-field-err" class="auth-field-error"></div>
           </div>
-        </div>
-        <div class="auth-field" style="margin-bottom:20px">
-          <label>Повторите пароль</label>
-          <input class="auth-input" type="password" id="auth-new-pass2" placeholder="••••••••"
-            autocomplete="new-password">
-        </div>
-        <button type="submit" class="auth-btn" id="auth-setup-btn">Создать аккаунт и войти</button>
+          <div class="auth-field">
+            <label for="auth-new-pass">Пароль</label>
+            <div class="auth-input-wrap">
+              <input class="auth-input" type="password" id="auth-new-pass" placeholder="Минимум 8 символов"
+                autocomplete="new-password" style="padding-right:44px"
+                oninput="authUpdatePassStrength()">
+              <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-new-pass')" aria-label="Показать пароль" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="auth-pass-strength"><div class="auth-pass-strength-bar" id="auth-pass-strength-bar"></div></div>
+            <div class="auth-pass-hint" id="auth-pass-strength-hint"></div>
+          </div>
+          <div class="auth-field" style="margin-bottom:20px">
+            <label for="auth-new-pass2">Повторите пароль</label>
+            <input class="auth-input" type="password" id="auth-new-pass2" placeholder="••••••••"
+              autocomplete="new-password" oninput="authClearFieldError('auth-new-pass2')">
+            <div id="auth-new-pass2-field-err" class="auth-field-error"></div>
+          </div>
+          <button type="submit" class="auth-btn" id="auth-setup-btn">
+            <span class="auth-spinner"></span>
+            <span class="auth-btn-text">Создать аккаунт</span>
+          </button>
         </form>
-        <button type="button" onclick="authShowUnlock()" style="width:100%;margin-top:12px;padding:9px;background:transparent;border:none;color:var(--text2);font-size:13px;cursor:pointer">
-          ← Уже есть аккаунт? Войти
-        </button>
+        <div class="auth-link-row">Уже есть аккаунт? <button type="button" onclick="authSwitchTab('login')">Войти</button></div>
       </div>
     </div>
   </div>
@@ -1696,7 +1751,14 @@ const auth = {
 
   async fetchApiToken(login, password) {
     const res = await this.authFetch('/auth/token', { login, password });
-    if (!res?.ok || !res.token) return false;
+    if (!res) {
+      this._lastAuthError = 'network_error';
+      return false;
+    }
+    if (!res?.ok || !res.token) {
+      if (res.status === 429) this._lastAuthError = 'rate_limit';
+      return false;
+    }
     this.setApiToken(login, res.token);
     return true;
   },
@@ -1889,6 +1951,10 @@ const auth = {
       this.setLogin(login);
       return true;
     }
+    const hasLocal = this.hasLocalPassword(login);
+    await this.fetchServerHash(login);
+    const exists = hasLocal || !!this._serverHash;
+    this._lastAuthError = exists ? 'invalid_password' : 'user_not_found';
     return false;
   },
 
@@ -1900,7 +1966,11 @@ const auth = {
       const reg = await this.registerApi(login, pass);
       if (!reg.ok) {
         let msg = reg.error || 'register failed';
-        if (msg.includes('8 characters')) msg = 'Минимум 8 символов';
+        if (msg === 'login taken' || msg.includes('login taken')) msg = 'Этот логин уже занят';
+        else if (msg.includes('8 characters') || msg.includes('at least')) msg = 'Минимум 8 символов';
+        else if (msg === 'invalid email') msg = 'Некорректный email';
+        else if (msg === 'invalid phone') msg = 'Некорректный номер телефона';
+        else if (msg === 'invalid login') msg = 'Некорректный логин';
         throw new Error(msg);
       }
       this._sessionPass = pass;
@@ -2104,13 +2174,143 @@ const webauthn = {
 function authMsg(text, type) {
   const el = document.getElementById('auth-msg');
   if (!el) return;
-  el.textContent = text; el.className = `auth-msg ${type}`; el.style.display = text ? '' : 'none';
+  el.textContent = text;
+  el.className = `auth-msg ${type || ''}`;
+  el.style.display = text ? '' : 'none';
 }
 function authClearMsg() { authMsg('', ''); }
+
+function authSetFieldError(inputId, errId, message) {
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errId);
+  if (input) input.classList.toggle('err', !!message);
+  if (err) {
+    err.textContent = message || '';
+    err.classList.toggle('show', !!message);
+  }
+}
+
+function authClearFieldError(inputId) {
+  const errMap = {
+    'auth-login': 'auth-login-field-err',
+    'auth-pass': 'auth-pass-field-err',
+    'auth-setup-login': 'auth-setup-login-field-err',
+    'auth-new-pass2': 'auth-new-pass2-field-err'
+  };
+  authSetFieldError(inputId, errMap[inputId] || '', '');
+}
+
+function authClearAllFieldErrors() {
+  ['auth-login', 'auth-pass', 'auth-setup-login', 'auth-new-pass2'].forEach(authClearFieldError);
+}
+
+function authShakeCard() {
+  const card = document.getElementById('auth-card');
+  if (!card) return;
+  card.classList.remove('shake');
+  void card.offsetWidth;
+  card.classList.add('shake');
+  setTimeout(() => card.classList.remove('shake'), 500);
+}
+
+function authSetBtnLoading(btnId, loading, text) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = !!loading;
+  btn.classList.toggle('loading', !!loading);
+  const label = btn.querySelector('.auth-btn-text');
+  if (label && text) label.textContent = text;
+}
+
+function authFormatLoginError(reason, login) {
+  const l = login ? `«${login}»` : 'этим логином';
+  if (reason === 'local_needs_upgrade') {
+    return `Локальный пароль найден, но для сервера нужен пароль от ${auth.MIN_PASSWORD_LENGTH} символов. Зарегистрируйте новый аккаунт.`;
+  }
+  if (reason === 'local_server_mismatch') {
+    return 'Локальный пароль не совпадает с серверным. Введите пароль от серверного аккаунта.';
+  }
+  if (reason === 'invalid_password') {
+    return `Неверный пароль для ${l}. Проверьте раскладку и регистр.`;
+  }
+  if (reason === 'user_not_found') {
+    return `Аккаунт ${l} не найден. Зарегистрируйтесь или проверьте логин.`;
+  }
+  if (reason === 'network_error') {
+    return 'Нет связи с сервером. Проверьте интернет и попробуйте снова.';
+  }
+  if (reason === 'rate_limit') {
+    return 'Слишком много попыток входа. Подождите минуту и попробуйте снова.';
+  }
+  return `Не удалось войти как ${l}. Проверьте логин и пароль (мин. ${auth.MIN_PASSWORD_LENGTH} символов).`;
+}
+
+function authSwitchTab(tab) {
+  const isLogin = tab !== 'register';
+  document.getElementById('auth-login-panel').style.display = isLogin ? '' : 'none';
+  document.getElementById('auth-register-panel').style.display = isLogin ? 'none' : '';
+  document.getElementById('auth-tab-login')?.classList.toggle('on', isLogin);
+  document.getElementById('auth-tab-register')?.classList.toggle('on', !isLogin);
+  authClearMsg();
+  authClearAllFieldErrors();
+  const overlay = document.getElementById('auth-success-overlay');
+  if (overlay) overlay.classList.remove('show');
+  setTimeout(() => {
+    document.getElementById(isLogin ? 'auth-login' : 'auth-setup-login')?.focus();
+  }, 60);
+}
 
 function authTogglePass(id) {
   const el = document.getElementById(id);
   if (el) el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function authUpdatePassStrength() {
+  const pass = document.getElementById('auth-new-pass')?.value || '';
+  const bar = document.getElementById('auth-pass-strength-bar');
+  const hint = document.getElementById('auth-pass-strength-hint');
+  if (!bar || !hint) return;
+  let score = 0;
+  if (pass.length >= 8) score++;
+  if (pass.length >= 12) score++;
+  if (/[A-ZА-Я]/.test(pass) && /[a-zа-я]/.test(pass)) score++;
+  if (/\d/.test(pass)) score++;
+  if (/[^A-Za-zА-Яа-я0-9]/.test(pass)) score++;
+  const levels = [
+    { w: '0%', c: 'transparent', t: '' },
+    { w: '25%', c: 'var(--red)', t: 'Слабый пароль' },
+    { w: '50%', c: 'var(--amber)', t: 'Средний пароль' },
+    { w: '75%', c: 'var(--accent)', t: 'Хороший пароль' },
+    { w: '100%', c: 'var(--green)', t: 'Надёжный пароль' }
+  ];
+  const lvl = pass ? levels[Math.min(score, 4)] : levels[0];
+  bar.style.width = pass ? lvl.w : '0%';
+  bar.style.background = lvl.c;
+  hint.textContent = pass ? lvl.t : '';
+}
+
+function authOnRegisterLoginInput() {
+  authClearFieldError('auth-setup-login');
+}
+
+function authPlaySuccess(login, isRegister) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('auth-success-overlay');
+    const title = document.getElementById('auth-success-title');
+    const sub = document.getElementById('auth-success-sub');
+    const screen = document.getElementById('auth-screen');
+    if (title) title.textContent = isRegister ? 'Аккаунт создан!' : 'Добро пожаловать!';
+    if (sub) sub.textContent = login ? `Вход как ${login}` : '';
+    overlay?.classList.add('show');
+    setTimeout(() => {
+      screen?.classList.add('leaving');
+      setTimeout(() => {
+        overlay?.classList.remove('show');
+        screen?.classList.remove('leaving');
+        resolve();
+      }, 480);
+    }, 900);
+  });
 }
 
 function authGetUnlockLogin() {
@@ -2118,6 +2318,7 @@ function authGetUnlockLogin() {
 }
 
 function authOnLoginInput() {
+  authClearFieldError('auth-login');
   authUpdateBiometricUI();
   authUpdateLoginHint();
 }
@@ -2157,39 +2358,28 @@ async function authBootScreen() {
 
   const hasLocal = auth.hasLocalPassword(lastLogin);
   const hasSession = auth.isLoggedIn();
-  const showSetup = serverUsers === false && !hasLocal && !auth._serverHash && !hasSession;
+  const showRegisterFirst = serverUsers === false && !hasLocal && !auth._serverHash && !hasSession;
 
-  document.getElementById('auth-unlock-form').style.display = showSetup ? 'none' : '';
-  document.getElementById('auth-setup-form').style.display  = showSetup ? '' : 'none';
-  const resetBlock = document.getElementById('auth-reset-block');
-  if (resetBlock) {
-    const resetText = resetBlock.querySelector('div');
-    const resetBtn = resetBlock.querySelector('button');
-    if (showSetup) {
-      resetBlock.style.display = 'none';
-    } else if (auth.useServerAuth()) {
-      resetBlock.style.display = '';
-      if (resetText) resetText.textContent = 'Нет аккаунта или не помните пароль?';
-      if (resetBtn) resetBtn.textContent = 'Создать новый аккаунт';
-    } else {
-      resetBlock.style.display = serverUsers ? 'none' : '';
-      if (resetText) resetText.textContent = 'Первый раз на этом устройстве без сервера?';
-      if (resetBtn) resetBtn.textContent = 'Установить пароль';
-    }
-  }
+  authSwitchTab(showRegisterFirst ? 'register' : 'login');
 
   const setupHint = document.getElementById('auth-setup-hint');
   if (setupHint) {
-    setupHint.textContent = sb.isEnabled()
-      ? 'Создайте свой аккаунт. Каждый пользователь видит только свои проекты и записи.'
-      : 'Создайте аккаунт. Данные сохранятся только в этом браузере.';
+    if (auth.useServerAuth()) {
+      setupHint.textContent = 'Создайте учётную запись на сервере. Каждый пользователь видит только свои проекты и записи.';
+    } else if (sb.isEnabled()) {
+      setupHint.textContent = 'Создайте свой аккаунт. Каждый пользователь видит только свои проекты и записи.';
+    } else {
+      setupHint.textContent = 'Создайте аккаунт. Данные сохранятся в этом браузере на этом устройстве.';
+    }
   }
 
   authUpdateBiometricUI();
   authUpdateLoginHint();
+  authUpdatePassStrength();
   authClearMsg();
+  authClearAllFieldErrors();
   setTimeout(() => {
-    const f = showSetup ? 'auth-setup-login' : (loginEl?.value ? 'auth-pass' : 'auth-login');
+    const f = showRegisterFirst ? 'auth-setup-login' : (loginEl?.value ? 'auth-pass' : 'auth-login');
     document.getElementById(f)?.focus();
   }, 80);
 }
@@ -2197,16 +2387,27 @@ async function authBootScreen() {
 let appStarted = false;
 
 async function authUnlock() {
+  authClearAllFieldErrors();
   const login = authGetUnlockLogin();
   const err = auth.validateLogin(login);
-  if (err) { authMsg(err, 'err'); return; }
+  if (err) {
+    authSetFieldError('auth-login', 'auth-login-field-err', err);
+    authMsg(err, 'err');
+    authShakeCard();
+    return;
+  }
   const pass = document.getElementById('auth-pass').value;
-  if (!pass) { authMsg('Введите пароль', 'err'); return; }
+  if (!pass) {
+    authSetFieldError('auth-pass', 'auth-pass-field-err', 'Введите пароль');
+    authMsg('Введите пароль', 'err');
+    authShakeCard();
+    return;
+  }
   auth.setLogin(login);
   auth.clearApiToken(login);
   auth._authBusy = true;
-  const btn = document.getElementById('auth-unlock-btn');
-  btn.disabled = true; btn.textContent = 'Проверяем...';
+  authSetBtnLoading('auth-unlock-btn', true, 'Проверяем…');
+  authClearMsg();
   try {
     const ok = await auth.checkPassword(login, pass);
     if (ok) {
@@ -2215,29 +2416,25 @@ async function authUnlock() {
       if (auth.useServerAuth() && !auth.getApiToken()) {
         authMsg('Вход выполнен, но сессия сервера не создана. Проверьте пароль (мин. 8 символов).', 'err');
         auth.logout();
+        authShakeCard();
         return;
       }
-      await authAfterSuccess();
+      await authAfterSuccess(false);
     } else {
-      const reason = auth._lastAuthError;
-      if (reason === 'local_needs_upgrade') {
-        authMsg(`Локальный пароль найден, но для сервера нужен пароль от ${auth.MIN_PASSWORD_LENGTH} символов. Создайте новый аккаунт через «Установить пароль».`, 'err');
-      } else if (reason === 'local_server_mismatch') {
-        authMsg('Локальный пароль не совпадает с серверным. Введите пароль от серверного аккаунта.', 'err');
-      } else if (reason === 'invalid_password') {
-        authMsg(`Неверный пароль для «${login}». Проверьте раскладку и регистр.`, 'err');
-      } else if (reason === 'user_not_found') {
-        authMsg(`Аккаунт «${login}» не найден. Создайте новый или проверьте логин.`, 'err');
+      const msg = authFormatLoginError(auth._lastAuthError, login);
+      authMsg(msg, 'err');
+      if (auth._lastAuthError === 'user_not_found') {
+        authSetFieldError('auth-login', 'auth-login-field-err', 'Аккаунт не найден');
       } else {
-        authMsg(`Не удалось войти как «${login}». Проверьте логин и пароль (мин. ${auth.MIN_PASSWORD_LENGTH} символов).`, 'err');
+        authSetFieldError('auth-pass', 'auth-pass-field-err', 'Неверный пароль');
       }
+      authShakeCard();
       document.getElementById('auth-pass').value = '';
       document.getElementById('auth-pass').focus();
     }
   } finally {
     auth._authBusy = false;
-    btn.disabled = false;
-    btn.textContent = 'Войти';
+    authSetBtnLoading('auth-unlock-btn', false, 'Войти');
   }
 }
 
@@ -2257,7 +2454,7 @@ async function authBiometricUnlock() {
         return;
       }
       auth.login(login);
-      await authAfterSuccess();
+      await authAfterSuccess(false);
     } else {
       authMsg(webauthn.label() + ' не распознан', 'err');
     }
@@ -2268,49 +2465,67 @@ async function authBiometricUnlock() {
 }
 
 function authShowSetup() {
-  document.getElementById('auth-unlock-form').style.display = 'none';
-  document.getElementById('auth-setup-form').style.display  = '';
-  authClearMsg();
-  setTimeout(() => document.getElementById('auth-setup-login')?.focus(), 80);
+  authSwitchTab('register');
 }
 
 function authShowUnlock() {
-  document.getElementById('auth-setup-form').style.display = 'none';
-  document.getElementById('auth-unlock-form').style.display = '';
-  authClearMsg();
-  setTimeout(() => document.getElementById('auth-login')?.focus(), 80);
+  authSwitchTab('login');
 }
 
 async function authSetup() {
+  authClearAllFieldErrors();
   const login = auth.normalizeLogin(document.getElementById('auth-setup-login')?.value || '');
   const err = auth.validateLogin(login);
-  if (err) { authMsg(err, 'err'); return; }
+  if (err) {
+    authSetFieldError('auth-setup-login', 'auth-setup-login-field-err', err);
+    authMsg(err, 'err');
+    authShakeCard();
+    return;
+  }
   const pass  = document.getElementById('auth-new-pass').value;
   const pass2 = document.getElementById('auth-new-pass2').value;
-  if (!pass) { authMsg('Введите пароль', 'err'); return; }
+  if (!pass) {
+    authMsg('Введите пароль', 'err');
+    authShakeCard();
+    return;
+  }
   const passErr = auth.validatePassword(pass);
-  if (passErr) { authMsg(passErr, 'err'); return; }
-  if (pass !== pass2)  { authMsg('Пароли не совпадают', 'err'); return; }
+  if (passErr) {
+    authMsg(passErr, 'err');
+    authShakeCard();
+    return;
+  }
+  if (pass !== pass2) {
+    authSetFieldError('auth-new-pass2', 'auth-new-pass2-field-err', 'Пароли не совпадают');
+    authMsg('Пароли не совпадают', 'err');
+    authShakeCard();
+    return;
+  }
   auth.setLogin(login);
   auth._authBusy = true;
   await auth.fetchServerHash(login);
   if (auth._serverHash) {
     auth._authBusy = false;
-    authMsg('Этот логин уже занят. Войдите с паролем.', 'err');
-    await authBootScreen();
+    authSetFieldError('auth-setup-login', 'auth-setup-login-field-err', 'Логин уже занят');
+    authMsg('Этот логин уже занят. Войдите с паролем или выберите другой.', 'err');
+    authShakeCard();
     return;
   }
-  const btn = document.getElementById('auth-setup-btn');
-  btn.disabled = true; btn.textContent = 'Сохраняем...';
+  authSetBtnLoading('auth-setup-btn', true, 'Создаём аккаунт…');
+  authClearMsg();
   try {
     await auth.setPassword(login, pass);
   } catch (e) {
-    authMsg(e.message === 'login taken' ? 'Этот логин уже занят' : (e.message || 'Не удалось создать аккаунт'), 'err');
+    const msg = e.message || 'Не удалось создать аккаунт';
+    if (msg.includes('занят')) {
+      authSetFieldError('auth-setup-login', 'auth-setup-login-field-err', 'Логин уже занят');
+    }
+    authMsg(msg, 'err');
+    authShakeCard();
     return;
   } finally {
     auth._authBusy = false;
-    btn.disabled = false;
-    btn.textContent = 'Создать аккаунт и войти';
+    authSetBtnLoading('auth-setup-btn', false, 'Создать аккаунт');
   }
   if (sb.isEnabled()) {
     const claim = await auth.claimLegacyServerData('default');
@@ -2329,7 +2544,7 @@ async function authSetup() {
     await authBootScreen();
     return;
   }
-  await authAfterSuccess();
+  await authAfterSuccess(true);
 }
 
 async function authOfferBiometric() {
@@ -2365,7 +2580,9 @@ function authDisableBiometric() {
   renderPage();
 }
 
-async function authAfterSuccess() {
+async function authAfterSuccess(isRegister) {
+  const login = auth.getLogin();
+  await authPlaySuccess(login, !!isRegister);
   authSuccess();
   await authOfferBiometric();
 }
@@ -2388,8 +2605,14 @@ function authLogout() {
   state.schedule = normalizeSchedule({});
   state.timer = normalizeTimer({});
   document.getElementById('main-app').style.display = 'none';
-  document.getElementById('auth-screen').style.display = 'flex';
+  const screen = document.getElementById('auth-screen');
+  if (screen) {
+    screen.style.display = 'flex';
+    screen.classList.remove('leaving');
+  }
   document.getElementById('auth-pass').value = '';
+  document.getElementById('auth-new-pass').value = '';
+  document.getElementById('auth-new-pass2').value = '';
   authBootScreen();
 }
 
