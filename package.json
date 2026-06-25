@@ -8,7 +8,7 @@
     "jwt": "node scripts/generate-jwt.mjs",
     "copy:www": "node scripts/copy-www.mjs",
     "build:bridge": "node scripts/build-native-bridge.mjs",
-    "build:cap": "npm run icons && npm run copy:www && npm run build:bridge",
+    "build:cap": "npm run copy:www && npm run build:bridge",
     "cap:sync": "npm run build:cap && npx cap sync",
     "cap:open:android": "npx cap open android",
     "cap:open:ios": "npx cap open ios",

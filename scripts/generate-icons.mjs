@@ -1,9 +1,37 @@
 #!/usr/bin/env node
 /**
- * Generate PWA icons (192x192, 512x512) for local dev / Netlify deploy.
+ * Restore PWA icons from icons/ or skip if branded assets already exist.
+ * Placeholder generation only when no source icons are available.
  */
-import { writeFileSync } from 'fs';
+import { writeFileSync, existsSync, statSync, copyFileSync } from 'fs';
 import { PNG } from 'pngjs';
+
+const BRANDED_MIN_BYTES = 2000;
+
+function hasBrandedIcons() {
+  for (const file of ['icon-192.png', 'icon-512.png']) {
+    if (!existsSync(file)) return false;
+    if (statSync(file).size < BRANDED_MIN_BYTES) return false;
+  }
+  return true;
+}
+
+function copyFromSource() {
+  if (!existsSync('icons/icon-192.png') || !existsSync('icons/icon-512.png')) return false;
+  copyFileSync('icons/icon-192.png', 'icon-192.png');
+  copyFileSync('icons/icon-512.png', 'icon-512.png');
+  console.log('Restored icon-192.png and icon-512.png from icons/');
+  return true;
+}
+
+if (hasBrandedIcons()) {
+  console.log('Branded PWA icons already present, skipping.');
+  process.exit(0);
+}
+
+if (copyFromSource()) {
+  process.exit(0);
+}
 
 function createIcon(size) {
   const png = new PNG({ width: size, height: size });
@@ -19,7 +47,6 @@ function createIcon(size) {
     }
   }
 
-  // Simple "TL" block letters
   const scale = size / 192;
   const bar = Math.max(2, Math.round(14 * scale));
   const gap = Math.round(8 * scale);
@@ -41,10 +68,8 @@ function createIcon(size) {
     }
   }
 
-  // T
   fillRect(startX, startY, letterW, bar);
   fillRect(startX + Math.round(letterW / 2 - bar / 2), startY, bar, letterH);
-  // L
   const lx = startX + letterW + gap;
   fillRect(lx, startY, bar, letterH);
   fillRect(lx, startY + letterH - bar, letterW, bar);
@@ -54,4 +79,4 @@ function createIcon(size) {
 
 writeFileSync('icon-192.png', createIcon(192));
 writeFileSync('icon-512.png', createIcon(512));
-console.log('Created icon-192.png and icon-512.png');
+console.warn('Created placeholder icon-192.png and icon-512.png (add branded files to icons/)');

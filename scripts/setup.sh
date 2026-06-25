@@ -60,8 +60,8 @@ else
   echo "ANON_KEY=${ANON_KEY}" >> .env
 fi
 
-if [[ ! -f icon-192.png ]]; then
-  echo "→ Generating PWA icons..."
+if [[ ! -f icon-192.png ]] || [[ $(wc -c < icon-192.png) -lt 2000 ]]; then
+  echo "→ Restoring PWA icons..."
   npm run icons
 fi
 

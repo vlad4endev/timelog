@@ -16,6 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script src="config.js"></script>
 <title>TimeLog — Учёт рабочего времени</title>
 <style>
@@ -64,6 +65,7 @@ input,select,textarea{font-family:inherit;outline:none}
 .main{margin-left:220px;flex:1;min-width:0;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;width:100%;max-width:100%}
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;backdrop-filter:blur(8px);background:rgba(255,255,255,.92)}
 .topbar-left,.topbar-center,.topbar-right{display:flex;align-items:center}
+.topbar-logo{display:none;width:28px;height:28px;border-radius:7px;flex-shrink:0;object-fit:cover;box-shadow:0 1px 4px rgba(5,150,105,.2)}
 .topbar-center{flex:1;min-width:0}
 .topbar-right{gap:8px;flex-shrink:0}
 .content{padding:24px;flex:1;min-width:0;max-width:100%;overflow-x:hidden}
@@ -71,7 +73,8 @@ input,select,textarea{font-family:inherit;outline:none}
 
 /* Sidebar */
 .sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 2px 8px rgba(5,150,105,.25)}
+.logo-icon{width:32px;height:32px;border-radius:8px;flex-shrink:0;overflow:hidden;box-shadow:0 2px 8px rgba(5,150,105,.25)}
+.logo-icon img{display:block;width:100%;height:100%;object-fit:cover}
 .logo-text{font-size:16px;font-weight:700;color:var(--text)}
 .logo-sub{font-size:11px;color:var(--text2);margin-top:1px}
 .nav{flex:1;padding:12px 0;overflow-y:auto}
@@ -250,7 +253,8 @@ tr:hover td{background:var(--bg3)}
 .auth-screen{position:fixed;inset:0;background:linear-gradient(160deg,#f4f6f8 0%,#ecfdf5 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
 .auth-box{width:100%;max-width:400px}
 .auth-logo{text-align:center;margin-bottom:32px}
-.auth-logo-icon{width:56px;height:56px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:14px;display:inline-flex;align-items:center;justify-content:center;color:#fff;margin-bottom:14px;box-shadow:0 8px 24px rgba(5,150,105,.25)}
+.auth-logo-icon{width:56px;height:56px;border-radius:14px;display:inline-block;margin-bottom:14px;overflow:hidden;box-shadow:0 8px 24px rgba(5,150,105,.25)}
+.auth-logo-icon img{display:block;width:100%;height:100%;object-fit:cover}
 .auth-logo-name{font-size:22px;font-weight:700}
 .auth-logo-sub{font-size:13px;color:var(--text2);margin-top:4px}
 .auth-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 28px 24px;box-shadow:var(--shadow)}
@@ -575,6 +579,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .sidebar-backdrop.open{display:block}
   .main{margin-left:0}
   .hamburger{display:none!important}
+  .topbar-logo{display:block}
   .mobile-bottom-nav{display:grid}
   .content{padding:12px 12px calc(12px + var(--bottom-nav-h) + var(--safe-bottom) + 4px)}
   body.timer-active-mobile .content{padding-bottom:calc(12px + var(--bottom-nav-h) + 48px + var(--safe-bottom))}
@@ -813,7 +818,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 <div id="auth-screen" class="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
-      <div class="auth-logo-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+      <div class="auth-logo-icon"><img src="icon-192.png" width="56" height="56" alt="TimeLog"></div>
       <div class="auth-logo-name">TimeLog</div>
       <div class="auth-logo-sub">Учёт рабочего времени для разработчиков</div>
     </div>
@@ -895,7 +900,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+    <div class="logo-icon"><img src="icon-192.png" width="32" height="32" alt="TimeLog"></div>
     <div>
       <div class="logo-text">TimeLog</div>
       <div class="logo-sub">Трекер рабочего времени</div>
@@ -968,6 +973,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
+      <img class="topbar-logo" src="icon-192.png" width="28" height="28" alt="TimeLog">
       <button class="hamburger" onclick="toggleSidebar()" aria-label="Меню">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
