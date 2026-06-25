@@ -42,6 +42,14 @@ export function legacyClientHash(login, password) {
     .digest('hex');
 }
 
+/** Oldest client hashes: SHA-256(password + salt) without login prefix. */
+export function legacyPassOnlyHash(password) {
+  return crypto
+    .createHash('sha256')
+    .update(`${password}${LEGACY_SALT}`)
+    .digest('hex');
+}
+
 export function isLegacyHash(stored) {
   return typeof stored === 'string' && /^[a-f0-9]{64}$/.test(stored);
 }
@@ -68,12 +76,17 @@ export async function verifyPassword(login, password, stored) {
     return verifyScrypt(password, stored);
   }
   if (isLegacyHash(stored)) {
-    const h = legacyClientHash(login, password);
-    try {
-      return crypto.timingSafeEqual(Buffer.from(h, 'hex'), Buffer.from(stored, 'hex'));
-    } catch {
-      return false;
+    const candidates = [legacyClientHash(login, password), legacyPassOnlyHash(password)];
+    for (const h of candidates) {
+      try {
+        if (crypto.timingSafeEqual(Buffer.from(h, 'hex'), Buffer.from(stored, 'hex'))) {
+          return true;
+        }
+      } catch {
+        /* try next */
+      }
     }
+    return false;
   }
   return false;
 }

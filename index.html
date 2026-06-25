@@ -833,6 +833,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
           <input class="auth-input" type="text" id="auth-login" placeholder="Телефон, email или логин"
             autocomplete="username" inputmode="text"
             oninput="authOnLoginInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-pass')?.focus()}">
+          <div id="auth-login-hint" class="text-xs text-muted" style="margin-top:6px;min-height:16px"></div>
         </div>
         <div class="auth-field">
           <label>Пароль</label>
@@ -891,6 +892,9 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
         </div>
         <button type="submit" class="auth-btn" id="auth-setup-btn">Создать аккаунт и войти</button>
         </form>
+        <button type="button" onclick="authShowUnlock()" style="width:100%;margin-top:12px;padding:9px;background:transparent;border:none;color:var(--text2);font-size:13px;cursor:pointer">
+          ← Уже есть аккаунт? Войти
+        </button>
       </div>
     </div>
   </div>
@@ -1665,12 +1669,16 @@ const auth = {
     localStorage.removeItem(this.tokenKey(l));
   },
 
-  async authFetch(path, body) {
+  async authFetch(path, body, opts = {}) {
     const base = this.authBaseUrl();
     if (!base) return null;
     const headers = { 'Content-Type': 'application/json' };
-    const token = this.getApiToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const pathOnly = path.split('?')[0];
+    const isPublic = /^\/auth\/(token|register|exists|has-users|health)$/.test(pathOnly);
+    if (!isPublic && !opts.noAuth) {
+      const token = this.getApiToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
     try {
       const r = await fetch(`${base}${path}`, {
         method: body !== undefined ? 'POST' : 'GET',
@@ -1848,6 +1856,10 @@ const auth = {
       if (!res?.ok) {
         const h = await this.hash(login, pass);
         res = await this.authFetch('/auth/token', { login, pwHash: h });
+      }
+      if (!res?.ok) {
+        const legacyH = await this.legacyHash(pass);
+        res = await this.authFetch('/auth/token', { login, pwHash: legacyH });
       }
       if (res?.ok) {
         if (res.token) this.setApiToken(login, res.token);
@@ -2105,7 +2117,19 @@ function authGetUnlockLogin() {
   return auth.normalizeLogin(document.getElementById('auth-login')?.value || auth.getLastLogin() || '');
 }
 
-function authOnLoginInput() { authUpdateBiometricUI(); }
+function authOnLoginInput() {
+  authUpdateBiometricUI();
+  authUpdateLoginHint();
+}
+
+function authUpdateLoginHint() {
+  const el = document.getElementById('auth-login-hint');
+  const raw = document.getElementById('auth-login')?.value || '';
+  if (!el) return;
+  const norm = auth.normalizeLogin(raw);
+  if (!raw.trim() || !norm) { el.textContent = ''; return; }
+  el.textContent = norm !== raw.trim() ? `Будет использован: ${norm}` : '';
+}
 
 function authUpdateBiometricUI() {
   const login = authGetUnlockLogin();
@@ -2139,8 +2163,19 @@ async function authBootScreen() {
   document.getElementById('auth-setup-form').style.display  = showSetup ? '' : 'none';
   const resetBlock = document.getElementById('auth-reset-block');
   if (resetBlock) {
-    if (auth.useServerAuth() || showSetup) resetBlock.style.display = 'none';
-    else resetBlock.style.display = serverUsers ? 'none' : '';
+    const resetText = resetBlock.querySelector('div');
+    const resetBtn = resetBlock.querySelector('button');
+    if (showSetup) {
+      resetBlock.style.display = 'none';
+    } else if (auth.useServerAuth()) {
+      resetBlock.style.display = '';
+      if (resetText) resetText.textContent = 'Нет аккаунта или не помните пароль?';
+      if (resetBtn) resetBtn.textContent = 'Создать новый аккаунт';
+    } else {
+      resetBlock.style.display = serverUsers ? 'none' : '';
+      if (resetText) resetText.textContent = 'Первый раз на этом устройстве без сервера?';
+      if (resetBtn) resetBtn.textContent = 'Установить пароль';
+    }
   }
 
   const setupHint = document.getElementById('auth-setup-hint');
@@ -2151,6 +2186,7 @@ async function authBootScreen() {
   }
 
   authUpdateBiometricUI();
+  authUpdateLoginHint();
   authClearMsg();
   setTimeout(() => {
     const f = showSetup ? 'auth-setup-login' : (loginEl?.value ? 'auth-pass' : 'auth-login');
@@ -2167,6 +2203,7 @@ async function authUnlock() {
   const pass = document.getElementById('auth-pass').value;
   if (!pass) { authMsg('Введите пароль', 'err'); return; }
   auth.setLogin(login);
+  auth.clearApiToken(login);
   auth._authBusy = true;
   const btn = document.getElementById('auth-unlock-btn');
   btn.disabled = true; btn.textContent = 'Проверяем...';
@@ -2187,12 +2224,12 @@ async function authUnlock() {
         authMsg(`Локальный пароль найден, но для сервера нужен пароль от ${auth.MIN_PASSWORD_LENGTH} символов. Создайте новый аккаунт через «Установить пароль».`, 'err');
       } else if (reason === 'local_server_mismatch') {
         authMsg('Локальный пароль не совпадает с серверным. Введите пароль от серверного аккаунта.', 'err');
-      } else if (reason === 'user_not_found') {
-        authMsg('Аккаунт не найден на сервере. Проверьте логин или создайте новый аккаунт.', 'err');
       } else if (reason === 'invalid_password') {
-        authMsg('Неверный пароль', 'err');
+        authMsg(`Неверный пароль для «${login}». Проверьте раскладку и регистр.`, 'err');
+      } else if (reason === 'user_not_found') {
+        authMsg(`Аккаунт «${login}» не найден. Создайте новый или проверьте логин.`, 'err');
       } else {
-        authMsg('Неверный логин или пароль', 'err');
+        authMsg(`Не удалось войти как «${login}». Проверьте логин и пароль (мин. ${auth.MIN_PASSWORD_LENGTH} символов).`, 'err');
       }
       document.getElementById('auth-pass').value = '';
       document.getElementById('auth-pass').focus();
@@ -2235,6 +2272,13 @@ function authShowSetup() {
   document.getElementById('auth-setup-form').style.display  = '';
   authClearMsg();
   setTimeout(() => document.getElementById('auth-setup-login')?.focus(), 80);
+}
+
+function authShowUnlock() {
+  document.getElementById('auth-setup-form').style.display = 'none';
+  document.getElementById('auth-unlock-form').style.display = '';
+  authClearMsg();
+  setTimeout(() => document.getElementById('auth-login')?.focus(), 80);
 }
 
 async function authSetup() {
