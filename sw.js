@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timelog-v9';
+const CACHE_NAME = 'timelog-v10';
 const TIMER_DB = 'timelog-timer';
 const TIMER_STORE = 'timer';
 const TIMER_NOTIF_TAG = 'timelog-active-timer';

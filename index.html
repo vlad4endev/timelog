@@ -3,6 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<style id="boot-critical">
+#auth-screen,#main-app,#global-boot-splash{display:none!important}
+html.tl-auth-boot #global-boot-splash{display:flex!important}
+html.tl-restore #main-app{display:flex!important}
+html.tl-restore #session-boot-overlay{display:flex!important}
+html.tl-restore #global-boot-splash{display:none!important}
+html.tl-show-auth #auth-screen{display:flex!important}
+</style>
+<script>
+(function(){
+  function cookieGet(name) {
+    var m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[$()*+.?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function hasSessionHint() {
+    try {
+      var login = localStorage.getItem('tl_login') || cookieGet('tl_login');
+      if (!login) return false;
+      if ((localStorage.getItem('tl_session') || cookieGet('tl_session')) === 'ok') return true;
+      if (localStorage.getItem('tl_api_token_' + login)) return true;
+      if (localStorage.getItem('tl_pw_hash_' + login)) return true;
+      if (localStorage.getItem('tl_pw_hash')) return true;
+    } catch (_) {}
+    return false;
+  }
+  document.documentElement.classList.add('tl-auth-boot');
+  try {
+    if (hasSessionHint()) {
+      document.documentElement.classList.add('tl-restore');
+      document.documentElement.classList.remove('tl-auth-boot');
+      var login = localStorage.getItem('tl_login') || cookieGet('tl_login');
+      if (login && !localStorage.getItem('tl_login')) localStorage.setItem('tl_login', login);
+      if (localStorage.getItem('tl_session') !== 'ok') localStorage.setItem('tl_session', 'ok');
+    }
+  } catch (_) {}
+})();
+</script>
 <meta name="theme-color" content="#059669">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,27 +56,6 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script src="config.js"></script>
 <title>TimeLog — Учёт рабочего времени</title>
-<script>
-(function(){
-  function cookieGet(name) {
-    var m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[$()*+.?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)'));
-    return m ? decodeURIComponent(m[1]) : '';
-  }
-  try {
-    var login = localStorage.getItem('tl_login') || cookieGet('tl_login');
-    var session = localStorage.getItem('tl_session') || cookieGet('tl_session');
-    if (session === 'ok' && login) {
-      document.documentElement.classList.add('tl-restore');
-      if (!localStorage.getItem('tl_login')) localStorage.setItem('tl_login', login);
-      if (localStorage.getItem('tl_session') !== 'ok') localStorage.setItem('tl_session', 'ok');
-    } else {
-      document.documentElement.classList.add('tl-auth-boot');
-    }
-  } catch (_) {
-    document.documentElement.classList.add('tl-auth-boot');
-  }
-})();
-</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -271,7 +287,10 @@ tr:hover td{background:var(--bg3)}
 .rate-preset{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:.15s}
 .rate-preset:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
 /* Auth screen */
-.auth-screen{position:fixed;inset:0;background:linear-gradient(160deg,#f4f6f8 0%,#ecfdf5 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden}
+.auth-screen{position:fixed;inset:0;background:linear-gradient(160deg,#f4f6f8 0%,#ecfdf5 100%);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;overflow:hidden}
+.global-boot-splash{position:fixed;inset:0;z-index:10001;display:none;align-items:center;justify-content:center;flex-direction:column;gap:20px;background:linear-gradient(160deg,#f4f6f8 0%,#ecfdf5 100%);padding:20px}
+.global-boot-logo{width:56px;height:56px;border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(5,150,105,.25)}
+.global-boot-logo img{display:block;width:100%;height:100%;object-fit:cover}
 .auth-box{width:100%;max-width:400px}
 .auth-logo{text-align:center;margin-bottom:32px}
 .auth-logo-icon{width:56px;height:56px;border-radius:14px;display:inline-block;margin-bottom:14px;overflow:hidden;box-shadow:0 8px 24px rgba(5,150,105,.25)}
@@ -342,12 +361,13 @@ tr:hover td{background:var(--bg3)}
 .auth-boot-spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:authSpin .7s linear infinite}
 .auth-boot-text{font-size:14px;color:var(--text2)}
 html.tl-restore #auth-screen{display:none!important}
+html.tl-auth-boot #auth-screen{display:none!important}
+html.tl-show-auth #auth-screen{display:flex!important}
 html.tl-restore #main-app{display:flex!important}
 html.tl-restore #session-boot-overlay{display:flex}
-html.tl-auth-boot #auth-card .auth-tabs,
-html.tl-auth-boot #auth-card .auth-panel,
-html.tl-auth-boot #auth-card #auth-msg{display:none!important}
-html.tl-auth-boot #auth-boot-panel{display:flex!important}
+html.tl-restore #global-boot-splash{display:none!important}
+html.tl-auth-boot #global-boot-splash{display:flex}
+html.tl-show-auth #global-boot-splash{display:none!important}
 .session-boot-overlay{position:fixed;inset:0;z-index:10000;background:var(--bg);display:none;align-items:center;justify-content:center}
 .hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
 .btn-pause{background:var(--amber);color:#fff}
@@ -879,6 +899,11 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 </style>
 </head>
 <body>
+
+<div id="global-boot-splash" class="global-boot-splash" aria-hidden="true">
+  <div class="global-boot-logo"><img src="icon-192.png" width="56" height="56" alt="TimeLog"></div>
+  <div class="auth-boot-spinner" aria-hidden="true"></div>
+</div>
 
 <!-- Auth Screen -->
 <div id="auth-screen" class="auth-screen">
@@ -2663,6 +2688,7 @@ async function authSetup() {
     authMsg('Аккаунт создан, но сессия сервера не получена. Попробуйте войти с паролем.', 'err');
     await auth.logout();
     await authBootScreen();
+    authRevealLoginScreen();
     return;
   }
   await authAfterSuccess(true);
@@ -2708,9 +2734,22 @@ async function authAfterSuccess(isRegister) {
   await authOfferBiometric();
 }
 
+function authRevealLoginScreen() {
+  document.documentElement.classList.remove('tl-restore', 'tl-auth-boot');
+  document.documentElement.classList.add('tl-show-auth');
+  const bootOverlay = document.getElementById('session-boot-overlay');
+  if (bootOverlay) bootOverlay.style.display = 'none';
+  document.getElementById('main-app').style.display = 'none';
+  const screen = document.getElementById('auth-screen');
+  if (screen) {
+    screen.style.display = 'flex';
+    screen.classList.remove('leaving');
+  }
+}
+
 function authSuccess() {
   appStarted = true;
-  document.documentElement.classList.remove('tl-restore', 'tl-auth-boot');
+  document.documentElement.classList.remove('tl-restore', 'tl-auth-boot', 'tl-show-auth');
   const bootOverlay = document.getElementById('session-boot-overlay');
   if (bootOverlay) bootOverlay.style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
@@ -2728,20 +2767,10 @@ function authLogout() {
     state.reports = [];
     state.schedule = normalizeSchedule({});
     state.timer = normalizeTimer({});
-    document.documentElement.classList.remove('tl-restore');
-    document.documentElement.classList.add('tl-auth-boot');
-    const bootOverlay = document.getElementById('session-boot-overlay');
-    if (bootOverlay) bootOverlay.style.display = 'none';
-    document.getElementById('main-app').style.display = 'none';
-    const screen = document.getElementById('auth-screen');
-    if (screen) {
-      screen.style.display = 'flex';
-      screen.classList.remove('leaving');
-    }
     document.getElementById('auth-pass').value = '';
     document.getElementById('auth-new-pass').value = '';
     document.getElementById('auth-new-pass2').value = '';
-    authBootScreen();
+    authBootScreen().then(() => authRevealLoginScreen());
   });
 }
 
@@ -7575,21 +7604,18 @@ function applyDockerConfig() {
 auth.migrateLegacyLocal();
 applyDockerConfig();
 (async () => {
-  await authBootScreen();
+  if (auth.useServerAuth()) {
+    await auth.restoreSessionFromServer();
+  }
   while (auth._authBusy) await new Promise(r => setTimeout(r, 50));
 
   if (auth.isLoggedIn()) {
-    if (auth.useServerAuth() && !auth.getApiToken()) {
-      await auth.restoreSessionFromServer();
-    }
     if (auth.useServerAuth() && !(await auth.ensureSession(auth.getLogin()))) {
       if (!appStarted) {
-        document.documentElement.classList.remove('tl-restore');
         await auth.logout();
-        document.documentElement.classList.remove('tl-auth-boot');
+        await authBootScreen();
         authMsg('Сессия истекла. Войдите с паролем ещё раз.', 'err');
-        document.getElementById('main-app').style.display = 'none';
-        document.getElementById('auth-screen').style.display = 'flex';
+        authRevealLoginScreen();
       }
       return;
     }
@@ -7598,11 +7624,11 @@ applyDockerConfig();
       applyDockerConfig();
       authSuccess();
     }
-  } else {
-    document.documentElement.classList.remove('tl-restore', 'tl-auth-boot');
-    document.getElementById('main-app').style.display = 'none';
-    document.getElementById('auth-screen').style.display = 'flex';
+    return;
   }
+
+  await authBootScreen();
+  authRevealLoginScreen();
 })();
 </script>
 </body>
