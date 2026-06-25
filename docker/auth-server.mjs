@@ -512,7 +512,7 @@ const server = http.createServer(async (req, res) => {
     const legacyLogin = normalizeLogin(body.from || 'default');
     try {
       const result = await claimLegacyData(session.login, legacyLogin);
-      json(res, result.claimed ? 200 : 409, result, req);
+      json(res, 200, result, req);
     } catch (e) {
       console.error('claim-legacy failed:', e);
       json(res, 500, { error: 'claim failed' }, req);
