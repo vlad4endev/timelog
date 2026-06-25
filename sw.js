@@ -1,16 +1,57 @@
-const CACHE_NAME = 'timelog-v7';
+const CACHE_NAME = 'timelog-v8';
 const TIMER_DB = 'timelog-timer';
 const TIMER_STORE = 'timer';
 const TIMER_NOTIF_TAG = 'timelog-active-timer';
 
-const ASSETS = [
+const OFFLINE_ASSETS = [
+  '/icon-192.png',
+  '/icon-512.png'
+];
+
+const SHELL_PATHS = new Set([
   '/',
   '/index.html',
   '/manifest.json',
   '/config.js',
-  '/icon-192.png',
-  '/icon-512.png'
-];
+  '/sw.js'
+]);
+
+function isShellRequest(request) {
+  if (request.mode === 'navigate') return true;
+  try {
+    const path = new URL(request.url).pathname;
+    return SHELL_PATHS.has(path);
+  } catch {
+    return false;
+  }
+}
+
+function cachePut(request, response) {
+  if (!response || response.status !== 200) return;
+  const clone = response.clone();
+  caches.open(CACHE_NAME).then(cache => cache.put(request, clone)).catch(() => {});
+}
+
+function networkFirst(request) {
+  return fetch(request)
+    .then(response => {
+      cachePut(request, response);
+      return response;
+    })
+    .catch(() => caches.match(request).then(cached => cached || caches.match('/index.html')));
+}
+
+function staleWhileRevalidate(request) {
+  return caches.match(request).then(cached => {
+    const network = fetch(request)
+      .then(response => {
+        cachePut(request, response);
+        return response;
+      })
+      .catch(() => null);
+    return cached || network.then(response => response || caches.match('/index.html'));
+  });
+}
 
 function openTimerDb() {
   return new Promise((resolve, reject) => {
@@ -153,7 +194,7 @@ function stopNotificationUpdates() {
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(OFFLINE_ASSETS))
   );
   self.skipWaiting();
 });
@@ -174,17 +215,11 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (!response || response.status !== 200) return response;
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return response;
-      }).catch(() => caches.match('/index.html'));
-    })
-  );
+  if (isShellRequest(event.request)) {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+  event.respondWith(staleWhileRevalidate(event.request));
 });
 
 self.addEventListener('message', event => {
@@ -220,11 +255,12 @@ self.addEventListener('notificationclick', event => {
   event.waitUntil(
     (async () => {
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      for (const client of clients) {
-        if ('focus' in client) {
-          if (action) client.postMessage({ type: 'NOTIF_ACTION', action });
-          return client.focus();
-        }
+      const sameOrigin = clients.find(client => {
+        try { return new URL(client.url).origin === self.location.origin; } catch { return false; }
+      });
+      if (sameOrigin && 'focus' in sameOrigin) {
+        if (action) sameOrigin.postMessage({ type: 'NOTIF_ACTION', action });
+        return sameOrigin.focus();
       }
       if (self.clients.openWindow) {
         const win = await self.clients.openWindow(url + (action ? `?timerAction=${action}` : ''));

@@ -21,6 +21,11 @@
     Cache-Control = "no-cache"
 
 [[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
   for = "/config.js"
   [headers.values]
     Cache-Control = "no-cache"

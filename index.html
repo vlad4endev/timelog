@@ -1668,11 +1668,14 @@ const auth = {
   async authFetch(path, body) {
     const base = this.authBaseUrl();
     if (!base) return null;
+    const headers = { 'Content-Type': 'application/json' };
+    const token = this.getApiToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     try {
       const r = await fetch(`${base}${path}`, {
-        method: body ? 'POST' : 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined
+        method: body !== undefined ? 'POST' : 'GET',
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) return { ok: false, status: r.status, ...data };
@@ -1695,6 +1698,13 @@ const auth = {
     if (!res?.ok || !res.token) return { ok: false, status: res?.status, error: res?.error || 'register failed' };
     this.setApiToken(login, res.token);
     return { ok: true };
+  },
+
+  async claimLegacyServerData(fromLogin = 'default') {
+    if (!this.useServerAuth() || !this.getApiToken()) return { claimed: false };
+    const res = await this.authFetch('/auth/claim-legacy', { from: fromLogin });
+    if (!res?.ok && res?.reason !== 'already_has_data') return { claimed: false, ...res };
+    return res || { claimed: false };
   },
 
   async changePasswordApi(login, currentPassword, newPassword) {
@@ -1770,6 +1780,7 @@ const auth = {
     if (this.useServerAuth()) {
       const res = await this.authFetch('/auth/has-users');
       if (res?.hasUsers !== undefined) return !!res.hasUsers;
+      if (res === null) return null;
       const last = this.getLastLogin();
       if (last) {
         const exists = await this.authFetch(`/auth/exists?login=${encodeURIComponent(last)}`);
@@ -2113,14 +2124,24 @@ async function authBootScreen() {
   if (loginEl && lastLogin) loginEl.value = lastLogin;
   if (setupLoginEl && lastLogin) setupLoginEl.value = lastLogin;
 
-  const serverUsers = await auth.serverHasUsers();
+  let serverUsers = false;
+  if (auth.useServerAuth() || sb.isEnabled()) {
+    const su = await auth.serverHasUsers();
+    serverUsers = su === null ? null : !!su;
+  }
   if (lastLogin) await auth.fetchServerHash(lastLogin);
-  const hasPass = serverUsers || auth.hasLocalPassword(lastLogin) || !!auth._serverHash;
 
-  document.getElementById('auth-unlock-form').style.display = hasPass ? '' : 'none';
-  document.getElementById('auth-setup-form').style.display  = hasPass ? 'none' : '';
+  const hasLocal = auth.hasLocalPassword(lastLogin);
+  const hasSession = auth.isLoggedIn();
+  const showSetup = serverUsers === false && !hasLocal && !auth._serverHash && !hasSession;
+
+  document.getElementById('auth-unlock-form').style.display = showSetup ? 'none' : '';
+  document.getElementById('auth-setup-form').style.display  = showSetup ? '' : 'none';
   const resetBlock = document.getElementById('auth-reset-block');
-  if (resetBlock) resetBlock.style.display = serverUsers ? 'none' : '';
+  if (resetBlock) {
+    if (auth.useServerAuth() || showSetup) resetBlock.style.display = 'none';
+    else resetBlock.style.display = serverUsers ? 'none' : '';
+  }
 
   const setupHint = document.getElementById('auth-setup-hint');
   if (setupHint) {
@@ -2132,7 +2153,7 @@ async function authBootScreen() {
   authUpdateBiometricUI();
   authClearMsg();
   setTimeout(() => {
-    const f = hasPass ? (loginEl?.value ? 'auth-pass' : 'auth-login') : 'auth-setup-login';
+    const f = showSetup ? 'auth-setup-login' : (loginEl?.value ? 'auth-pass' : 'auth-login');
     document.getElementById(f)?.focus();
   }, 80);
 }
@@ -2330,10 +2351,6 @@ function updateTopbarUser() {
     <button class="auth-logout" onclick="authLogout()">Выйти</button>`;
 }
 
-// Заглушки для совместимости
-function authSwitchTab() {}
-function authCheckSupabase() {}
-
 // ─── STATE ──────────────────────────────────────────────────────────────
 let state = {
   projects: [],
@@ -2364,6 +2381,51 @@ let state = {
 };
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────
+function applyLocalData(d) {
+  state.projects = d.projects || [];
+  state.entries  = d.entries  || [];
+  state.payments = d.payments || [];
+  state.boardTasks = d.boardTasks || [];
+  state.reports = d.reports || [];
+  state.schedule = normalizeSchedule(d.schedule);
+  state.timer    = normalizeTimer(d.timer);
+  if (d.settings) {
+    state.settings = Object.assign({}, state.settings, d.settings);
+    state.settings.openrouter = Object.assign({}, state.settings.openrouter, d.settings.openrouter || {});
+    state.settings.supabase   = Object.assign({}, state.settings.supabase,   d.settings.supabase   || {});
+    if (d.settings.billableIncrement == null) state.settings.billableIncrement = 0.25;
+    if (!d.settings.roundMode) state.settings.roundMode = 'up';
+    if (d.settings.minBillable == null) state.settings.minBillable = 0;
+    if (!state.settings.projectHourAlerts) state.settings.projectHourAlerts = {};
+    if (!state.settings.profile) state.settings.profile = { phone: '' };
+    else state.settings.profile = Object.assign({ phone: '' }, state.settings.profile);
+  }
+}
+
+/** Import data from timelog_v1 / timelog_v1_default if current state is empty. */
+function importLegacyLocalToState() {
+  if (state.projects.length || state.entries.length) return false;
+  const login = auth.getLogin();
+  const keys = [];
+  if (login) keys.push(auth.dataKey(login));
+  keys.push('timelog_v1', 'timelog_v1_default');
+  const seen = new Set();
+  for (const key of keys) {
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    try {
+      applyLocalData(JSON.parse(raw));
+      if (state.projects.length || state.entries.length) {
+        if (login) save();
+        return true;
+      }
+    } catch (_) {}
+  }
+  return false;
+}
+
 function save() {
   try {
     const login = auth.getLogin();
@@ -2376,34 +2438,17 @@ function load() {
     const login = auth.getLogin();
     let raw = localStorage.getItem(auth.dataKey(login));
     if (!raw && login) {
-      const legacy = localStorage.getItem('timelog_v1');
-      if (legacy) {
-        raw = legacy;
-        localStorage.setItem(auth.dataKey(login), legacy);
+      for (const legacyKey of ['timelog_v1', 'timelog_v1_default']) {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy) {
+          raw = legacy;
+          localStorage.setItem(auth.dataKey(login), legacy);
+          break;
+        }
       }
     }
     if (!raw && !login) raw = localStorage.getItem('timelog_v1');
-    if (raw) {
-      const d = JSON.parse(raw);
-      state.projects = d.projects || [];
-      state.entries  = d.entries  || [];
-      state.payments = d.payments || [];
-      state.boardTasks = d.boardTasks || [];
-      state.reports = d.reports || [];
-      state.schedule = normalizeSchedule(d.schedule);
-      state.timer    = normalizeTimer(d.timer);
-      if (d.settings) {
-        state.settings = Object.assign({}, state.settings, d.settings);
-        state.settings.openrouter = Object.assign({}, state.settings.openrouter, d.settings.openrouter || {});
-        state.settings.supabase   = Object.assign({}, state.settings.supabase,   d.settings.supabase   || {});
-        if (d.settings.billableIncrement == null) state.settings.billableIncrement = 0.25;
-        if (!d.settings.roundMode) state.settings.roundMode = 'up';
-        if (d.settings.minBillable == null) state.settings.minBillable = 0;
-        if (!state.settings.projectHourAlerts) state.settings.projectHourAlerts = {};
-        if (!state.settings.profile) state.settings.profile = { phone: '' };
-        else state.settings.profile = Object.assign({ phone: '' }, state.settings.profile);
-      }
-    }
+    if (raw) applyLocalData(JSON.parse(raw));
   } catch(e) {}
 }
 
@@ -2428,7 +2473,9 @@ const sb = {
 
   authHeaders() {
     const { anonKey } = state.settings.supabase;
-    const token = auth.getApiToken() || anonKey;
+    if (!anonKey) return null;
+    const token = auth.getApiToken() || (auth.useServerAuth() ? null : anonKey);
+    if (auth.useServerAuth() && !token) return null;
     return {
       'apikey': anonKey,
       'Authorization': `Bearer ${token}`,
@@ -2446,11 +2493,13 @@ const sb = {
   async req(method, path, body) {
     const { url, anonKey } = state.settings.supabase;
     if (!url || !anonKey) return null;
+    const headers = this.authHeaders();
+    if (!headers) return null;
     try {
       const r = await fetch(`${url}/rest/v1/${path}`, {
         method,
         headers: {
-          ...this.authHeaders(),
+          ...headers,
           'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=representation' : 'return=representation'
         },
         body: body ? JSON.stringify(body) : undefined
@@ -2760,6 +2809,7 @@ function resetTimerState() {
 // ─── TIMER BACKGROUND ────────────────────────────────────────────────────
 let swRegistration = null;
 let timerBgReady = false;
+let swRefreshing = false;
 const timerBg = {
   async init() {
     if (timerBgReady) return;
@@ -2770,6 +2820,13 @@ const timerBg = {
     }
     if (!('serviceWorker' in navigator)) return;
     try {
+      if (!navigator.serviceWorker.controller) {
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (swRefreshing || !navigator.serviceWorker.controller) return;
+          swRefreshing = true;
+          window.location.reload();
+        });
+      }
       swRegistration = await navigator.serviceWorker.register('sw.js');
       navigator.serviceWorker.addEventListener('message', e => {
         if (e.data?.type === 'TIMER_STATE' && e.data.timer) {
@@ -6669,6 +6726,10 @@ function sbSetResult(msg, ok) {
   if (el) { el.textContent = msg; el.style.color = ok ? 'var(--green)' : ok===false ? 'var(--red)' : 'var(--text2)'; }
 }
 
+function sbRlsDeniedMessage() {
+  return '✕ Нет доступа к БД: после миграции RLS anon-ключ не читает таблицы. Войдите в аккаунт (логин + пароль) — сервер выдаст персональный JWT.';
+}
+
 async function sbTest() {
   const url = document.getElementById('s-sb-url')?.value.trim();
   const key = document.getElementById('s-sb-key')?.value.trim();
@@ -6680,11 +6741,29 @@ async function sbTest() {
   try {
     if (auth.useServerAuth()) {
       const health = await auth.authFetch('/auth/health');
-      if (health?.ok) {
-        sbSetResult('✓ Сервер доступен (изолированные данные по пользователям)', true);
+      if (!health?.ok) {
+        sbSetResult('✕ Auth-сервер недоступен', false);
         return;
       }
-      sbSetResult('✕ Auth-сервер недоступен', false);
+      const token = auth.getApiToken();
+      const apiUrl = url || auth.authBaseUrl();
+      if (token && apiUrl) {
+        const r = await fetch(`${apiUrl}/rest/v1/projects?limit=1`, {
+          headers: { 'apikey': key, 'Authorization': `Bearer ${token}` }
+        });
+        if (r.ok) {
+          sbSetResult('✓ Сервер и доступ к данным OK', true);
+          return;
+        }
+        const txt = await r.text();
+        if (txt.includes('42501') || txt.includes('permission denied')) {
+          sbSetResult('✕ Нет доступа к БД — на сервере выполните: ./scripts/migrate-rls.sh', false);
+          return;
+        }
+      }
+      sbSetResult(token
+        ? '✓ Auth-сервер доступен'
+        : '✓ Auth-сервер доступен. Войдите с паролем для проверки доступа к данным.', true);
       return;
     }
     const r = await fetch(`${url}/rest/v1/projects?limit=1`, {
@@ -6696,6 +6775,8 @@ async function sbTest() {
       const txt = await r.text();
       if (txt.includes('relation') && txt.includes('does not exist')) {
         sbSetResult('✕ Таблицы не найдены — выполни SQL из блока выше в Supabase SQL Editor', false);
+      } else if (txt.includes('42501') || txt.includes('permission denied')) {
+        sbSetResult(sbRlsDeniedMessage(), false);
       } else {
         sbSetResult('✕ Ошибка: ' + txt.slice(0,120), false);
       }
@@ -6970,14 +7051,19 @@ function initApp() {
   updateTopbarUser();
   checkAllProjectHourLimits();
   if (sb.isEnabled()) {
-    sb.pull().then(() => {
+    (async () => {
+      if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) {
+        showToast('Сессия истекла — войдите с паролем для синхронизации с БД', 'error');
+        return;
+      }
+      await sb.pull();
       if (state.timer.running) startTimerTick();
       updateTimerUI();
       renderPage();
       persistTimerBackground();
       checkAllProjectHourLimits();
       showToast('✓ Данные синхронизированы', 'success');
-    }).catch(()=>{});
+    })().catch(()=>{});
   }
   const params = new URLSearchParams(location.search);
   if (params.get('page') && pageTitles[params.get('page')]) showPage(params.get('page'));
@@ -7075,9 +7161,6 @@ applyDockerConfig();
     document.getElementById('auth-screen').style.display = 'flex';
   }
 })();
-
-// Service worker — registered in timerBg.init()
-timerBg.init().catch(() => {});
 </script>
 </body>
 </html>
