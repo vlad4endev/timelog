@@ -269,14 +269,15 @@ const server = http.createServer(async (req, res) => {
   if (handleCors(req, res)) return;
 
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-  const isAuthRoute = url.pathname.startsWith('/auth/');
+  const isAuthRoute = url.pathname.startsWith('/auth/')
+    && url.pathname !== '/auth/health';
 
   if (isAuthRoute && !checkRateLimit(req)) {
     json(res, 429, { error: 'too many requests' }, req);
     return;
   }
 
-  if (req.method === 'GET' && url.pathname === '/health') {
+  if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/auth/health')) {
     json(res, 200, { ok: true }, req);
     return;
   }
