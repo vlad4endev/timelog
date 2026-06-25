@@ -205,6 +205,25 @@ tr:hover td{background:var(--bg3)}
 @keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:none;opacity:1}}
 .toast-success{border-left:3px solid var(--green)}
 .toast-error{border-left:3px solid var(--red)}
+.toast-warning{border-left:3px solid var(--amber)}
+.project-hour-limit{margin-top:6px}
+.project-hour-limit-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:4px}
+.project-hour-limit-fill{height:100%;border-radius:2px;transition:width .3s}
+.modal-lg{max-width:680px}
+.project-spec-section{border-top:1px solid var(--border);padding-top:16px;margin-top:8px}
+.spec-file-chip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);margin-top:8px;font-size:13px}
+.spec-file-upload{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.project-overview-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.project-overview-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.project-overview-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:16px}
+.project-overview-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:10px 12px}
+.project-overview-stat .val{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+.project-overview-stat .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.project-overview-block{margin-bottom:16px}
+.project-overview-block-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.project-overview-text{white-space:pre-wrap;font-size:14px;line-height:1.65;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 14px;max-height:36vh;overflow-y:auto}
+.project-overview-preview{border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden;background:var(--bg3);max-height:50vh}
+.project-overview-preview iframe,.project-overview-preview img{display:block;width:100%;max-height:50vh;object-fit:contain}
 
 /* Empty state */
 .empty{text-align:center;padding:48px 20px;color:var(--text2)}
@@ -1136,7 +1155,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 </div>
 
 <div class="modal-overlay" id="modal-add-project">
-  <div class="modal">
+  <div class="modal modal-lg">
     <div class="modal-header">
       <div class="modal-title" id="project-modal-title">Новый проект</div>
       <button class="btn-icon" onclick="closeModal('modal-add-project')">
@@ -1181,6 +1200,11 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
         <textarea class="form-textarea" id="project-desc" placeholder="Описание проекта..."></textarea>
       </div>
       <div class="form-group">
+        <label class="form-label">Лимит часов</label>
+        <input type="number" class="form-input" id="project-max-hours" placeholder="Без лимита" min="0" step="0.25">
+        <div class="text-xs text-muted mt4">Уведомление, когда суммарное время по проекту превысит лимит</div>
+      </div>
+      <div class="form-group">
         <label class="form-label">Статус</label>
         <select class="form-select" id="project-status">
           <option value="active">Активный</option>
@@ -1188,10 +1212,40 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
           <option value="done">Завершён</option>
         </select>
       </div>
+      <div class="project-spec-section">
+        <label class="form-label">ТЗ / Документация</label>
+        <div class="text-xs text-muted mb8">Текст или файл любого формата — для полной картины проекта</div>
+        <textarea class="form-textarea" id="project-spec-text" rows="6" placeholder="Вставьте текст ТЗ, требования, заметки…"></textarea>
+        <div class="spec-file-upload">
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">
+            <input type="file" id="project-spec-file-input" accept="*/*" style="display:none" onchange="onProjectSpecFileSelected(event)">
+            Прикрепить файл
+          </label>
+          <span class="text-xs text-muted">PDF, Word, изображение и др. · до 3 МБ</span>
+        </div>
+        <div id="project-spec-file-info"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-project')">Отмена</button>
       <button class="btn btn-primary" onclick="saveProject()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-project-overview">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">Обзор проекта</div>
+      <button class="btn-icon" onclick="closeProjectOverview()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="project-overview-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeProjectOverview()">Закрыть</button>
+      <button class="btn btn-ghost" id="project-overview-edit-btn">Редактировать</button>
+      <button class="btn btn-primary" id="project-overview-download-btn" style="display:none">Скачать файл</button>
     </div>
   </div>
 </div>
@@ -2039,7 +2093,13 @@ const sb = {
 
   // Map local → DB column names
   projectToRow(p) {
-    return this.userRow({ id: p.id, name: p.name, client: p.client||null, rate: p.rate||0, color: p.color||'#059669', status: p.status||'active', description: p.desc||null, created_at: new Date(p.createdAt||Date.now()).toISOString() });
+    return this.userRow({
+      id: p.id, name: p.name, client: p.client||null, rate: p.rate||0, color: p.color||'#059669',
+      status: p.status||'active', description: p.desc||null, max_hours: p.maxHours > 0 ? p.maxHours : null,
+      spec_text: p.specText || null, spec_file_name: p.specFileName || null,
+      spec_file_mime: p.specFileMime || null, spec_file_data: p.specFileData || null,
+      created_at: new Date(p.createdAt||Date.now()).toISOString()
+    });
   },
   entryToRow(e) {
     return this.userRow({ id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, task_id: e.taskId||null, report_id: e.reportId||null, archived: !!e.archived, created_at: new Date(e.createdAt||Date.now()).toISOString() });
@@ -2063,7 +2123,12 @@ const sb = {
     return this.userRow({ id: b.id, date: b.date, start_time: b.start, end_time: b.end, title: b.title || null, note: b.note || null, created_at: new Date(b.createdAt||Date.now()).toISOString() });
   },
   rowToProject(r) {
-    return { id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#059669', status: r.status||'active', desc: r.description||'', createdAt: new Date(r.created_at).getTime() };
+    return {
+      id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#059669',
+      status: r.status||'active', desc: r.description||'', maxHours: r.max_hours > 0 ? Number(r.max_hours) : 0,
+      specText: r.spec_text || '', specFileName: r.spec_file_name || '', specFileMime: r.spec_file_mime || '',
+      specFileData: r.spec_file_data || '', createdAt: new Date(r.created_at).getTime()
+    };
   },
   rowToEntry(r) {
     return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, reportId: r.report_id||null, archived: !!r.archived, createdAt: new Date(r.created_at).getTime() };
@@ -2238,6 +2303,22 @@ function normalizeTimer(timer) {
 function touchTimer() {
   state.timer.updatedAt = Date.now();
 }
+function buildTimerSyncPayload() {
+  const timer = state.timer;
+  const project = timer.projectId ? getProject(timer.projectId) : null;
+  return {
+    ...timer,
+    rate: project?.rate || 0,
+    currency: state.settings?.currency || 'RUB',
+    projectName: project?.name || ''
+  };
+}
+function syncTimerNotification() {
+  const ctrl = navigator.serviceWorker?.controller;
+  if (ctrl && state.timer.running) {
+    ctrl.postMessage({ type: 'TIMER_SYNC', timer: buildTimerSyncPayload() });
+  }
+}
 function mergeTimers(local, remote) {
   if (!remote?.running) return local;
   if (!local?.running) return remote;
@@ -2327,14 +2408,14 @@ function reconcileTimerOnWake() {
 
 function persistTimerBackground(syncOnly) {
   if (!syncOnly) save();
-  const timer = state.timer;
+  const timer = buildTimerSyncPayload();
   const ctrl = navigator.serviceWorker?.controller;
   if (ctrl) ctrl.postMessage({ type: 'TIMER_SYNC', timer });
   if (sb.isEnabled()) {
-    if (timer.running) sb.upsertTimer(timer);
+    if (state.timer.running) sb.upsertTimer(state.timer);
     else sb.clearTimerRemote();
   }
-  if ('setAppBadge' in navigator && timer.running && !timer.paused) {
+  if ('setAppBadge' in navigator && state.timer.running && !state.timer.paused) {
     const h = Math.floor(getTimerElapsedMs() / 3600000);
     navigator.setAppBadge(h > 0 ? String(h) : undefined).catch(() => {});
   } else if ('clearAppBadge' in navigator) {
@@ -2350,11 +2431,13 @@ function handleTimerNotifAction(action) {
 }
 
 async function requestTimerNotifications() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'granted') return;
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
   if (Notification.permission !== 'denied') {
-    await Notification.requestPermission();
+    const result = await Notification.requestPermission();
+    return result === 'granted';
   }
+  return false;
 }
 
 // ─── TIMER ───────────────────────────────────────────────────────────────
@@ -2469,7 +2552,11 @@ function startTimer(projectId, task, taskId) {
   state.timer = normalizeTimer({ running: true, startTime: Date.now(), projectId, task, taskId: taskId || null });
   touchTimer();
   save();
-  requestTimerNotifications();
+  requestTimerNotifications().then(granted => {
+    if (!granted && isMobileView()) {
+      showToast('Разрешите уведомления — таймер будет в шторке', 'error');
+    }
+  });
   persistTimerBackground();
   startTimerTick();
   updateTimerUI();
@@ -2504,7 +2591,9 @@ function togglePauseTimer() {
 function pauseTimer() {
   state.timer.paused = true;
   state.timer.pauseStart = Date.now();
+  touchTimer();
   save();
+  persistTimerBackground(true);
   updateTimerUI();
   showToast('Таймер на паузе');
 }
@@ -2513,7 +2602,9 @@ function resumeTimer() {
   state.timer.pausedMs = (state.timer.pausedMs || 0) + (Date.now() - state.timer.pauseStart);
   state.timer.paused = false;
   state.timer.pauseStart = null;
+  touchTimer();
   save();
+  persistTimerBackground(true);
   updateTimerUI();
   showToast('Таймер продолжен', 'success');
 }
@@ -2574,6 +2665,7 @@ function confirmStopTimer() {
   closeModal('modal-stop-timer');
   resetTimerState();
   renderPage();
+  checkProjectHourLimit(entry.projectId);
   const msg = amount > 0
     ? `✓ ${fmtHours(billH)} · ${fmtMoney(amount)} · ${project?.name || ''}`
     : `✓ ${fmtHours(billH)} · ${project?.name || ''}`;
@@ -2673,6 +2765,8 @@ function updateTimerUI() {
 
   if (!isActive) closeMobileTimerScreen();
   else if (mobileTimerScreenOpen) updateMobileTimerScreen();
+
+  if (isActive) syncTimerNotification();
 }
 function openQuickTimer() {
   if (state.timer.running) { stopTimer(); return; }
@@ -3051,7 +3145,7 @@ function renderProjects() {
 function renderProjectFull(p) {
   const entries = state.entries.filter(e => e.projectId === p.id && !e.archived);
   const projectTasks = getProjectBoardTasks(p.id);
-  const hrs = sum(entries.map(e=>e.hours));
+  const hrs = getProjectHours(p.id);
   const earned = hrs * (p.rate || 0);
   const statusMap = { active: ['badge-green','Активный'], paused: ['badge-amber','Пауза'], done: ['badge-gray','Завершён'] };
   const [badgeClass, statusLabel] = statusMap[p.status] || statusMap.active;
@@ -3059,12 +3153,19 @@ function renderProjectFull(p) {
   const unpaid = Math.max(0, earned - paidAmount);
   const tasksInProgress = projectTasks.filter(t => t.status === 'in_progress').length;
   const color = p.color || '#059669';
+  const hasLimit = p.maxHours > 0;
+  const overLimit = hasLimit && hrs > p.maxHours;
+  const nearLimit = hasLimit && !overLimit && hrs >= p.maxHours * 0.9;
+  const limitPct = hasLimit ? Math.min(100, Math.round((hrs / p.maxHours) * 100)) : 0;
+  const hrsColor = overLimit ? 'var(--red)' : (nearLimit ? 'var(--amber)' : 'var(--accent2)');
+  const limitFillColor = overLimit ? 'var(--red)' : (nearLimit ? 'var(--amber)' : 'var(--accent2)');
   const subParts = [
     p.client ? escHtml(p.client) : '',
     `${entries.length} зап.`,
     `${projectTasks.length} задач`,
     tasksInProgress ? `${tasksInProgress} в работе` : '',
-    p.rate ? fmtMoney(unpaid) + ' не опл.' : ''
+    p.rate ? fmtMoney(unpaid) + ' не опл.' : '',
+    hasProjectSpec(p) ? 'ТЗ' : ''
   ].filter(Boolean);
 
   return `<div class="project-card-compact">
@@ -3073,12 +3174,17 @@ function renderProjectFull(p) {
       <div class="project-card-title-row">
         <span class="project-card-name">${escHtml(p.name)}</span>
         <span class="badge ${badgeClass}">${statusLabel}</span>
+        ${overLimit ? '<span class="badge badge-red">Лимит</span>' : ''}
       </div>
       <div class="project-card-sub">${subParts.join(' · ')}</div>
+      ${hasLimit ? `<div class="project-hour-limit">
+        <div class="text-xs" style="color:${overLimit ? 'var(--red)' : nearLimit ? 'var(--amber)' : 'var(--text2)'}">${fmtHours(hrs)} из ${fmtHours(p.maxHours)}</div>
+        <div class="project-hour-limit-bar"><div class="project-hour-limit-fill" style="width:${limitPct}%;background:${limitFillColor}"></div></div>
+      </div>` : ''}
     </div>
     <div class="project-card-stats">
       <div class="project-card-stat">
-        <span class="project-card-stat-val" style="color:var(--accent2)">${fmtHours(hrs)}</span>
+        <span class="project-card-stat-val" style="color:${hrsColor}">${hasLimit ? fmtHours(hrs) + ' / ' + fmtHours(p.maxHours) : fmtHours(hrs)}</span>
         <span class="project-card-stat-lbl">Часов</span>
       </div>
       ${p.rate ? `<div class="project-card-stat">
@@ -3091,6 +3197,9 @@ function renderProjectFull(p) {
       </div>` : ''}
     </div>
     <div class="project-card-btns">
+      <button class="btn-icon btn-sm" onclick="viewProjectOverview('${p.id}')" title="Обзор и ТЗ" ${hasProjectSpec(p) ? 'style="color:var(--accent)"' : ''}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </button>
       <button class="btn-icon btn-sm" onclick="editProject('${p.id}')" title="Редактировать">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
@@ -5155,14 +5264,17 @@ function saveEntry() {
   if (sb.isEnabled()) sb.upsertEntry(entry);
   closeModal('modal-add-entry');
   showToast(editId?'Запись обновлена':'Запись добавлена','success');
+  checkProjectHourLimit(projectId);
   renderPage();
 }
 
 function deleteEntry(id) {
   if (!confirm('Удалить запись?')) return;
+  const entry = state.entries.find(e => e.id === id);
   state.entries = state.entries.filter(e=>e.id!==id);
   save();
   if (sb.isEnabled()) sb.deleteEntry(id);
+  if (entry?.projectId) checkProjectHourLimit(entry.projectId);
   renderPage(); showToast('Запись удалена');
 }
 
@@ -5173,7 +5285,10 @@ function openAddProjectModal() {
   document.getElementById('project-client').value = '';
   document.getElementById('project-rate').value = state.settings.defaultRate || '';
   document.getElementById('project-desc').value = '';
+  document.getElementById('project-max-hours').value = '';
+  document.getElementById('project-spec-text').value = '';
   document.getElementById('project-status').value = 'active';
+  resetProjectSpecDraft(null);
   selectColor('#059669', document.querySelector('.swatch[data-color="#059669"]'));
   openModal('modal-add-project');
 }
@@ -5187,7 +5302,10 @@ function editProject(id) {
   document.getElementById('project-client').value = p.client||'';
   document.getElementById('project-rate').value = p.rate||'';
   document.getElementById('project-desc').value = p.desc||'';
+  document.getElementById('project-max-hours').value = p.maxHours > 0 ? p.maxHours : '';
+  document.getElementById('project-spec-text').value = p.specText || '';
   document.getElementById('project-status').value = p.status||'active';
+  resetProjectSpecDraft(p);
   selectColor(p.color||'#059669', document.querySelector(`.swatch[data-color="${p.color||'#059669'}"]`));
   openModal('modal-add-project');
 }
@@ -5196,6 +5314,12 @@ function saveProject() {
   const name = document.getElementById('project-name').value.trim();
   if (!name) { showToast('Введите название', 'error'); return; }
   const editId = document.getElementById('project-edit-id').value;
+  const maxHoursRaw = document.getElementById('project-max-hours').value.trim();
+  const maxHours = maxHoursRaw ? parseFloat(maxHoursRaw) : 0;
+  if (maxHoursRaw && (!Number.isFinite(maxHours) || maxHours <= 0)) {
+    showToast('Лимит часов должен быть больше 0', 'error');
+    return;
+  }
   const project = {
     id: editId || uid(),
     name, client: document.getElementById('project-client').value.trim(),
@@ -5203,14 +5327,26 @@ function saveProject() {
     color: document.getElementById('project-color').value,
     desc: document.getElementById('project-desc').value.trim(),
     status: document.getElementById('project-status').value,
+    maxHours: maxHours > 0 ? maxHours : 0,
+    specText: document.getElementById('project-spec-text').value.trim(),
+    specFileName: projectSpecDraft.fileName,
+    specFileMime: projectSpecDraft.fileMime,
+    specFileData: projectSpecDraft.fileData,
     createdAt: editId ? (getProject(editId)?.createdAt||Date.now()) : Date.now()
   };
-  if (editId) { const idx=state.projects.findIndex(p=>p.id===editId); if(idx>=0)state.projects[idx]=project; }
+  if (editId) {
+    const old = getProject(editId);
+    if (old && old.maxHours !== project.maxHours && state.settings.projectHourAlerts?.[editId]) {
+      delete state.settings.projectHourAlerts[editId];
+    }
+    const idx=state.projects.findIndex(p=>p.id===editId); if(idx>=0)state.projects[idx]=project;
+  }
   else state.projects.push(project);
   save();
   if (sb.isEnabled()) sb.upsertProject(project);
   closeModal('modal-add-project');
   showToast(editId?'Проект обновлён':'Проект создан','success');
+  if (project.maxHours > 0) checkProjectHourLimit(project.id);
   renderPage();
 }
 
@@ -5225,6 +5361,215 @@ function deleteProject(id) {
   save();
   if (sb.isEnabled()) sb.deleteProject(id); // cascade deletes entries in DB
   renderPage(); showToast('Проект удалён');
+}
+
+const PROJECT_SPEC_MAX_BYTES = 3 * 1024 * 1024;
+let projectSpecDraft = { fileName: '', fileMime: '', fileData: '' };
+let projectOverviewBlobUrl = null;
+let projectOverviewProjectId = null;
+
+function hasProjectSpec(p) {
+  return !!(p?.specText?.trim() || p?.specFileName);
+}
+
+function resetProjectSpecDraft(p) {
+  projectSpecDraft = {
+    fileName: p?.specFileName || '',
+    fileMime: p?.specFileMime || '',
+    fileData: p?.specFileData || ''
+  };
+  updateProjectSpecFileUI();
+}
+
+function updateProjectSpecFileUI() {
+  const el = document.getElementById('project-spec-file-info');
+  if (!el) return;
+  if (!projectSpecDraft.fileName) {
+    el.innerHTML = '';
+    return;
+  }
+  const sizeKb = projectSpecDraft.fileData
+    ? Math.max(1, Math.round((projectSpecDraft.fileData.length * 3) / 4 / 1024))
+    : 0;
+  el.innerHTML = `<div class="spec-file-chip">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <span style="font-weight:500">${escHtml(projectSpecDraft.fileName)}</span>
+    <span class="text-xs text-muted">${sizeKb} КБ</span>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="clearProjectSpecFile()">Удалить</button>
+  </div>`;
+}
+
+function onProjectSpecFileSelected(ev) {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  if (file.size > PROJECT_SPEC_MAX_BYTES) {
+    showToast('Файл слишком большой (макс. 3 МБ)', 'error');
+    ev.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = reader.result;
+    if (typeof result !== 'string') return;
+    const comma = result.indexOf(',');
+    projectSpecDraft.fileData = comma >= 0 ? result.slice(comma + 1) : result;
+    projectSpecDraft.fileName = file.name;
+    projectSpecDraft.fileMime = file.type || guessMimeFromName(file.name);
+    updateProjectSpecFileUI();
+    showToast('Файл прикреплён', 'success');
+  };
+  reader.onerror = () => showToast('Не удалось прочитать файл', 'error');
+  reader.readAsDataURL(file);
+  ev.target.value = '';
+}
+
+function clearProjectSpecFile() {
+  projectSpecDraft = { fileName: '', fileMime: '', fileData: '' };
+  updateProjectSpecFileUI();
+}
+
+function guessMimeFromName(name) {
+  const ext = String(name || '').split('.').pop()?.toLowerCase();
+  const map = {
+    pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    txt: 'text/plain', md: 'text/markdown', json: 'application/json', xml: 'application/xml',
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+    html: 'text/html', htm: 'text/html', csv: 'text/csv'
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+function isTextSpecMime(mime, name) {
+  if (mime?.startsWith('text/')) return true;
+  const ext = String(name || '').split('.').pop()?.toLowerCase();
+  return ['txt', 'md', 'markdown', 'json', 'xml', 'csv', 'html', 'htm', 'log', 'yml', 'yaml'].includes(ext);
+}
+
+function decodeProjectSpecFile(p) {
+  if (!p?.specFileData) return null;
+  try {
+    const binary = atob(p.specFileData);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: p.specFileMime || guessMimeFromName(p.specFileName) });
+  } catch (_) {
+    return null;
+  }
+}
+
+function readProjectSpecFileAsText(p) {
+  const blob = decodeProjectSpecFile(p);
+  if (!blob) return Promise.resolve('');
+  return blob.text();
+}
+
+function revokeProjectOverviewBlob() {
+  if (projectOverviewBlobUrl) {
+    URL.revokeObjectURL(projectOverviewBlobUrl);
+    projectOverviewBlobUrl = null;
+  }
+}
+
+function downloadProjectSpecFile(p) {
+  const blob = decodeProjectSpecFile(p);
+  if (!blob) { showToast('Файл недоступен', 'error'); return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = p.specFileName || 'document';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function renderProjectSpecFilePreview(p) {
+  if (!p.specFileName) return '';
+  const mime = p.specFileMime || guessMimeFromName(p.specFileName);
+  if (mime.startsWith('image/')) {
+    const blob = decodeProjectSpecFile(p);
+    if (!blob) return `<div class="text-sm text-muted">Не удалось загрузить изображение</div>`;
+    revokeProjectOverviewBlob();
+    projectOverviewBlobUrl = URL.createObjectURL(blob);
+    return `<div class="project-overview-preview"><img src="${projectOverviewBlobUrl}" alt="${escHtml(p.specFileName)}"></div>`;
+  }
+  if (mime === 'application/pdf') {
+    const blob = decodeProjectSpecFile(p);
+    if (!blob) return `<div class="text-sm text-muted">Не удалось загрузить PDF</div>`;
+    revokeProjectOverviewBlob();
+    projectOverviewBlobUrl = URL.createObjectURL(blob);
+    return `<div class="project-overview-preview"><iframe src="${projectOverviewBlobUrl}" title="${escHtml(p.specFileName)}"></iframe></div>`;
+  }
+  if (isTextSpecMime(mime, p.specFileName)) {
+    return `<div class="project-overview-text" id="project-overview-file-text">Загрузка…</div>`;
+  }
+  return `<div class="text-sm text-muted">Предпросмотр недоступен для этого формата. Скачайте файл.</div>`;
+}
+
+function viewProjectOverview(id) {
+  const p = getProject(id);
+  if (!p) return;
+  projectOverviewProjectId = id;
+  revokeProjectOverviewBlob();
+
+  const hrs = getProjectHours(p.id);
+  const entries = state.entries.filter(e => e.projectId === p.id && !e.archived);
+  const tasks = getProjectBoardTasks(p.id);
+  const earned = hrs * (p.rate || 0);
+  const statusMap = { active: ['badge-green', 'Активный'], paused: ['badge-amber', 'Пауза'], done: ['badge-gray', 'Завершён'] };
+  const [badgeClass, statusLabel] = statusMap[p.status] || statusMap.active;
+  const color = p.color || '#059669';
+
+  const stats = [
+    { val: fmtHours(hrs), lbl: 'Часов' },
+    { val: String(entries.length), lbl: 'Записей' },
+    { val: String(tasks.length), lbl: 'Задач' }
+  ];
+  if (p.rate) stats.push({ val: fmtMoney(earned), lbl: 'Заработано' });
+  if (p.maxHours > 0) stats.push({ val: fmtHours(p.maxHours), lbl: 'Лимит' });
+
+  const body = document.getElementById('project-overview-body');
+  body.innerHTML = `
+    <div class="project-overview-header">
+      <div class="project-overview-dot" style="background:${color}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:18px;font-weight:700;line-height:1.3">${escHtml(p.name)}</div>
+        <div class="text-sm text-muted mt4">${p.client ? escHtml(p.client) : 'Клиент не указан'}</div>
+        <div class="mt8"><span class="badge ${badgeClass}">${statusLabel}</span>${hasProjectSpec(p) ? ' <span class="badge badge-gray">ТЗ</span>' : ''}</div>
+      </div>
+    </div>
+    <div class="project-overview-stats">
+      ${stats.map(s => `<div class="project-overview-stat"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('')}
+    </div>
+    ${p.desc ? `<div class="project-overview-block"><div class="project-overview-block-title">Описание</div><div class="project-overview-text">${escHtml(p.desc)}</div></div>` : ''}
+    ${p.specText ? `<div class="project-overview-block"><div class="project-overview-block-title">ТЗ / Текст</div><div class="project-overview-text">${escHtml(p.specText)}</div></div>` : ''}
+    ${p.specFileName ? `<div class="project-overview-block"><div class="project-overview-block-title">Прикреплённый файл · ${escHtml(p.specFileName)}</div>${renderProjectSpecFilePreview(p)}</div>` : ''}
+    ${!p.desc && !hasProjectSpec(p) ? `<div class="text-sm text-muted" style="text-align:center;padding:20px 0">Добавьте описание или ТЗ в редактировании проекта</div>` : ''}
+  `;
+
+  const dlBtn = document.getElementById('project-overview-download-btn');
+  if (dlBtn) {
+    dlBtn.style.display = p.specFileName ? '' : 'none';
+    dlBtn.onclick = () => downloadProjectSpecFile(p);
+  }
+  const editBtn = document.getElementById('project-overview-edit-btn');
+  if (editBtn) editBtn.onclick = () => { closeProjectOverview(); editProject(id); };
+
+  if (p.specFileName && isTextSpecMime(p.specFileMime || guessMimeFromName(p.specFileName), p.specFileName)) {
+    readProjectSpecFileAsText(p).then(text => {
+      const el = document.getElementById('project-overview-file-text');
+      if (el) el.textContent = text || '(пустой файл)';
+    }).catch(() => {
+      const el = document.getElementById('project-overview-file-text');
+      if (el) el.textContent = 'Не удалось прочитать файл';
+    });
+  }
+
+  openModal('modal-project-overview');
+}
+
+function closeProjectOverview() {
+  revokeProjectOverviewBlob();
+  projectOverviewProjectId = null;
+  closeModal('modal-project-overview');
 }
 
 function openPaymentModal() {
@@ -5615,14 +5960,19 @@ create policy "open" on app_users for all using (true) with check (true);</pre>
     <div class="card mb16">
       ${state.projects.length === 0 ? `<div class="text-muted text-sm">Нет проектов. Создайте проект в разделе «Проекты».</div>` :
         state.projects.map(p => {
-          const hrs = sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
+          const hrs = getProjectHours(p.id);
+          const limitNote = p.maxHours > 0
+            ? (hrs > p.maxHours
+              ? ` · <span style="color:var(--red)">лимит ${fmtHours(p.maxHours)} превышен</span>`
+              : ` · лимит ${fmtHours(p.maxHours)}`)
+            : '';
           const statusMap = { active: ['var(--green)', 'Активный'], paused: ['var(--amber)', 'Пауза'], done: ['var(--text2)', 'Завершён'] };
           const [stColor, stLabel] = statusMap[p.status] || statusMap.active;
           return `<div class="settings-project-row">
             <div style="width:10px;height:10px;border-radius:50%;background:${p.color||'#059669'};flex-shrink:0"></div>
             <div class="settings-project-info">
               <div style="font-size:14px;font-weight:500">${escHtml(p.name)}</div>
-              <div class="text-xs text-muted">${p.client?escHtml(p.client)+' · ':''}${p.rate ? fmtMoney(p.rate)+'/ч · ' : ''}${fmtHours(hrs)} · <span style="color:${stColor}">${stLabel}</span></div>
+              <div class="text-xs text-muted">${p.client?escHtml(p.client)+' · ':''}${p.rate ? fmtMoney(p.rate)+'/ч · ' : ''}${fmtHours(hrs)}${limitNote} · <span style="color:${stColor}">${stLabel}</span></div>
             </div>
             <div class="settings-project-btns">
               <button class="btn btn-ghost btn-sm" onclick="setProjectStatus('${p.id}','active')" ${p.status==='active'?'style="border-color:var(--green);color:var(--green)"':''}>Активный</button>
@@ -5972,11 +6322,16 @@ function closeSidebar() {
 // ─── KEYBOARD ─────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+    if (document.getElementById('modal-project-overview')?.classList.contains('open')) closeProjectOverview();
+    else document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
   }
 });
 document.querySelectorAll('.modal-overlay').forEach(m=>{
-  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); });
+  m.addEventListener('click',e=>{
+    if (e.target!==m) return;
+    if (m.id === 'modal-project-overview') closeProjectOverview();
+    else m.classList.remove('open');
+  });
 });
 
 // ─── INIT ─────────────────────────────────────────────────────────────────
@@ -5991,12 +6346,14 @@ function initApp() {
   updateTimerUI();
   renderPage();
   updateTopbarUser();
+  checkAllProjectHourLimits();
   if (sb.isEnabled()) {
     sb.pull().then(() => {
       if (state.timer.running) startTimerTick();
       updateTimerUI();
       renderPage();
       persistTimerBackground();
+      checkAllProjectHourLimits();
       showToast('✓ Данные синхронизированы', 'success');
     }).catch(()=>{});
   }

@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS projects (
   color       TEXT DEFAULT '#6c63ff',
   status      TEXT DEFAULT 'active',
   description TEXT,
+  max_hours   NUMERIC,
+  spec_text       TEXT,
+  spec_file_name  TEXT,
+  spec_file_mime  TEXT,
+  spec_file_data  TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
