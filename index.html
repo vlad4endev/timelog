@@ -1,0 +1,2548 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TimeLog">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>TimeLog — Учёт рабочего времени</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f1a;
+  --bg2:#161625;
+  --bg3:#1e1e32;
+  --card:#1e1e32;
+  --card2:#252540;
+  --border:#2e2e50;
+  --border2:#3a3a60;
+  --accent:#6c63ff;
+  --accent2:#8b85ff;
+  --accent3:#4a43cc;
+  --green:#22c55e;
+  --green2:#16a34a;
+  --red:#ef4444;
+  --amber:#f59e0b;
+  --teal:#14b8a6;
+  --pink:#ec4899;
+  --text:#e8e8f0;
+  --text2:#9898b8;
+  --text3:#606080;
+  --radius:12px;
+  --radius2:8px;
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;font-size:15px;line-height:1.5}
+a{color:var(--accent2);text-decoration:none}
+button{cursor:pointer;border:none;outline:none;font-family:inherit}
+input,select,textarea{font-family:inherit;outline:none}
+
+/* Layout */
+.app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;transition:transform .3s}
+.main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.content{padding:24px;flex:1}
+
+/* Sidebar */
+.sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo-text{font-size:16px;font-weight:700;color:var(--text)}
+.logo-sub{font-size:11px;color:var(--text2);margin-top:1px}
+.nav{flex:1;padding:12px 0;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;color:var(--text2);font-size:14px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--bg3);color:var(--accent2);border-left-color:var(--accent);font-weight:500}
+.nav-icon{width:18px;height:18px;flex-shrink:0}
+.sidebar-footer{padding:14px 18px;border-top:1px solid var(--border)}
+.timer-widget{background:var(--bg3);border-radius:var(--radius2);padding:12px;border:1px solid var(--border)}
+.timer-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.timer-display{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent2);letter-spacing:0.05em}
+.timer-project{font-size:12px;color:var(--text2);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timer-btns{display:flex;gap:6px;margin-top:8px}
+.btn-timer{flex:1;padding:6px;border-radius:6px;font-size:12px;font-weight:500;transition:all .15s}
+.btn-start{background:var(--green);color:#fff}
+.btn-start:hover{background:var(--green2)}
+.btn-stop{background:var(--red);color:#fff}
+.btn-stop:hover{background:#dc2626}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card-sm{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:14px}
+
+/* Grid */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+
+/* Stats */
+.stat-card{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px}
+.stat-val{font-size:26px;font-weight:700;line-height:1.2}
+.stat-label{font-size:12px;color:var(--text2);margin-top:4px}
+.stat-sub{font-size:12px;margin-top:4px}
+
+/* Buttons */
+.btn{padding:8px 16px;border-radius:var(--radius2);font-size:14px;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}
+.btn-ghost:hover{background:var(--bg3);color:var(--text)}
+.btn-sm{padding:5px 12px;font-size:13px}
+.btn-danger{background:#3f1515;color:var(--red);border:1px solid #5c2020}
+.btn-danger:hover{background:#5c2020}
+.btn-success{background:#0d2e1a;color:var(--green);border:1px solid #1a4d2a}
+.btn-success:hover{background:#1a4d2a}
+.btn-icon{padding:6px;border-radius:6px;background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-icon:hover{background:var(--bg3);color:var(--text)}
+
+/* Forms */
+.form-group{margin-bottom:16px}
+.form-label{font-size:13px;color:var(--text2);margin-bottom:6px;display:block}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:9px 12px;color:var(--text);font-size:14px;transition:border .15s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.15)}
+.form-textarea{resize:vertical;min-height:80px}
+.form-select option{background:var(--bg2)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* Badge */
+.badge{padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.badge-purple{background:#2a234d;color:#9f96ff}
+.badge-green{background:#0d2e1a;color:#4ade80}
+.badge-red{background:#3f1515;color:#f87171}
+.badge-amber{background:#2e1f05;color:#fbbf24}
+.badge-teal{background:#042a28;color:#2dd4bf}
+.badge-blue{background:#0c1f3f;color:#60a5fa}
+.badge-pink{background:#3d0f28;color:#f472b6}
+.badge-gray{background:#1e1e30;color:var(--text2)}
+
+/* Table */
+.table-wrap{overflow-x:auto;border-radius:var(--radius2);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;background:var(--bg3);border-bottom:1px solid var(--border)}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+.col-check{width:40px}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(4px)}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow);transform:translateY(20px);transition:transform .2s}
+.modal-overlay.open .modal{transform:none}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:17px;font-weight:600}
+.modal-body{padding:20px 24px}
+.modal-footer{padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+
+/* Page header */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.page-title{font-size:20px;font-weight:700}
+.page-sub{font-size:14px;color:var(--text2);margin-top:2px}
+
+/* Section */
+.section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;margin-top:24px}
+
+/* Entry item */
+.entry-item{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);margin-bottom:8px;transition:border .15s}
+.entry-item:hover{border-color:var(--border2)}
+.entry-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.entry-info{flex:1;min-width:0}
+.entry-task{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entry-meta{font-size:12px;color:var(--text2);margin-top:2px}
+.entry-time{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--accent2);min-width:60px;text-align:right}
+.entry-actions{display:flex;gap:4px;flex-shrink:0}
+
+/* Color picker */
+.color-swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;transition:transform .1s;border:3px solid transparent}
+.swatch:hover{transform:scale(1.15)}
+.swatch.selected{border-color:var(--text)}
+
+/* Progress bar */
+.progress{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.progress-bar{height:100%;border-radius:2px;transition:width .3s}
+
+/* Toast */
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:10px 16px;background:var(--card2);border:1px solid var(--border2);border-radius:var(--radius2);font-size:14px;box-shadow:var(--shadow);animation:slideIn .2s ease;display:flex;align-items:center;gap:8px}
+@keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:none;opacity:1}}
+.toast-success{border-left:3px solid var(--green)}
+.toast-error{border-left:3px solid var(--red)}
+
+/* Empty state */
+.empty{text-align:center;padding:48px 20px;color:var(--text2)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty h3{font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px}
+
+/* AI toggle */
+#ai-toggle div{margin-left:2px}
+/* Settings section */
+.settings-block{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+/* Auth screen */
+.auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-box{width:100%;max-width:400px}
+.auth-logo{text-align:center;margin-bottom:32px}
+.auth-logo-icon{width:56px;height:56px;background:var(--accent);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:14px}
+.auth-logo-name{font-size:22px;font-weight:700}
+.auth-logo-sub{font-size:13px;color:var(--text2);margin-top:4px}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 28px 24px}
+.auth-tabs{display:flex;margin-bottom:24px;border-bottom:1px solid var(--border)}
+.auth-tab{flex:1;padding:10px;text-align:center;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s}
+.auth-tab.on{color:var(--accent2);border-bottom-color:var(--accent2)}
+.auth-field{margin-bottom:16px}
+.auth-field label{display:block;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:11px 14px;color:var(--text);font-size:15px;transition:border .15s}
+.auth-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.15);outline:none}
+.auth-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;transition:background .15s;margin-top:6px}
+.auth-btn:hover:not(:disabled){background:var(--accent2)}
+.auth-btn:disabled{opacity:.6;cursor:default}
+.auth-msg{padding:10px 14px;border-radius:var(--radius2);font-size:13px;margin-bottom:14px;display:none}
+.auth-msg.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.auth-msg.ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+.auth-link{text-align:center;margin-top:16px;font-size:13px;color:var(--text2);cursor:default}
+.auth-link span{color:var(--accent2);cursor:pointer}
+.auth-link span:hover{text-decoration:underline}
+.auth-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.auth-email-lbl{font-size:13px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.auth-logout{padding:4px 10px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text2);font-size:12px;cursor:pointer;transition:.15s}
+.auth-logout:hover{border-color:var(--red);color:var(--red)}
+.hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
+.btn-pause{background:var(--amber);color:#fff}
+.btn-pause:hover{background:#d97706}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+
+/* Tab bar */
+.tabs{display:flex;gap:2px;background:var(--bg3);border-radius:var(--radius2);padding:3px;margin-bottom:20px}
+.tab{flex:1;padding:7px;text-align:center;font-size:13px;font-weight:500;color:var(--text2);border-radius:6px;cursor:pointer;transition:all .15s}
+.tab.active{background:var(--card2);color:var(--text)}
+
+/* Report */
+.report-header{background:linear-gradient(135deg,var(--accent3),var(--accent));border-radius:var(--radius);padding:24px;margin-bottom:20px;color:#fff}
+.report-title{font-size:22px;font-weight:700;margin-bottom:4px}
+.report-period{font-size:14px;opacity:.8}
+
+/* Paid status */
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+.status-paid .status-dot{background:var(--green)}
+.status-pending .status-dot{background:var(--amber)}
+.status-partial .status-dot{background:var(--teal)}
+
+/* Helpers */
+.flex{display:flex}.gap4{gap:4px}.gap8{gap:8px}.gap12{gap:12px}.gap16{gap:16px}
+.flex-1{flex:1}.items-center{align-items:center}.justify-between{justify-content:space-between}
+.text-sm{font-size:13px}.text-xs{font-size:12px}.text-muted{color:var(--text2)}
+.text-accent{color:var(--accent2)}.text-green{color:var(--green)}.text-red{color:var(--red)}
+.text-amber{color:var(--amber)}.fw-6{font-weight:600}.fw-7{font-weight:700}
+.mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}.mb16{margin-bottom:16px}
+.mr8{margin-right:8px}.truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hidden{display:none!important}
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:none}
+  .sidebar-backdrop.open{display:block}
+  .main{margin-left:0}
+  .hamburger{display:flex}
+  .grid3,.grid4{grid-template-columns:1fr 1fr}
+  .grid2{grid-template-columns:1fr}
+  .content{padding:16px}
+  .form-row{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .grid3,.grid4{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Auth Screen -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">⏱</div>
+      <div class="auth-logo-name">TimeLog</div>
+      <div class="auth-logo-sub">Учёт рабочего времени для разработчиков</div>
+    </div>
+    <div class="auth-card">
+      <div id="auth-msg" class="auth-msg"></div>
+
+      <!-- Unlock form (shown when password already set) -->
+      <div id="auth-unlock-form">
+        <div class="auth-field">
+          <label>Пароль</label>
+          <div style="position:relative">
+            <input class="auth-input" type="password" id="auth-pass" placeholder="Введите пароль"
+              autocomplete="current-password" onkeydown="if(event.key==='Enter')authUnlock()">
+            <button onclick="authTogglePass('auth-pass')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer;padding:4px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="auth-btn" id="auth-unlock-btn" onclick="authUnlock()">Войти</button>
+        <div style="margin-top:20px;padding:12px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.2);border-radius:var(--radius2)">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Первый раз здесь или забыли пароль?</div>
+          <button onclick="authShowSetup()" style="width:100%;padding:9px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius2);color:var(--accent2);font-size:13px;font-weight:500;cursor:pointer">
+            Установить / сбросить пароль
+          </button>
+        </div>
+      </div>
+
+      <!-- Setup form (first time, or reset) -->
+      <div id="auth-setup-form" style="display:none">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+          Придумайте пароль для входа в приложение. Он сохранится только в этом браузере.
+        </div>
+        <div class="auth-field">
+          <label>Новый пароль</label>
+          <div style="position:relative">
+            <input class="auth-input" type="password" id="auth-new-pass" placeholder="Минимум 4 символа"
+              autocomplete="new-password" onkeydown="if(event.key==='Enter')authSetup()">
+            <button onclick="authTogglePass('auth-new-pass')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer;padding:4px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="auth-field" style="margin-bottom:20px">
+          <label>Повторите пароль</label>
+          <input class="auth-input" type="password" id="auth-new-pass2" placeholder="••••••••"
+            autocomplete="new-password" onkeydown="if(event.key==='Enter')authSetup()">
+        </div>
+        <button class="auth-btn" id="auth-setup-btn" onclick="authSetup()">Установить пароль и войти</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none">
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">⏱</div>
+    <div>
+      <div class="logo-text">TimeLog</div>
+      <div class="logo-sub">Трекер рабочего времени</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Дашборд
+    </div>
+    <div class="nav-item" onclick="showPage('projects')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3zM3 10h11v4H3zM3 17h8v4H3z"/></svg>
+      Проекты
+    </div>
+    <div class="nav-item" onclick="showPage('timelog')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      Записи времени
+    </div>
+    <div class="nav-item" onclick="showPage('reports')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Отчёты
+    </div>
+    <div class="nav-item" onclick="showPage('payments')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Оплата
+    </div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Настройки
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="timer-widget">
+      <div class="timer-label">Активный таймер</div>
+      <div class="timer-display" id="sidebar-timer">00:00:00</div>
+      <div class="timer-project" id="sidebar-timer-project">Нет активной задачи</div>
+      <div class="timer-btns">
+        <button class="btn-timer btn-start" id="sidebar-start-btn" onclick="openQuickTimer()">▶ Старт</button>
+        <button class="btn-timer btn-pause hidden" id="sidebar-pause-btn" onclick="togglePauseTimer()">⏸</button>
+        <button class="btn-timer btn-stop hidden" id="sidebar-stop-btn" onclick="stopTimer()">■ Стоп</button>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <div class="flex items-center gap8">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div id="topbar-title" style="font-weight:600;font-size:16px">Дашборд</div>
+    </div>
+    <div class="flex items-center gap8">
+      <button class="btn btn-primary btn-sm" onclick="openAddEntryModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Добавить время
+      </button>
+      <div id="topbar-user" style="display:flex;align-items:center;gap:6px"></div>
+    </div>
+  </div>
+
+  <div class="content" id="main-content">
+    <!-- Pages rendered here -->
+  </div>
+</div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modal-add-entry">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="entry-modal-title">Добавить запись времени</div>
+      <button class="btn-icon" onclick="closeModal('modal-add-entry')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="entry-edit-id">
+      <div class="form-group">
+        <label class="form-label">Проект *</label>
+        <select class="form-select" id="entry-project">
+          <option value="">Выберите проект</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Задача / Описание работы *</label>
+        <input type="text" class="form-input" id="entry-task" placeholder="Что вы делали?">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Дата</label>
+          <input type="date" class="form-input" id="entry-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Часов к оплате</label>
+          <input type="number" class="form-input" id="entry-hours" placeholder="0" min="0" step="0.25"
+            oninput="updateEntryBillablePreview()">
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addEntryMinutes(15)">+15м</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addEntryMinutes(30)">+30м</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addEntryMinutes(60)">+1ч</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addEntryMinutes(120)">+2ч</button>
+          </div>
+          <div id="entry-billable-preview" class="text-xs mt4" style="display:none;color:var(--accent2)"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Время начала (опц.)</label>
+          <input type="time" class="form-input" id="entry-start" onchange="calcEntryHoursFromTimes()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Время конца (опц.)</label>
+          <input type="time" class="form-input" id="entry-end" onchange="calcEntryHoursFromTimes()">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Заметки</label>
+        <textarea class="form-textarea" id="entry-notes" placeholder="Дополнительные детали..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-entry')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveEntry()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-project">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="project-modal-title">Новый проект</div>
+      <button class="btn-icon" onclick="closeModal('modal-add-project')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="project-edit-id">
+      <div class="form-group">
+        <label class="form-label">Название проекта *</label>
+        <input type="text" class="form-input" id="project-name" placeholder="Название проекта">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Клиент / Заказчик</label>
+        <input type="text" class="form-input" id="project-client" placeholder="Имя клиента">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Ставка в час (₽)</label>
+          <input type="number" class="form-input" id="project-rate" placeholder="0" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Цвет</label>
+          <div class="color-swatches" id="project-color-picker">
+            <div class="swatch selected" style="background:#6c63ff" data-color="#6c63ff" onclick="selectColor('#6c63ff',this)"></div>
+            <div class="swatch" style="background:#22c55e" data-color="#22c55e" onclick="selectColor('#22c55e',this)"></div>
+            <div class="swatch" style="background:#14b8a6" data-color="#14b8a6" onclick="selectColor('#14b8a6',this)"></div>
+            <div class="swatch" style="background:#f59e0b" data-color="#f59e0b" onclick="selectColor('#f59e0b',this)"></div>
+            <div class="swatch" style="background:#ef4444" data-color="#ef4444" onclick="selectColor('#ef4444',this)"></div>
+            <div class="swatch" style="background:#ec4899" data-color="#ec4899" onclick="selectColor('#ec4899',this)"></div>
+            <div class="swatch" style="background:#3b82f6" data-color="#3b82f6" onclick="selectColor('#3b82f6',this)"></div>
+            <div class="swatch" style="background:#f97316" data-color="#f97316" onclick="selectColor('#f97316',this)"></div>
+          </div>
+          <input type="hidden" id="project-color" value="#6c63ff">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Описание</label>
+        <textarea class="form-textarea" id="project-desc" placeholder="Описание проекта..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Статус</label>
+        <select class="form-select" id="project-status">
+          <option value="active">Активный</option>
+          <option value="paused">На паузе</option>
+          <option value="done">Завершён</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-project')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveProject()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-quick-timer">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Запустить таймер</div>
+      <button class="btn-icon" onclick="closeModal('modal-quick-timer')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Проект</label>
+        <select class="form-select" id="timer-project">
+          <option value="">Выберите проект</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Задача</label>
+        <input type="text" class="form-input" id="timer-task" placeholder="Что делаете?">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-quick-timer')">Отмена</button>
+      <button class="btn btn-primary" onclick="startTimerFromModal()">▶ Запустить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-payment">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div class="modal-title">Добавить оплату</div>
+      <button class="btn-icon" onclick="closeModal('modal-payment')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="payment-edit-id">
+      <div class="form-group">
+        <label class="form-label">Проект</label>
+        <select class="form-select" id="payment-project">
+          <option value="">Весь период / все проекты</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Сумма (₽)</label>
+          <input type="number" class="form-input" id="payment-amount" placeholder="0" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дата получения</label>
+          <input type="date" class="form-input" id="payment-date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Период работ</label>
+        <div class="form-row">
+          <input type="date" class="form-input" id="payment-from" placeholder="С">
+          <input type="date" class="form-input" id="payment-to" placeholder="По">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Заметка</label>
+        <input type="text" class="form-input" id="payment-note" placeholder="Примечание к оплате">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-payment')">Отмена</button>
+      <button class="btn btn-primary" onclick="savePayment()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-ai-result">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <div class="modal-title">✨ AI улучшил описание задачи</div>
+      <button class="btn-icon" onclick="closeModal('modal-ai-result')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" style="color:var(--text2)">Было (оригинал)</label>
+        <div id="ai-original-text" style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);font-size:14px;color:var(--text2);line-height:1.5"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" style="color:var(--accent2)">✨ Стало (AI версия)</label>
+        <div id="ai-improved-text" style="padding:10px 12px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:var(--radius2);font-size:14px;color:var(--text);line-height:1.5"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-ai-result')">Оставить оригинал</button>
+      <button class="btn btn-primary" id="ai-apply-btn">✨ Применить AI версию</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-stop-timer">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">Сохранить запись времени</div>
+      <button class="btn-icon" onclick="closeModal('modal-stop-timer')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="stop-timer-task" style="font-size:15px;font-weight:600;margin-bottom:4px"></div>
+      <div id="stop-timer-project" class="text-sm text-muted mb16"></div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:14px 16px;margin-bottom:12px">
+        <div class="flex items-center justify-between mb8">
+          <span class="text-sm text-muted">Фактически</span>
+          <span id="stop-timer-raw" style="font-weight:600;font-variant-numeric:tabular-nums"></span>
+        </div>
+        <div class="flex items-center justify-between mb8">
+          <span class="text-sm text-muted">К оплате (округлено)</span>
+          <span id="stop-timer-billable" style="font-size:18px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums"></span>
+        </div>
+        <div id="stop-timer-amount-row" class="flex items-center justify-between" style="display:none">
+          <span class="text-sm text-muted">Сумма</span>
+          <span id="stop-timer-amount" style="font-size:18px;font-weight:700;color:var(--green)"></span>
+        </div>
+      </div>
+      <div class="text-xs text-muted">Часы округляются по правилам из настроек — так вы выставляете счёт клиенту.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-stop-timer')">Продолжить</button>
+      <button class="btn btn-primary" onclick="confirmStopTimer()">Сохранить запись</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── AUTH ────────────────────────────────────────────────────────────────
+// ─── AUTH (локальный пароль) ──────────────────────────────────────────────
+const auth = {
+  async hash(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str + 'timelog_salt_2024'));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  },
+  hasPassword()  { return !!localStorage.getItem('tl_pw_hash'); },
+  async checkPassword(pass) {
+    const stored = localStorage.getItem('tl_pw_hash');
+    return stored && (await this.hash(pass)) === stored;
+  },
+  async setPassword(pass) { localStorage.setItem('tl_pw_hash', await this.hash(pass)); },
+  isLoggedIn()   { return localStorage.getItem('tl_session') === 'ok'; },
+  login()        { localStorage.setItem('tl_session', 'ok'); },
+  logout()       { localStorage.removeItem('tl_session'); }
+};
+
+function authMsg(text, type) {
+  const el = document.getElementById('auth-msg');
+  if (!el) return;
+  el.textContent = text; el.className = `auth-msg ${type}`; el.style.display = text ? '' : 'none';
+}
+function authClearMsg() { authMsg('', ''); }
+
+function authTogglePass(id) {
+  const el = document.getElementById(id);
+  if (el) el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+// Показать нужную форму при старте
+function authBootScreen() {
+  const hasPass = auth.hasPassword();
+  document.getElementById('auth-unlock-form').style.display = hasPass ? '' : 'none';
+  document.getElementById('auth-setup-form').style.display  = hasPass ? 'none' : '';
+  authClearMsg();
+  setTimeout(() => {
+    const f = hasPass ? 'auth-pass' : 'auth-new-pass';
+    document.getElementById(f)?.focus();
+  }, 80);
+}
+
+// Войти с существующим паролем
+async function authUnlock() {
+  const pass = document.getElementById('auth-pass').value;
+  if (!pass) { authMsg('Введите пароль', 'err'); return; }
+  const btn = document.getElementById('auth-unlock-btn');
+  btn.disabled = true; btn.textContent = 'Проверяем...';
+  const ok = await auth.checkPassword(pass);
+  btn.disabled = false; btn.textContent = 'Войти';
+  if (ok) { auth.login(); authSuccess(); }
+  else {
+    authMsg('Неверный пароль', 'err');
+    document.getElementById('auth-pass').value = '';
+    document.getElementById('auth-pass').focus();
+  }
+}
+
+// Показать форму создания пароля (сброс)
+function authShowSetup() {
+  localStorage.removeItem('tl_pw_hash');
+  localStorage.removeItem('tl_session');
+  document.getElementById('auth-unlock-form').style.display = 'none';
+  document.getElementById('auth-setup-form').style.display  = '';
+  authClearMsg();
+  setTimeout(() => document.getElementById('auth-new-pass')?.focus(), 80);
+}
+
+// Установить новый пароль
+async function authSetup() {
+  const pass  = document.getElementById('auth-new-pass').value;
+  const pass2 = document.getElementById('auth-new-pass2').value;
+  if (!pass) { authMsg('Введите пароль', 'err'); return; }
+  if (pass.length < 4) { authMsg('Минимум 4 символа', 'err'); return; }
+  if (pass !== pass2)  { authMsg('Пароли не совпадают', 'err'); return; }
+  const btn = document.getElementById('auth-setup-btn');
+  btn.disabled = true; btn.textContent = 'Сохраняем...';
+  await auth.setPassword(pass);
+  auth.login();
+  authSuccess();
+}
+
+function authSuccess() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'flex';
+  updateTopbarUser();
+  initApp();
+}
+
+function authLogout() {
+  auth.logout();
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('auth-pass').value = '';
+  authBootScreen();
+}
+
+function updateTopbarUser() {
+  const bar = document.getElementById('topbar-user');
+  if (!bar) return;
+  bar.innerHTML = `<button class="auth-logout" onclick="authLogout()">Выйти</button>`;
+}
+
+// Заглушки для совместимости
+function authSwitchTab() {}
+function authCheckSupabase() {}
+
+// ─── STATE ──────────────────────────────────────────────────────────────
+let state = {
+  projects: [],
+  entries: [],
+  payments: [],
+  timer: { running: false, startTime: null, projectId: null, task: '', paused: false, pausedMs: 0, pauseStart: null },
+  settings: {
+    defaultRate: 0,
+    currency: 'RUB',
+    billableIncrement: 0.25,
+    roundMode: 'up',
+    minBillable: 0,
+    openrouter: { apiKey: '', model: 'anthropic/claude-3.5-haiku', enabled: false },
+    aiPrompt: 'Ты помощник разработчика. Перефразируй описание задачи профессионально и лаконично для технического отчёта на русском языке. Сохрани суть, добавь технические детали если уместно. Верни только переформулированный текст без объяснений.',
+    supabase: { url: '', anonKey: '', enabled: false }
+  },
+  currentPage: 'dashboard',
+  selectedColor: '#6c63ff'
+};
+
+// ─── STORAGE ─────────────────────────────────────────────────────────────
+function save() {
+  try {
+    const d = { projects: state.projects, entries: state.entries, payments: state.payments, timer: state.timer, settings: state.settings };
+    localStorage.setItem('timelog_v1', JSON.stringify(d));
+  } catch(e) {}
+}
+function load() {
+  try {
+    const raw = localStorage.getItem('timelog_v1');
+    if (raw) {
+      const d = JSON.parse(raw);
+      state.projects = d.projects || [];
+      state.entries  = d.entries  || [];
+      state.payments = d.payments || [];
+      state.timer    = normalizeTimer(d.timer);
+      if (d.settings) {
+        state.settings = Object.assign({}, state.settings, d.settings);
+        state.settings.openrouter = Object.assign({}, state.settings.openrouter, d.settings.openrouter || {});
+        state.settings.supabase   = Object.assign({}, state.settings.supabase,   d.settings.supabase   || {});
+        if (d.settings.billableIncrement == null) state.settings.billableIncrement = 0.25;
+        if (!d.settings.roundMode) state.settings.roundMode = 'up';
+        if (d.settings.minBillable == null) state.settings.minBillable = 0;
+      }
+    }
+  } catch(e) {}
+}
+
+
+// ─── SUPABASE LAYER ──────────────────────────────────────────────────────
+const sb = {
+  // Low-level fetch wrapper
+  async req(method, path, body) {
+    const { url, anonKey } = state.settings.supabase;
+    if (!url || !anonKey) return null;
+    try {
+      const r = await fetch(`${url}/rest/v1/${path}`, {
+        method,
+        headers: {
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=representation' : 'return=representation'
+        },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (!r.ok) { const e = await r.text(); console.error('Supabase error:', e); return null; }
+      const text = await r.text();
+      return text ? JSON.parse(text) : [];
+    } catch(e) { console.error('Supabase fetch error:', e); return null; }
+  },
+
+  // Map local → DB column names
+  projectToRow(p) {
+    return { id: p.id, name: p.name, client: p.client||null, rate: p.rate||0, color: p.color||'#6c63ff', status: p.status||'active', description: p.desc||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
+  },
+  entryToRow(e) {
+    return { id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, created_at: new Date(e.createdAt||Date.now()).toISOString() };
+  },
+  paymentToRow(p) {
+    return { id: p.id, project_id: p.projectId||null, amount: p.amount, date: p.date, period_from: p.from||null, period_to: p.to||null, note: p.note||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
+  },
+  rowToProject(r) {
+    return { id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#6c63ff', status: r.status||'active', desc: r.description||'', createdAt: new Date(r.created_at).getTime() };
+  },
+  rowToEntry(r) {
+    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', createdAt: new Date(r.created_at).getTime() };
+  },
+  rowToPayment(r) {
+    return { id: r.id, projectId: r.project_id||null, amount: r.amount, date: r.date, from: r.period_from||'', to: r.period_to||'', note: r.note||'', createdAt: new Date(r.created_at).getTime() };
+  },
+
+  // Pull everything from Supabase into state
+  async pull() {
+    const [projects, entries, payments] = await Promise.all([
+      sb.req('GET', 'projects?order=created_at.asc'),
+      sb.req('GET', 'time_entries?order=created_at.desc'),
+      sb.req('GET', 'payments?order=created_at.desc')
+    ]);
+    if (projects !== null) state.projects = projects.map(sb.rowToProject);
+    if (entries  !== null) state.entries  = entries.map(sb.rowToEntry);
+    if (payments !== null) state.payments = payments.map(sb.rowToPayment);
+    save(); // mirror to localStorage
+  },
+
+  // Upsert single records
+  async upsertProject(p)  { return await sb.req('POST', 'projects',     sb.projectToRow(p)); },
+  async upsertEntry(e)    { return await sb.req('POST', 'time_entries', sb.entryToRow(e)); },
+  async upsertPayment(p)  { return await sb.req('POST', 'payments',     sb.paymentToRow(p)); },
+
+  // Delete single records
+  async deleteProject(id) { return await sb.req('DELETE', `projects?id=eq.${id}`); },
+  async deleteEntry(id)   { return await sb.req('DELETE', `time_entries?id=eq.${id}`); },
+  async deletePayment(id) { return await sb.req('DELETE', `payments?id=eq.${id}`); },
+
+  // Push all local data to Supabase (migration)
+  async pushAll() {
+    const results = await Promise.all([
+      ...state.projects.map(p => sb.upsertProject(p)),
+      ...state.entries.map(e  => sb.upsertEntry(e)),
+      ...state.payments.map(p => sb.upsertPayment(p))
+    ]);
+    return results.every(r => r !== null);
+  },
+
+  isEnabled() { return state.settings.supabase.enabled && state.settings.supabase.url && state.settings.supabase.anonKey; }
+};
+
+// Wrap the original save() to also sync to Supabase if enabled
+const _localSave = save;
+function saveAndSync() { _localSave(); } // save() already writes localStorage
+
+// ─── BILLING ─────────────────────────────────────────────────────────────
+function getBillingSettings() {
+  const s = state.settings;
+  return {
+    increment: s.billableIncrement ?? 0.25,
+    roundMode: s.roundMode || 'up',
+    minBillable: s.minBillable ?? 0
+  };
+}
+function roundBillableHours(rawHours) {
+  if (!rawHours || rawHours <= 0) return 0;
+  const { increment, roundMode, minBillable } = getBillingSettings();
+  if (increment <= 0) return Math.round(rawHours * 100) / 100;
+  const steps = rawHours / increment;
+  let h = roundMode === 'nearest'
+    ? Math.round(steps) * increment
+    : Math.ceil(steps - 1e-9) * increment;
+  if (minBillable > 0 && h > 0 && h < minBillable) h = minBillable;
+  return Math.round(h * 100) / 100;
+}
+function calcEntryAmount(projectId, hours) {
+  const p = getProject(projectId);
+  return (p?.rate || 0) * hours;
+}
+function normalizeTimer(timer) {
+  return Object.assign({
+    running: false, startTime: null, projectId: null, task: '',
+    paused: false, pausedMs: 0, pauseStart: null
+  }, timer || {});
+}
+function getTimerElapsedMs() {
+  const t = state.timer;
+  if (!t.running || !t.startTime) return 0;
+  const paused = t.pausedMs || 0;
+  const extra = (t.paused && t.pauseStart) ? (Date.now() - t.pauseStart) : 0;
+  return Math.max(0, Date.now() - t.startTime - paused - extra);
+}
+function getTimerElapsedHours() { return getTimerElapsedMs() / 3600000; }
+function resetTimerState() {
+  state.timer = normalizeTimer({});
+  clearInterval(timerInterval);
+  save();
+  updateTimerUI();
+}
+
+// ─── TIMER ───────────────────────────────────────────────────────────────
+let timerInterval = null;
+function startTimer(projectId, task) {
+  state.timer = normalizeTimer({ running: true, startTime: Date.now(), projectId, task });
+  save();
+  startTimerTick();
+  updateTimerUI();
+}
+function startTimerFromModal() {
+  const projectId = document.getElementById('timer-project').value;
+  const task = document.getElementById('timer-task').value.trim();
+  if (!projectId) { showToast('Выберите проект', 'error'); return; }
+  if (!task) { showToast('Введите задачу', 'error'); return; }
+  closeModal('modal-quick-timer');
+  startTimer(projectId, task);
+  showToast('Таймер запущен', 'success');
+}
+function startTimerTick() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimerUI, 1000);
+}
+function togglePauseTimer() {
+  if (!state.timer.running) return;
+  if (state.timer.paused) resumeTimer();
+  else pauseTimer();
+}
+function pauseTimer() {
+  state.timer.paused = true;
+  state.timer.pauseStart = Date.now();
+  save();
+  updateTimerUI();
+  showToast('Таймер на паузе');
+}
+function resumeTimer() {
+  if (!state.timer.paused) return;
+  state.timer.pausedMs = (state.timer.pausedMs || 0) + (Date.now() - state.timer.pauseStart);
+  state.timer.paused = false;
+  state.timer.pauseStart = null;
+  save();
+  updateTimerUI();
+  showToast('Таймер продолжен', 'success');
+}
+function stopTimer() {
+  if (!state.timer.running) return;
+  if (state.timer.paused) resumeTimer();
+  openStopTimerModal();
+}
+function openStopTimerModal() {
+  const rawH = getTimerElapsedHours();
+  if (rawH < 1 / 3600) { showToast('Слишком мало времени', 'error'); return; }
+  const project = getProject(state.timer.projectId);
+  document.getElementById('stop-timer-task').textContent = state.timer.task || 'Без описания';
+  document.getElementById('stop-timer-project').textContent = project ? project.name + (project.client ? ' · ' + project.client : '') : '';
+  updateStopTimerPreview();
+  openModal('modal-stop-timer');
+}
+function updateStopTimerPreview() {
+  const rawH = getTimerElapsedHours();
+  const billH = roundBillableHours(rawH);
+  const project = getProject(state.timer.projectId);
+  const amount = calcEntryAmount(state.timer.projectId, billH);
+  const rawEl = document.getElementById('stop-timer-raw');
+  const billEl = document.getElementById('stop-timer-billable');
+  const amtRow = document.getElementById('stop-timer-amount-row');
+  const amtEl = document.getElementById('stop-timer-amount');
+  if (rawEl) rawEl.textContent = fmtDuration(rawH);
+  if (billEl) billEl.textContent = fmtHours(billH);
+  if (amtRow && amtEl) {
+    if (project?.rate && amount > 0) {
+      amtRow.style.display = 'flex';
+      amtEl.textContent = fmtMoney(amount);
+    } else {
+      amtRow.style.display = 'none';
+    }
+  }
+}
+function confirmStopTimer() {
+  const rawH = getTimerElapsedHours();
+  const billH = roundBillableHours(rawH);
+  if (billH <= 0) { showToast('Слишком мало времени', 'error'); return; }
+  const endMs = Date.now();
+  const startMs = endMs - getTimerElapsedMs();
+  const entry = {
+    id: uid(), projectId: state.timer.projectId, task: state.timer.task,
+    date: new Date().toISOString().slice(0, 10),
+    hours: billH,
+    start: new Date(startMs).toTimeString().slice(0, 5),
+    end: new Date(endMs).toTimeString().slice(0, 5),
+    notes: rawH !== billH ? `Фактически: ${fmtDuration(rawH)}` : '',
+    createdAt: Date.now()
+  };
+  state.entries.unshift(entry);
+  if (sb.isEnabled()) sb.upsertEntry(entry);
+  const project = getProject(state.timer.projectId);
+  const amount = calcEntryAmount(state.timer.projectId, billH);
+  closeModal('modal-stop-timer');
+  resetTimerState();
+  renderPage();
+  const msg = amount > 0
+    ? `✓ ${fmtHours(billH)} · ${fmtMoney(amount)} · ${project?.name || ''}`
+    : `✓ ${fmtHours(billH)} · ${project?.name || ''}`;
+  showToast(msg, 'success');
+}
+function updateTimerUI() {
+  const disp = document.getElementById('sidebar-timer');
+  const proj = document.getElementById('sidebar-timer-project');
+  const startBtn = document.getElementById('sidebar-start-btn');
+  const pauseBtn = document.getElementById('sidebar-pause-btn');
+  const stopBtn = document.getElementById('sidebar-stop-btn');
+  const elapsedMs = getTimerElapsedMs();
+  const secs = Math.floor(elapsedMs / 1000);
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  const ts = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const isActive = state.timer.running;
+  const isPaused = isActive && state.timer.paused;
+
+  if (disp) {
+    if (isActive) {
+      disp.textContent = ts;
+      disp.style.color = isPaused ? 'var(--amber)' : 'var(--accent2)';
+      if (proj) proj.textContent = (isPaused ? '⏸ Пауза · ' : '') + (state.timer.task || 'Идёт запись...');
+      if (startBtn) startBtn.classList.add('hidden');
+      if (pauseBtn) {
+        pauseBtn.classList.remove('hidden');
+        pauseBtn.textContent = isPaused ? '▶' : '⏸';
+      }
+      if (stopBtn) stopBtn.classList.remove('hidden');
+    } else {
+      disp.textContent = '00:00:00';
+      disp.style.color = 'var(--accent2)';
+      if (proj) proj.textContent = 'Нет активной задачи';
+      if (startBtn) startBtn.classList.remove('hidden');
+      if (pauseBtn) pauseBtn.classList.add('hidden');
+      if (stopBtn) stopBtn.classList.add('hidden');
+    }
+  }
+
+  ['dash-timer-display', 'dash-timer-billable'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || !isActive) return;
+    if (id === 'dash-timer-display') {
+      el.textContent = ts;
+      el.style.color = isPaused ? 'var(--amber)' : '#fff';
+    }
+    if (id === 'dash-timer-billable') {
+      const billH = roundBillableHours(getTimerElapsedHours());
+      const amount = calcEntryAmount(state.timer.projectId, billH);
+      el.textContent = amount > 0 ? `К оплате: ${fmtHours(billH)} · ${fmtMoney(amount)}` : `К оплате: ${fmtHours(billH)}`;
+    }
+  });
+
+  if (document.getElementById('modal-stop-timer')?.classList.contains('open')) {
+    updateStopTimerPreview();
+  }
+}
+function openQuickTimer() {
+  if (state.timer.running) { stopTimer(); return; }
+  populateProjectSelects();
+  openModal('modal-quick-timer');
+}
+
+// ─── PAGES ───────────────────────────────────────────────────────────────
+const pageTitles = { dashboard: 'Дашборд', projects: 'Проекты', timelog: 'Записи времени', reports: 'Отчёты', payments: 'Оплата', settings: 'Настройки' };
+function showPage(page) {
+  state.currentPage = page;
+  document.querySelectorAll('.nav-item').forEach((el,i) => {
+    const pages = ['dashboard','projects','timelog','reports','payments','settings'];
+    el.classList.toggle('active', pages[i] === page);
+  });
+  document.getElementById('topbar-title').textContent = pageTitles[page];
+  closeSidebar();
+  renderPage();
+}
+function renderPage() {
+  const el = document.getElementById('main-content');
+  const pages = { dashboard: renderDashboard, projects: renderProjects, timelog: renderTimelog, reports: renderReports, payments: renderPayments, settings: renderSettings };
+  el.innerHTML = (pages[state.currentPage] || renderDashboard)();
+  bindPageEvents();
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────
+function renderDashboard() {
+  const today = new Date().toISOString().slice(0,10);
+  const week = getWeekDates();
+  const todayEntries = state.entries.filter(e => e.date === today);
+  const weekEntries  = state.entries.filter(e => e.date >= week.start && e.date <= week.end);
+  const monthEntries = state.entries.filter(e => e.date.slice(0,7) === today.slice(0,7));
+  const todayH  = sum(todayEntries.map(e=>e.hours));
+  const weekH   = sum(weekEntries.map(e=>e.hours));
+  const monthH  = sum(monthEntries.map(e=>e.hours));
+  const todayEarned = sum(todayEntries.map(e => calcEntryAmount(e.projectId, e.hours)));
+  const weekEarned  = sum(weekEntries.map(e => calcEntryAmount(e.projectId, e.hours)));
+  const totalUnpaid = calcUnpaid();
+  const activeProjects = state.projects.filter(p=>p.status==='active');
+  const aiAvail = state.settings.openrouter.enabled && state.settings.openrouter.apiKey;
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  const dateStr = now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+
+  const isRunning = state.timer.running;
+  const runningProject = isRunning ? getProject(state.timer.projectId) : null;
+
+  // Running state panel
+  const timerPanel = isRunning ? `
+    <div id="dash-timer-running" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px">
+      <div style="background:var(--accent3);padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:10px;height:10px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.3);animation:pulse 1.5s infinite"></div>
+          <div>
+            <div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:2px">Идёт запись</div>
+            <div style="font-size:15px;font-weight:600;color:#fff">${escHtml(state.timer.task)}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div id="dash-timer-display" style="font-size:32px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.03em">00:00:00</div>
+          <div id="dash-timer-billable" style="font-size:13px;color:rgba(255,255,255,.85);margin-top:4px;font-weight:600"></div>
+          <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px">${runningProject ? escHtml(runningProject.name) : ''}</div>
+        </div>
+      </div>
+      <div style="padding:14px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;font-size:13px;color:var(--text2);min-width:140px">
+          Начато в ${new Date(state.timer.startTime).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})} · ${dateStr}
+        </div>
+        <button onclick="togglePauseTimer()" style="padding:9px 16px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius2);font-size:14px;font-weight:600;cursor:pointer">
+          ${state.timer.paused ? '▶ Продолжить' : '⏸ Пауза'}
+        </button>
+        <button onclick="stopTimer()" style="padding:9px 20px;background:var(--red);color:#fff;border:none;border-radius:var(--radius2);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+          Остановить и сохранить
+        </button>
+      </div>
+    </div>` : `
+    <div id="dash-timer-panel" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:16px;font-weight:700">Начать запись времени</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:2px">${dateStr} · ${timeStr}</div>
+        </div>
+        ${activeProjects.length===0 ? `<div style="font-size:12px;color:var(--amber)">⚠ Нет активных проектов — <span style="cursor:pointer;color:var(--accent2)" onclick="showPage('projects')">создать</span></div>` : ''}
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Проект</div>
+          <select id="dash-project" class="form-select" onchange="dashProjectChanged()" style="font-size:14px">
+            <option value="">— Выберите проект</option>
+            ${activeProjects.map(p=>`<option value="${p.id}" style="color:${p.color||'#6c63ff'}">${escHtml(p.name)}${p.client?' · '+escHtml(p.client):''}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Что буду делать</div>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <textarea id="dash-task" class="form-textarea" placeholder="Опишите задачу своими словами..." style="min-height:70px;font-size:14px;flex:1;resize:none" oninput="dashTaskChanged()"></textarea>
+          ${aiAvail ? `
+          <button id="dash-ai-btn" onclick="dashAIPolish()" title="✨ Улучшить описание через AI"
+            style="width:42px;height:42px;border-radius:var(--radius2);background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.3);color:var(--accent2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"
+            onmouseenter="this.style.background='rgba(108,99,255,.25)'" onmouseleave="this.style.background='rgba(108,99,255,.12)'"
+            disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+            </svg>
+          </button>` : ''}
+        </div>
+        ${aiAvail ? `<div id="dash-ai-hint" style="font-size:11px;color:var(--text2);margin-top:4px;opacity:0.6">✨ Напишите задачу → нажмите звёздочку → AI сформулирует профессионально</div>` : `<div style="font-size:11px;color:var(--text2);margin-top:4px;opacity:0.6">💡 Включите OpenRouter в настройках для AI-формулировки</div>`}
+      </div>
+
+      <div id="dash-ai-preview" style="display:none;margin-bottom:12px;padding:12px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.25);border-radius:var(--radius2)">
+        <div style="font-size:11px;color:var(--accent2);margin-bottom:6px;font-weight:600">✨ AI сформулировал</div>
+        <div id="dash-ai-text" style="font-size:14px;color:var(--text);line-height:1.5"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button onclick="dashApplyAI()" style="padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer">Применить</button>
+          <button onclick="dashDiscardAI()" style="padding:6px 14px;background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;font-size:13px;cursor:pointer">Оставить своё</button>
+        </div>
+      </div>
+
+      <button id="dash-start-btn" onclick="dashStartTimer()"
+        style="width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;opacity:.5;transition:all .15s"
+        disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Запустить таймер
+      </button>
+    </div>`;
+
+  const recentEntries = [...state.entries].sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt).slice(0,10);
+
+  return `
+  <style>
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(74,222,128,.3)}50%{box-shadow:0 0 0 6px rgba(74,222,128,.1)}}
+  </style>
+
+  ${timerPanel}
+
+  <div class="grid4 mb20">
+    <div class="stat-card">
+      <div class="stat-label">Сегодня</div>
+      <div class="stat-val text-accent">${fmtHours(todayH)}</div>
+      <div class="stat-sub text-muted text-sm">${todayEntries.length} зап.${todayEarned > 0 ? ' · ' + fmtMoney(todayEarned) : ''}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Неделя</div>
+      <div class="stat-val">${fmtHours(weekH)}</div>
+      <div class="stat-sub text-muted text-sm">${weekEntries.length} зап.${weekEarned > 0 ? ' · ' + fmtMoney(weekEarned) : ''}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Месяц</div>
+      <div class="stat-val">${fmtHours(monthH)}</div>
+      <div class="stat-sub text-muted text-sm">${monthEntries.length} зап.</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Не оплачено</div>
+      <div class="stat-val text-amber">${fmtMoney(totalUnpaid)}</div>
+      <div class="stat-sub text-muted text-sm">всего</div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:0">Последние записи</div>
+  ${recentEntries.length ? recentEntries.map(e => entryItem(e)).join('') : emptyState('Нет записей', 'Запустите таймер выше чтобы начать')}
+  `;
+}
+
+// ─── DASHBOARD TIMER LOGIC ────────────────────────────────────────────────
+function dashProjectChanged() {
+  checkDashReady();
+}
+function dashTaskChanged() {
+  const task = document.getElementById('dash-task')?.value.trim();
+  const aiBtn = document.getElementById('dash-ai-btn');
+  if (aiBtn) aiBtn.disabled = !task;
+  checkDashReady();
+}
+function checkDashReady() {
+  const proj = document.getElementById('dash-project')?.value;
+  const task = document.getElementById('dash-task')?.value.trim();
+  const btn = document.getElementById('dash-start-btn');
+  if (!btn) return;
+  const ready = proj && task;
+  btn.disabled = !ready;
+  btn.style.opacity = ready ? '1' : '.5';
+  btn.style.cursor = ready ? 'pointer' : 'default';
+}
+async function dashAIPolish() {
+  const task = document.getElementById('dash-task')?.value.trim();
+  if (!task) return;
+  const or = state.settings.openrouter;
+  const projectId = document.getElementById('dash-project')?.value;
+  const project = getProject(projectId);
+  const btn = document.getElementById('dash-ai-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>'; }
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${or.apiKey}`, 'Content-Type': 'application/json', 'HTTP-Referer': location.origin, 'X-Title': 'TimeLog' },
+      body: JSON.stringify({
+        model: or.model, max_tokens: 200,
+        messages: [
+          { role: 'system', content: state.settings.aiPrompt },
+          { role: 'user', content: `Проект: ${project?.name || '—'}\nЗадача: ${task}` }
+        ]
+      })
+    });
+    const d = await r.json();
+    const improved = d.choices?.[0]?.message?.content?.trim();
+    if (improved) {
+      const preview = document.getElementById('dash-ai-preview');
+      const aiText = document.getElementById('dash-ai-text');
+      if (preview && aiText) { aiText.textContent = improved; preview.style.display = 'block'; preview.dataset.text = improved; }
+      const hint = document.getElementById('dash-ai-hint');
+      if (hint) hint.style.display = 'none';
+    } else { showToast('AI не ответил: ' + (d.error?.message||''), 'error'); }
+  } catch(e) { showToast('Ошибка AI: '+e.message, 'error'); }
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>'; }
+}
+function dashApplyAI() {
+  const preview = document.getElementById('dash-ai-preview');
+  const taskEl = document.getElementById('dash-task');
+  if (preview && taskEl) {
+    taskEl.value = preview.dataset.text || '';
+    preview.style.display = 'none';
+    checkDashReady();
+    showToast('✨ Формулировка применена');
+  }
+}
+function dashDiscardAI() {
+  const preview = document.getElementById('dash-ai-preview');
+  if (preview) preview.style.display = 'none';
+  const hint = document.getElementById('dash-ai-hint');
+  if (hint) hint.style.display = 'block';
+}
+function dashStartTimer() {
+  const projectId = document.getElementById('dash-project')?.value;
+  const task = document.getElementById('dash-task')?.value.trim();
+  if (!projectId) { showToast('Выберите проект', 'error'); return; }
+  if (!task) { showToast('Введите задачу', 'error'); return; }
+  startTimer(projectId, task);
+  renderPage();
+  showToast('▶ Таймер запущен', 'success');
+}
+
+function entryItem(e) {
+  const p = getProject(e.projectId);
+  const color = p?.color || '#6c63ff';
+  const aiAvail = state.settings.openrouter.enabled && state.settings.openrouter.apiKey;
+  const amount = calcEntryAmount(e.projectId, e.hours);
+  return `<div class="entry-item">
+    <div class="entry-dot" style="background:${color}"></div>
+    <div class="entry-info">
+      <div class="entry-task">${escHtml(e.task)}</div>
+      <div class="entry-meta">${p ? escHtml(p.name) : '—'} · ${fmtDate(e.date)}${e.start && e.end ? ' · ' + e.start + '–' + e.end : ''}</div>
+    </div>
+    <div style="text-align:right;min-width:72px">
+      <div class="entry-time">${fmtHours(e.hours)}</div>
+      ${amount > 0 ? `<div class="text-xs text-green" style="margin-top:2px">${fmtMoney(amount)}</div>` : ''}
+    </div>
+    <div class="entry-actions">
+      ${aiAvail ? `<button class="btn-icon" onclick="aiPolishEntry('${e.id}')" title="✨ Улучшить через AI" style="color:#8b85ff">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+      </button>` : ''}
+      <button class="btn-icon" onclick="editEntry('${e.id}')" title="Редактировать">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="btn-icon" onclick="deleteEntry('${e.id}')" title="Удалить" style="color:var(--red)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+function projectCard(p) {
+  const hrs = sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
+  const earned = hrs * (p.rate || 0);
+  return `<div class="card-sm mb8" style="border-left:3px solid ${p.color||'#6c63ff'}">
+    <div class="flex items-center justify-between mb4">
+      <div style="font-weight:600;font-size:14px;color:var(--text)">${escHtml(p.name)}</div>
+      <div style="font-size:13px;color:var(--accent2);font-weight:600">${fmtHours(hrs)}</div>
+    </div>
+    <div class="flex items-center justify-between">
+      <div class="text-muted text-sm">${p.client ? escHtml(p.client) : 'Клиент не указан'}</div>
+      ${p.rate ? `<div class="text-sm text-green">${fmtMoney(earned)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────
+function renderProjects() {
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Проекты</div><div class="page-sub">${state.projects.length} проектов</div></div>
+    <button class="btn btn-primary" onclick="openAddProjectModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Новый проект
+    </button>
+  </div>
+  ${state.projects.length === 0 ? `<div class="empty"><div class="empty-icon">📁</div><h3>Нет проектов</h3><p>Создайте первый проект чтобы начать учёт времени</p></div>` :
+    `<div class="grid2">${state.projects.map(p => renderProjectFull(p)).join('')}</div>`}
+  `;
+}
+
+function renderProjectFull(p) {
+  const entries = state.entries.filter(e => e.projectId === p.id);
+  const hrs = sum(entries.map(e=>e.hours));
+  const earned = hrs * (p.rate || 0);
+  const statusMap = { active: ['badge-green','Активный'], paused: ['badge-amber','Пауза'], done: ['badge-gray','Завершён'] };
+  const [badgeClass, statusLabel] = statusMap[p.status] || statusMap.active;
+  const paidAmount = sum(state.payments.filter(pay=>pay.projectId===p.id).map(pay=>pay.amount));
+  const unpaid = Math.max(0, earned - paidAmount);
+
+  return `<div class="card" style="border-top:3px solid ${p.color||'#6c63ff'}">
+    <div class="flex items-center justify-between mb8">
+      <div style="font-size:16px;font-weight:700">${escHtml(p.name)}</div>
+      <span class="badge ${badgeClass}">${statusLabel}</span>
+    </div>
+    ${p.client ? `<div class="text-sm text-muted mb8">👤 ${escHtml(p.client)}</div>` : ''}
+    ${p.desc ? `<div class="text-sm text-muted mb12" style="line-height:1.5">${escHtml(p.desc)}</div>` : ''}
+    <div class="divider"></div>
+    <div class="grid2" style="gap:8px;margin-bottom:12px">
+      <div><div class="text-xs text-muted">Часов</div><div style="font-size:18px;font-weight:700;color:var(--accent2)">${fmtHours(hrs)}</div></div>
+      <div><div class="text-xs text-muted">Ставка/час</div><div style="font-size:18px;font-weight:700">${p.rate ? fmtMoney(p.rate) : '—'}</div></div>
+      <div><div class="text-xs text-muted">Заработано</div><div style="font-size:16px;font-weight:600;color:var(--green)">${p.rate ? fmtMoney(earned) : '—'}</div></div>
+      <div><div class="text-xs text-muted">Не оплачено</div><div style="font-size:16px;font-weight:600;color:var(--amber)">${p.rate ? fmtMoney(unpaid) : '—'}</div></div>
+    </div>
+    <div class="text-xs text-muted mb8">${entries.length} записей</div>
+    <div class="flex gap8">
+      <button class="btn btn-ghost btn-sm flex-1" onclick="editProject('${p.id}')">Редактировать</button>
+      <button class="btn btn-ghost btn-sm" onclick="filterByProject('${p.id}')" title="Записи">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="deleteProject('${p.id}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+// ─── TIMELOG ──────────────────────────────────────────────────────────────
+let filterProject = '', filterDateFrom = '', filterDateTo = '';
+function renderTimelog() {
+  let entries = [...state.entries].sort((a,b) => b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
+  if (filterProject) entries = entries.filter(e=>e.projectId===filterProject);
+  if (filterDateFrom) entries = entries.filter(e=>e.date>=filterDateFrom);
+  if (filterDateTo) entries = entries.filter(e=>e.date<=filterDateTo);
+
+  const grouped = {};
+  entries.forEach(e => { if(!grouped[e.date]) grouped[e.date]=[]; grouped[e.date].push(e); });
+  const days = Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
+
+  const totalH = sum(entries.map(e=>e.hours));
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Записи времени</div><div class="page-sub">${entries.length} записей · ${fmtHours(totalH)}</div></div>
+    <button class="btn btn-primary" onclick="openAddEntryModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Добавить
+    </button>
+  </div>
+  <div class="card mb16" style="padding:14px 16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:140px">
+        <div class="text-xs text-muted mb4">Проект</div>
+        <select class="form-select" id="filter-project" onchange="applyFilter()" style="padding:7px 10px">
+          <option value="">Все проекты</option>
+          ${state.projects.map(p=>`<option value="${p.id}" ${filterProject===p.id?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div class="text-xs text-muted mb4">С даты</div>
+        <input type="date" class="form-input" id="filter-from" value="${filterDateFrom}" onchange="applyFilter()" style="padding:7px 10px">
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div class="text-xs text-muted mb4">По дату</div>
+        <input type="date" class="form-input" id="filter-to" value="${filterDateTo}" onchange="applyFilter()" style="padding:7px 10px">
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Сбросить</button>
+    </div>
+  </div>
+  ${days.length === 0 ? `<div class="empty"><div class="empty-icon">🕐</div><h3>Нет записей</h3><p>Добавьте запись или измените фильтры</p></div>` :
+    days.map(date => {
+      const dayEntries = grouped[date];
+      const dayH = sum(dayEntries.map(e=>e.hours));
+      return `<div class="mb16">
+        <div class="flex items-center justify-between mb8">
+          <div style="font-size:13px;font-weight:600;color:var(--text2)">${fmtDateLong(date)}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--accent2)">${fmtHours(dayH)}</div>
+        </div>
+        ${dayEntries.map(e=>entryItem(e)).join('')}
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function applyFilter() {
+  filterProject = document.getElementById('filter-project')?.value || '';
+  filterDateFrom = document.getElementById('filter-from')?.value || '';
+  filterDateTo = document.getElementById('filter-to')?.value || '';
+  renderPage();
+}
+function clearFilters() { filterProject=''; filterDateFrom=''; filterDateTo=''; renderPage(); }
+function filterByProject(id) { filterProject=id; showPage('timelog'); }
+
+// ─── REPORTS ──────────────────────────────────────────────────────────────
+let reportFrom = '', reportTo = '', reportProject = '';
+function renderReports() {
+  const today = new Date().toISOString().slice(0,10);
+  const monthStart = today.slice(0,7)+'-01';
+  if (!reportFrom) reportFrom = monthStart;
+  if (!reportTo) reportTo = today;
+
+  let entries = state.entries.filter(e => e.date >= reportFrom && e.date <= reportTo);
+  if (reportProject) entries = entries.filter(e=>e.projectId===reportProject);
+
+  const totalH = sum(entries.map(e=>e.hours));
+  const byProject = {};
+  entries.forEach(e => {
+    if (!byProject[e.projectId]) byProject[e.projectId] = { entries: [], hours: 0 };
+    byProject[e.projectId].entries.push(e);
+    byProject[e.projectId].hours += e.hours;
+  });
+
+  const totalEarned = Object.entries(byProject).reduce((acc,[pid,d])=>{
+    const p = getProject(pid);
+    return acc + d.hours * (p?.rate || 0);
+  }, 0);
+
+  const paidInPeriod = sum(state.payments.filter(pay=>pay.date>=reportFrom&&pay.date<=reportTo).map(p=>p.amount));
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Отчёт</div></div>
+    <button class="btn btn-primary" onclick="printReport()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Печать / PDF
+    </button>
+  </div>
+
+  <div class="card mb16" style="padding:14px 16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:120px">
+        <div class="text-xs text-muted mb4">С даты</div>
+        <input type="date" class="form-input" id="rep-from" value="${reportFrom}" onchange="updateReport()" style="padding:7px 10px">
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div class="text-xs text-muted mb4">По дату</div>
+        <input type="date" class="form-input" id="rep-to" value="${reportTo}" onchange="updateReport()" style="padding:7px 10px">
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div class="text-xs text-muted mb4">Проект</div>
+        <select class="form-select" id="rep-project" onchange="updateReport()" style="padding:7px 10px">
+          <option value="">Все проекты</option>
+          ${state.projects.map(p=>`<option value="${p.id}" ${reportProject===p.id?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="setReportPeriod('week')">Нед.</button>
+        <button class="btn btn-ghost btn-sm" onclick="setReportPeriod('month')">Месяц</button>
+        <button class="btn btn-ghost btn-sm" onclick="setReportPeriod('all')">Всё</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="report-header">
+    <div class="report-title">📊 Отчёт по рабочему времени</div>
+    <div class="report-period">${fmtDate(reportFrom)} — ${fmtDate(reportTo)}</div>
+    <div style="display:flex;gap:32px;margin-top:16px;flex-wrap:wrap">
+      <div><div style="font-size:12px;opacity:.7;margin-bottom:4px">Всего часов</div><div style="font-size:24px;font-weight:700">${fmtHours(totalH)}</div></div>
+      ${totalEarned>0?`<div><div style="font-size:12px;opacity:.7;margin-bottom:4px">К оплате</div><div style="font-size:24px;font-weight:700">${fmtMoney(totalEarned)}</div></div>`:''}
+      ${paidInPeriod>0?`<div><div style="font-size:12px;opacity:.7;margin-bottom:4px">Получено</div><div style="font-size:24px;font-weight:700">${fmtMoney(paidInPeriod)}</div></div>`:''}
+      <div><div style="font-size:12px;opacity:.7;margin-bottom:4px">Записей</div><div style="font-size:24px;font-weight:700">${entries.length}</div></div>
+    </div>
+  </div>
+
+  ${Object.entries(byProject).length === 0 ? `<div class="empty"><div class="empty-icon">📋</div><h3>Нет данных</h3><p>Нет записей за выбранный период</p></div>` :
+    Object.entries(byProject).sort((a,b)=>b[1].hours-a[1].hours).map(([pid, data]) => {
+      const p = getProject(pid);
+      const earned = data.hours * (p?.rate || 0);
+      const paidForProject = sum(state.payments.filter(pay=>pay.projectId===pid&&pay.date>=reportFrom&&pay.date<=reportTo).map(pay=>pay.amount));
+      return `<div class="card mb12">
+        <div class="flex items-center justify-between mb12">
+          <div class="flex items-center gap8">
+            <div style="width:12px;height:12px;border-radius:50%;background:${p?.color||'#6c63ff'}"></div>
+            <div style="font-size:16px;font-weight:700">${escHtml(p?.name || 'Удалённый проект')}</div>
+            ${p?.client?`<div class="text-sm text-muted">· ${escHtml(p.client)}</div>`:''}
+          </div>
+          <div class="flex gap8 items-center">
+            <div style="font-size:18px;font-weight:700;color:var(--accent2)">${fmtHours(data.hours)}</div>
+            ${earned>0?`<div style="font-size:16px;font-weight:600;color:var(--green)">${fmtMoney(earned)}</div>`:''}
+            ${paidForProject>0?`<span class="badge badge-green">Оплачено: ${fmtMoney(paidForProject)}</span>`:''}
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Дата</th><th>Задача</th><th>Время</th><th>Часы</th>${p?.rate?'<th>Сумма</th>':''}
+            </tr></thead>
+            <tbody>${data.entries.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr>
+              <td style="white-space:nowrap">${fmtDate(e.date)}</td>
+              <td>${escHtml(e.task)}${e.notes?`<div class="text-xs text-muted mt4">${escHtml(e.notes)}</div>`:''}</td>
+              <td style="white-space:nowrap">${e.start&&e.end?`${e.start}–${e.end}`:''}</td>
+              <td style="font-weight:600;color:var(--accent2)">${fmtHours(e.hours)}</td>
+              ${p?.rate?`<td style="color:var(--green)">${fmtMoney(e.hours*(p.rate||0))}</td>`:''}
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function updateReport() {
+  reportFrom = document.getElementById('rep-from')?.value || reportFrom;
+  reportTo = document.getElementById('rep-to')?.value || reportTo;
+  reportProject = document.getElementById('rep-project')?.value || '';
+  renderPage();
+}
+function setReportPeriod(period) {
+  const today = new Date().toISOString().slice(0,10);
+  if (period==='week') { const w=getWeekDates(); reportFrom=w.start; reportTo=w.end; }
+  else if (period==='month') { reportFrom=today.slice(0,7)+'-01'; reportTo=today; }
+  else if (period==='all') { reportFrom='2020-01-01'; reportTo=today; }
+  renderPage();
+}
+function printReport() {
+  const printWin = window.open('', '_blank');
+  const today = new Date().toISOString().slice(0,10);
+  const entries = state.entries.filter(e=>e.date>=reportFrom&&e.date<=reportTo&&(!reportProject||e.projectId===reportProject));
+  const byProject = {};
+  entries.forEach(e=>{if(!byProject[e.projectId])byProject[e.projectId]={entries:[],hours:0};byProject[e.projectId].entries.push(e);byProject[e.projectId].hours+=e.hours;});
+  const totalH = sum(entries.map(e=>e.hours));
+  const totalE = Object.entries(byProject).reduce((a,[pid,d])=>a+d.hours*(getProject(pid)?.rate||0),0);
+
+  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Отчёт ${fmtDate(reportFrom)} — ${fmtDate(reportTo)}</title>
+  <style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;padding:24px;font-size:14px}
+  h1{font-size:22px;margin-bottom:4px}h2{font-size:17px;margin:20px 0 8px;border-bottom:2px solid #eee;padding-bottom:6px}
+  table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#f5f5f5;text-align:left;padding:8px 10px;font-size:12px}
+  td{padding:8px 10px;border-bottom:1px solid #eee}.summary{display:flex;gap:32px;margin:16px 0;padding:16px;background:#f9f9f9;border-radius:8px}
+  .sv{font-size:22px;font-weight:700;color:#4338ca}.sl{font-size:12px;color:#666;margin-bottom:4px}.meta{color:#666;font-size:13px}
+  @media print{.no-print{display:none}}</style></head><body>
+  <h1>📊 Отчёт по рабочему времени</h1>
+  <div class="meta">Период: ${fmtDate(reportFrom)} — ${fmtDate(reportTo)} · Сформирован: ${fmtDate(today)}</div>
+  <div class="summary">
+    <div><div class="sl">Всего часов</div><div class="sv">${fmtHours(totalH)}</div></div>
+    ${totalE>0?`<div><div class="sl">К оплате</div><div class="sv">${fmtMoney(totalE)}</div></div>`:''}
+    <div><div class="sl">Записей</div><div class="sv">${entries.length}</div></div>
+  </div>
+  ${Object.entries(byProject).map(([pid,data])=>{
+    const p=getProject(pid);const earned=data.hours*(p?.rate||0);
+    return `<h2>${p?.name||'Проект'} ${p?.client?`<span style="font-size:14px;color:#666">· ${p.client}</span>`:''}
+      <span style="float:right;font-size:14px">${fmtHours(data.hours)} ${earned>0?'· '+fmtMoney(earned):''}</span></h2>
+    <table><thead><tr><th>Дата</th><th>Задача</th><th>Время</th><th>Часов</th>${p?.rate?'<th>Сумма</th>':''}</tr></thead><tbody>
+    ${data.entries.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr>
+      <td>${fmtDate(e.date)}</td><td>${e.task}${e.notes?`<br><span style="font-size:12px;color:#888">${e.notes}</span>`:''}</td>
+      <td>${e.start&&e.end?e.start+'–'+e.end:''}</td><td>${fmtHours(e.hours)}</td>
+      ${p?.rate?`<td>${fmtMoney(e.hours*(p.rate||0))}</td>`:''}
+    </tr>`).join('')}</tbody></table>`;
+  }).join('')}
+  </body></html>`);
+  printWin.document.close();
+  setTimeout(()=>printWin.print(),300);
+}
+
+// ─── PAYMENTS ─────────────────────────────────────────────────────────────
+function renderPayments() {
+  const totalEarned = calcTotalEarned();
+  const totalPaid = sum(state.payments.map(p=>p.amount));
+  const unpaid = Math.max(0, totalEarned - totalPaid);
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Оплата</div><div class="page-sub">Управление платежами</div></div>
+    <button class="btn btn-primary" onclick="openPaymentModal()">+ Добавить оплату</button>
+  </div>
+
+  <div class="grid3 mb16">
+    <div class="stat-card">
+      <div class="stat-label">Заработано всего</div>
+      <div class="stat-val text-accent">${fmtMoney(totalEarned)}</div>
+      <div class="stat-sub text-muted text-sm">По всем проектам</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Получено оплат</div>
+      <div class="stat-val text-green">${fmtMoney(totalPaid)}</div>
+      <div class="stat-sub text-muted text-sm">${state.payments.length} платежей</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Остаток к оплате</div>
+      <div class="stat-val text-amber">${fmtMoney(unpaid)}</div>
+      <div class="stat-sub text-muted text-sm">Не оплачено</div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:0">Статус по проектам</div>
+  <div class="card mb16">
+    ${state.projects.filter(p=>p.rate).map(p=>{
+      const hrs=sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
+      const earned=hrs*(p.rate||0);
+      const paid=sum(state.payments.filter(pay=>pay.projectId===p.id).map(pay=>pay.amount));
+      const pct=earned>0?Math.min(100,Math.round(paid/earned*100)):0;
+      return `<div style="margin-bottom:16px">
+        <div class="flex items-center justify-between mb4">
+          <div class="flex items-center gap8">
+            <div style="width:8px;height:8px;border-radius:50%;background:${p.color||'#6c63ff'}"></div>
+            <span style="font-size:14px;font-weight:500">${escHtml(p.name)}</span>
+          </div>
+          <div class="flex gap8 items-center">
+            <span class="text-sm text-green">${fmtMoney(paid)}</span>
+            <span class="text-xs text-muted">из ${fmtMoney(earned)}</span>
+            <span class="badge ${pct>=100?'badge-green':pct>0?'badge-amber':'badge-red'}">${pct}%</span>
+          </div>
+        </div>
+        <div class="progress"><div class="progress-bar" style="width:${pct}%;background:${pct>=100?'var(--green)':pct>0?'var(--amber)':'var(--red)'}"></div></div>
+      </div>`;
+    }).join('') || '<div class="text-muted text-sm">Нет проектов со ставкой</div>'}
+  </div>
+
+  <div class="section-title">История платежей</div>
+  ${state.payments.length === 0 ? `<div class="empty"><div class="empty-icon">💳</div><h3>Нет платежей</h3><p>Добавьте запись об оплате</p></div>` :
+    `<div class="table-wrap"><table>
+      <thead><tr><th>Дата</th><th>Проект</th><th>Период</th><th>Сумма</th><th>Заметка</th><th></th></tr></thead>
+      <tbody>${[...state.payments].sort((a,b)=>b.date.localeCompare(a.date)).map(pay=>{
+        const p = getProject(pay.projectId);
+        return `<tr>
+          <td style="white-space:nowrap">${fmtDate(pay.date)}</td>
+          <td>${p?`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${p.color||'#6c63ff'}"></span>${escHtml(p.name)}</span>`:'Все проекты'}</td>
+          <td class="text-sm text-muted">${pay.from&&pay.to?fmtDate(pay.from)+' – '+fmtDate(pay.to):''}</td>
+          <td style="font-weight:600;color:var(--green)">${fmtMoney(pay.amount)}</td>
+          <td class="text-sm text-muted">${escHtml(pay.note||'')}</td>
+          <td><div class="flex gap4">
+            <button class="btn-icon" onclick="editPayment('${pay.id}')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn-icon" onclick="deletePayment('${pay.id}')" style="color:var(--red)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          </div></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`}
+  `;
+}
+
+// ─── MODALS ───────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function populateProjectSelects() {
+  ['entry-project','timer-project','payment-project'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    const hasBlank = id==='payment-project';
+    const val = el.value;
+    el.innerHTML = (hasBlank?'<option value="">Все проекты</option>':'<option value="">Выберите проект</option>') +
+      state.projects.map(p=>`<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+    el.value = val;
+    if (id === 'entry-project') el.onchange = updateEntryBillablePreview;
+  });
+}
+
+function calcEntryHoursFromTimes() {
+  const start = document.getElementById('entry-start')?.value;
+  const end = document.getElementById('entry-end')?.value;
+  if (!start || !end) { updateEntryBillablePreview(); return; }
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60;
+  const raw = mins / 60;
+  const el = document.getElementById('entry-hours');
+  if (el) el.value = roundBillableHours(raw) || Math.round(raw * 100) / 100;
+  updateEntryBillablePreview();
+}
+
+function addEntryMinutes(m) {
+  const el = document.getElementById('entry-hours');
+  if (!el) return;
+  const cur = parseFloat(el.value) || 0;
+  el.value = Math.round((cur + m / 60) * 100) / 100;
+  updateEntryBillablePreview();
+}
+
+function updateEntryBillablePreview() {
+  const el = document.getElementById('entry-billable-preview');
+  if (!el) return;
+  const hours = parseFloat(document.getElementById('entry-hours')?.value);
+  const projectId = document.getElementById('entry-project')?.value;
+  if (!hours || hours <= 0) { el.style.display = 'none'; return; }
+  const billH = roundBillableHours(hours);
+  const amount = calcEntryAmount(projectId, billH);
+  let text = `К оплате: ${fmtHours(billH)}`;
+  if (Math.abs(billH - hours) > 0.001) text += ` (округлено с ${fmtHours(hours)})`;
+  if (amount > 0) text += ` · ${fmtMoney(amount)}`;
+  el.textContent = text;
+  el.style.display = '';
+}
+
+function openAddEntryModal() {
+  document.getElementById('entry-modal-title').textContent = 'Добавить запись';
+  document.getElementById('entry-edit-id').value = '';
+  document.getElementById('entry-project').value = '';
+  document.getElementById('entry-task').value = '';
+  document.getElementById('entry-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('entry-hours').value = '';
+  document.getElementById('entry-start').value = '';
+  document.getElementById('entry-end').value = '';
+  document.getElementById('entry-notes').value = '';
+  populateProjectSelects();
+  updateEntryBillablePreview();
+  openModal('modal-add-entry');
+}
+
+function editEntry(id) {
+  const e = state.entries.find(x=>x.id===id);
+  if (!e) return;
+  document.getElementById('entry-modal-title').textContent = 'Редактировать запись';
+  document.getElementById('entry-edit-id').value = id;
+  populateProjectSelects();
+  document.getElementById('entry-project').value = e.projectId;
+  document.getElementById('entry-task').value = e.task;
+  document.getElementById('entry-date').value = e.date;
+  document.getElementById('entry-hours').value = e.hours;
+  document.getElementById('entry-start').value = e.start||'';
+  document.getElementById('entry-end').value = e.end||'';
+  document.getElementById('entry-notes').value = e.notes||'';
+  updateEntryBillablePreview();
+  openModal('modal-add-entry');
+}
+
+function saveEntry() {
+  const projectId = document.getElementById('entry-project').value;
+  const task = document.getElementById('entry-task').value.trim();
+  const date = document.getElementById('entry-date').value;
+  let hours = parseFloat(document.getElementById('entry-hours').value);
+  if (!projectId) { showToast('Выберите проект', 'error'); return; }
+  if (!task) { showToast('Введите задачу', 'error'); return; }
+  if (!date) { showToast('Укажите дату', 'error'); return; }
+  if (!hours || hours <= 0) { showToast('Укажите время', 'error'); return; }
+  const rawHours = hours;
+  hours = roundBillableHours(hours);
+  const editId = document.getElementById('entry-edit-id').value;
+  let notes = document.getElementById('entry-notes').value;
+  if (rawHours !== hours && !notes.includes('Фактически:')) {
+    notes = (notes ? notes + ' · ' : '') + `Фактически: ${fmtDuration(rawHours)}`;
+  }
+  const entry = {
+    id: editId || uid(), projectId, task, date, hours,
+    start: document.getElementById('entry-start').value,
+    end: document.getElementById('entry-end').value,
+    notes,
+    createdAt: editId ? (state.entries.find(e=>e.id===editId)?.createdAt||Date.now()) : Date.now()
+  };
+  if (editId) {
+    const idx = state.entries.findIndex(e=>e.id===editId);
+    if (idx>=0) state.entries[idx]=entry;
+  } else {
+    state.entries.unshift(entry);
+  }
+  save();
+  if (sb.isEnabled()) sb.upsertEntry(entry);
+  closeModal('modal-add-entry');
+  showToast(editId?'Запись обновлена':'Запись добавлена','success');
+  renderPage();
+}
+
+function deleteEntry(id) {
+  if (!confirm('Удалить запись?')) return;
+  state.entries = state.entries.filter(e=>e.id!==id);
+  save();
+  if (sb.isEnabled()) sb.deleteEntry(id);
+  renderPage(); showToast('Запись удалена');
+}
+
+function openAddProjectModal() {
+  document.getElementById('project-modal-title').textContent = 'Новый проект';
+  document.getElementById('project-edit-id').value = '';
+  document.getElementById('project-name').value = '';
+  document.getElementById('project-client').value = '';
+  document.getElementById('project-rate').value = state.settings.defaultRate || '';
+  document.getElementById('project-desc').value = '';
+  document.getElementById('project-status').value = 'active';
+  selectColor('#6c63ff', document.querySelector('.swatch[data-color="#6c63ff"]'));
+  openModal('modal-add-project');
+}
+
+function editProject(id) {
+  const p = getProject(id);
+  if (!p) return;
+  document.getElementById('project-modal-title').textContent = 'Редактировать проект';
+  document.getElementById('project-edit-id').value = id;
+  document.getElementById('project-name').value = p.name;
+  document.getElementById('project-client').value = p.client||'';
+  document.getElementById('project-rate').value = p.rate||'';
+  document.getElementById('project-desc').value = p.desc||'';
+  document.getElementById('project-status').value = p.status||'active';
+  selectColor(p.color||'#6c63ff', document.querySelector(`.swatch[data-color="${p.color||'#6c63ff'}"]`));
+  openModal('modal-add-project');
+}
+
+function saveProject() {
+  const name = document.getElementById('project-name').value.trim();
+  if (!name) { showToast('Введите название', 'error'); return; }
+  const editId = document.getElementById('project-edit-id').value;
+  const project = {
+    id: editId || uid(),
+    name, client: document.getElementById('project-client').value.trim(),
+    rate: parseFloat(document.getElementById('project-rate').value)||0,
+    color: document.getElementById('project-color').value,
+    desc: document.getElementById('project-desc').value.trim(),
+    status: document.getElementById('project-status').value,
+    createdAt: editId ? (getProject(editId)?.createdAt||Date.now()) : Date.now()
+  };
+  if (editId) { const idx=state.projects.findIndex(p=>p.id===editId); if(idx>=0)state.projects[idx]=project; }
+  else state.projects.push(project);
+  save();
+  if (sb.isEnabled()) sb.upsertProject(project);
+  closeModal('modal-add-project');
+  showToast(editId?'Проект обновлён':'Проект создан','success');
+  renderPage();
+}
+
+function deleteProject(id) {
+  const entries = state.entries.filter(e=>e.projectId===id);
+  if (!confirm(`Удалить проект? Вместе с ним будут удалены ${entries.length} записей.`)) return;
+  state.projects = state.projects.filter(p=>p.id!==id);
+  state.entries  = state.entries.filter(e=>e.projectId!==id);
+  save();
+  if (sb.isEnabled()) sb.deleteProject(id); // cascade deletes entries in DB
+  renderPage(); showToast('Проект удалён');
+}
+
+function openPaymentModal() {
+  document.getElementById('payment-edit-id').value = '';
+  document.getElementById('payment-amount').value = '';
+  document.getElementById('payment-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('payment-from').value = '';
+  document.getElementById('payment-to').value = '';
+  document.getElementById('payment-note').value = '';
+  populateProjectSelects();
+  document.getElementById('payment-project').value = '';
+  openModal('modal-payment');
+}
+
+function editPayment(id) {
+  const pay = state.payments.find(p=>p.id===id);
+  if (!pay) return;
+  populateProjectSelects();
+  document.getElementById('payment-edit-id').value = id;
+  document.getElementById('payment-project').value = pay.projectId||'';
+  document.getElementById('payment-amount').value = pay.amount;
+  document.getElementById('payment-date').value = pay.date;
+  document.getElementById('payment-from').value = pay.from||'';
+  document.getElementById('payment-to').value = pay.to||'';
+  document.getElementById('payment-note').value = pay.note||'';
+  openModal('modal-payment');
+}
+
+function savePayment() {
+  const amount = parseFloat(document.getElementById('payment-amount').value);
+  const date = document.getElementById('payment-date').value;
+  if (!amount || amount<=0) { showToast('Укажите сумму','error'); return; }
+  if (!date) { showToast('Укажите дату','error'); return; }
+  const editId = document.getElementById('payment-edit-id').value;
+  const payment = {
+    id: editId||uid(),
+    projectId: document.getElementById('payment-project').value||null,
+    amount, date,
+    from: document.getElementById('payment-from').value,
+    to: document.getElementById('payment-to').value,
+    note: document.getElementById('payment-note').value,
+    createdAt: Date.now()
+  };
+  if (editId) { const idx=state.payments.findIndex(p=>p.id===editId); if(idx>=0)state.payments[idx]=payment; }
+  else state.payments.unshift(payment);
+  save();
+  if (sb.isEnabled()) sb.upsertPayment(payment);
+  closeModal('modal-payment');
+  showToast(editId?'Платёж обновлён':'Платёж добавлен','success');
+  renderPage();
+}
+
+function deletePayment(id) {
+  if (!confirm('Удалить платёж?')) return;
+  state.payments = state.payments.filter(p=>p.id!==id);
+  save();
+  if (sb.isEnabled()) sb.deletePayment(id);
+  renderPage(); showToast('Платёж удалён');
+}
+
+function selectColor(color, el) {
+  state.selectedColor = color;
+  document.getElementById('project-color').value = color;
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+}
+
+function bindPageEvents() {}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────
+function renderSettings() {
+  const s = state.settings;
+  const or = s.openrouter;
+  const models = [
+    ['anthropic/claude-3.5-haiku','Claude 3.5 Haiku (быстрый, дешёвый)'],
+    ['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet (баланс)'],
+    ['anthropic/claude-3-opus','Claude 3 Opus (мощный)'],
+    ['openai/gpt-4o-mini','GPT-4o Mini (быстрый)'],
+    ['openai/gpt-4o','GPT-4o (мощный)'],
+    ['google/gemini-flash-1.5','Gemini Flash 1.5 (быстрый)'],
+    ['meta-llama/llama-3.1-8b-instruct:free','Llama 3.1 8B (бесплатный)'],
+  ];
+
+  return `
+  <div style="max-width:720px">
+
+    <div class="section-title" style="margin-top:0">💰 Финансы и почасовая оплата</div>
+    <div class="card mb16">
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Ставка по умолчанию (₽/час)</label>
+          <input type="number" class="form-input" id="s-rate" value="${s.defaultRate||''}" placeholder="0" min="0"
+            oninput="state.settings.defaultRate=parseFloat(this.value)||0;save()">
+          <div class="text-xs text-muted mt4">Подставляется при создании нового проекта</div>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Валюта</label>
+          <select class="form-select" id="s-currency" onchange="state.settings.currency=this.value;save();renderPage()">
+            <option value="RUB" ${s.currency==='RUB'?'selected':''}>₽ Рубль (RUB)</option>
+            <option value="USD" ${s.currency==='USD'?'selected':''}>$ Доллар (USD)</option>
+            <option value="EUR" ${s.currency==='EUR'?'selected':''}>€ Евро (EUR)</option>
+          </select>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="text-sm fw-6 mb8">Округление часов для выставления счёта</div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Шаг округления</label>
+          <select class="form-select" onchange="state.settings.billableIncrement=parseFloat(this.value);save()">
+            <option value="0.25" ${(s.billableIncrement??0.25)===0.25?'selected':''}>15 минут (0.25 ч)</option>
+            <option value="0.5" ${s.billableIncrement===0.5?'selected':''}>30 минут (0.5 ч)</option>
+            <option value="1" ${s.billableIncrement===1?'selected':''}>1 час</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Правило округления</label>
+          <select class="form-select" onchange="state.settings.roundMode=this.value;save()">
+            <option value="up" ${(s.roundMode||'up')==='up'?'selected':''}>Вверх (рекомендуется)</option>
+            <option value="nearest" ${s.roundMode==='nearest'?'selected':''}>До ближайшего</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group mt12" style="margin-bottom:0">
+        <label class="form-label">Минимум к оплате за запись (часов)</label>
+        <select class="form-select" onchange="state.settings.minBillable=parseFloat(this.value);save()">
+          <option value="0" ${!(s.minBillable>0)?'selected':''}>Без минимума</option>
+          <option value="0.25" ${s.minBillable===0.25?'selected':''}>15 минут</option>
+          <option value="0.5" ${s.minBillable===0.5?'selected':''}>30 минут</option>
+          <option value="1" ${s.minBillable===1?'selected':''}>1 час</option>
+        </select>
+        <div class="text-xs text-muted mt4">Пример: 10 мин работы → ${fmtHours(roundBillableHours(10/60))} к оплате</div>
+      </div>
+    </div>
+
+    <div class="section-title">✨ Интеграция — OpenRouter AI</div>
+    <div class="card mb16">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px">
+        <div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:4px">OpenRouter</div>
+          <div class="text-sm text-muted">Один ключ — доступ к Claude, GPT-4, Gemini и другим моделям. AI будет улучшать описания задач для отчётов.</div>
+          <a href="https://openrouter.ai/keys" target="_blank" style="font-size:12px;color:var(--accent2);margin-top:4px;display:inline-block">Получить API ключ →</a>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0">
+          <div style="position:relative;display:inline-block">
+            <input type="checkbox" id="s-ai-enabled" ${or.enabled?'checked':''} onchange="toggleAI(this.checked)" style="width:0;height:0;opacity:0;position:absolute">
+            <div id="ai-toggle" style="width:40px;height:22px;background:${or.enabled?'var(--accent)':'var(--border2)'};border-radius:11px;transition:.2s;cursor:pointer" onclick="toggleAI(!document.getElementById('s-ai-enabled').checked)">
+              <div style="width:18px;height:18px;background:#fff;border-radius:50%;margin:2px;transition:.2s;transform:translateX(${or.enabled?'18px':'0'})"></div>
+            </div>
+          </div>
+          <span class="text-sm">${or.enabled?'Включено':'Выключено'}</span>
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">API ключ OpenRouter</label>
+        <div style="display:flex;gap:8px">
+          <input type="password" class="form-input" id="s-apikey" value="${or.apiKey||''}" placeholder="sk-or-v1-..." style="flex:1"
+            oninput="state.settings.openrouter.apiKey=this.value;save()">
+          <button class="btn btn-ghost btn-sm" onclick="testOpenRouter()" id="test-ai-btn">Проверить</button>
+        </div>
+        <div id="ai-test-result" class="text-xs mt4"></div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Модель</label>
+        <select class="form-select" id="s-model" onchange="state.settings.openrouter.model=this.value;save()">
+          ${models.map(([v,l])=>`<option value="${v}" ${or.model===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="form-group mt12" style="margin-bottom:0">
+        <label class="form-label">Системный промпт для улучшения задач</label>
+        <textarea class="form-textarea" id="s-prompt" style="min-height:90px;font-size:13px"
+          oninput="state.settings.aiPrompt=this.value;save()">${escHtml(s.aiPrompt)}</textarea>
+        <div class="text-xs text-muted mt4">AI получит этот промпт + оригинальный текст задачи и вернёт улучшенную версию</div>
+      </div>
+
+      ${or.enabled && or.apiKey ? `<div class="mt12" style="padding:10px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.25);border-radius:var(--radius2)">
+        <div class="text-sm" style="color:var(--accent2)">✨ AI активен — кнопка «улучшить» появится на каждой записи времени</div>
+      </div>` : ''}
+    </div>
+
+    <div class="section-title">🗄️ База данных — Supabase</div>
+    <div class="card mb16">
+      ${s.supabase.enabled ? `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--radius2);margin-bottom:16px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+        <div style="flex:1;font-size:13px;color:var(--green)">Подключено к Supabase — данные синхронизируются в облако</div>
+        <button class="btn btn-ghost btn-sm" onclick="sbSync()">↻ Синхронизировать</button>
+        <button class="btn btn-danger btn-sm" onclick="sbDisconnect()">Отключить</button>
+      </div>` : `
+      <div style="margin-bottom:14px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px">Облачное хранилище</div>
+        <div class="text-sm text-muted" style="line-height:1.6">Данные будут храниться в Supabase — доступны с любого устройства, не потеряются при очистке браузера. Бесплатный план Supabase полностью подходит.</div>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+          <a href="https://supabase.com" target="_blank" style="font-size:12px;color:var(--accent2)">1. Создать проект на supabase.com →</a>
+          <span style="font-size:12px;color:var(--text2)">2. Вставить ключи ниже</span>
+          <span style="font-size:12px;color:var(--text2)">3. Нажать «Подключить»</span>
+        </div>
+      </div>`}
+
+      <div class="form-group">
+        <label class="form-label">Project URL</label>
+        <input type="url" class="form-input" id="s-sb-url" value="${escHtml(s.supabase.url||'')}"
+          placeholder="https://xxxxxxxxxxxx.supabase.co"
+          oninput="state.settings.supabase.url=this.value.trim();save()">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Anon Key (public)</label>
+        <input type="password" class="form-input" id="s-sb-key" value="${escHtml(s.supabase.anonKey||'')}"
+          placeholder="eyJhbGciOiJIUzI1NiIs..."
+          oninput="state.settings.supabase.anonKey=this.value.trim();save()">
+        <div class="text-xs text-muted mt4">Настройки проекта → API → Project API keys → anon public</div>
+      </div>
+
+      ${!s.supabase.enabled ? `
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">SQL для создания таблиц — выполни в Supabase → SQL Editor</div>
+        <pre style="font-size:11px;color:var(--accent2);line-height:1.6;overflow-x:auto;white-space:pre-wrap">create table projects (
+  id text primary key, name text not null,
+  client text, rate numeric default 0,
+  color text default '#6c63ff', status text default 'active',
+  description text, created_at timestamptz default now()
+);
+create table time_entries (
+  id text primary key, project_id text references projects(id) on delete cascade,
+  task text not null, date date not null, hours numeric not null,
+  start_time text, end_time text, notes text,
+  created_at timestamptz default now()
+);
+create table payments (
+  id text primary key, project_id text references projects(id) on delete set null,
+  amount numeric not null, date date not null,
+  period_from date, period_to date, note text,
+  created_at timestamptz default now()
+);
+alter table projects enable row level security;
+alter table time_entries enable row level security;
+alter table payments enable row level security;
+create policy "open" on projects for all using (true) with check (true);
+create policy "open" on time_entries for all using (true) with check (true);
+create policy "open" on payments for all using (true) with check (true);</pre>
+        <button onclick="copySQL()" class="btn btn-ghost btn-sm" style="margin-top:8px">Копировать SQL</button>
+      </div>` : ''}
+
+      <div id="sb-test-result" class="text-sm mt4 mb12" style="min-height:18px"></div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="sbTest()">Проверить соединение</button>
+        ${!s.supabase.enabled ? `<button class="btn btn-primary" onclick="sbConnect()" style="flex:1">🔗 Подключить и мигрировать данные</button>` : ''}
+      </div>
+    </div>
+
+    <div class="section-title">📁 Управление проектами</div>
+    <div class="card mb16">
+      ${state.projects.length === 0 ? `<div class="text-muted text-sm">Нет проектов. Создайте проект в разделе «Проекты».</div>` :
+        state.projects.map(p => {
+          const hrs = sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
+          const statusMap = { active: ['var(--green)', 'Активный'], paused: ['var(--amber)', 'Пауза'], done: ['var(--text2)', 'Завершён'] };
+          const [stColor, stLabel] = statusMap[p.status] || statusMap.active;
+          return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
+            <div style="width:10px;height:10px;border-radius:50%;background:${p.color||'#6c63ff'};flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:500">${escHtml(p.name)}</div>
+              <div class="text-xs text-muted">${p.client?escHtml(p.client)+' · ':''} ${fmtHours(hrs)} · <span style="color:${stColor}">${stLabel}</span></div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button class="btn btn-ghost btn-sm" onclick="setProjectStatus('${p.id}','active')" ${p.status==='active'?'style="border-color:var(--green);color:var(--green)"':''}>Активный</button>
+              <button class="btn btn-ghost btn-sm" onclick="setProjectStatus('${p.id}','paused')" ${p.status==='paused'?'style="border-color:var(--amber);color:var(--amber)"':''}>Пауза</button>
+              <button class="btn btn-ghost btn-sm" onclick="setProjectStatus('${p.id}','done')" ${p.status==='done'?'style="border-color:var(--text2);color:var(--text2)"':''}>Закрыть</button>
+            </div>
+          </div>`;
+        }).join('')
+      }
+    </div>
+
+    <div class="section-title">🗄️ Данные</div>
+    <div class="card">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="exportData()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Экспорт JSON
+        </button>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Импорт JSON
+          <input type="file" accept=".json" style="display:none" onchange="importData(event)">
+        </label>
+        <button class="btn btn-danger btn-sm" onclick="clearAllData()">Очистить все данные</button>
+      </div>
+      <div class="text-xs text-muted mt8">Проектов: ${state.projects.length} · Записей: ${state.entries.length} · Платежей: ${state.payments.length}</div>
+    </div>
+
+  </div>`;
+}
+
+function toggleAI(val) {
+  state.settings.openrouter.enabled = val;
+  save();
+  renderPage();
+}
+
+// ─── SUPABASE UI ──────────────────────────────────────────────────────────
+function sbSetResult(msg, ok) {
+  const el = document.getElementById('sb-test-result');
+  if (el) { el.textContent = msg; el.style.color = ok ? 'var(--green)' : ok===false ? 'var(--red)' : 'var(--text2)'; }
+}
+
+async function sbTest() {
+  const url = document.getElementById('s-sb-url')?.value.trim();
+  const key = document.getElementById('s-sb-key')?.value.trim();
+  if (!url || !key) { sbSetResult('Заполните URL и ключ', false); return; }
+  state.settings.supabase.url = url;
+  state.settings.supabase.anonKey = key;
+  save();
+  sbSetResult('Проверяем...', null);
+  try {
+    const r = await fetch(`${url}/rest/v1/projects?limit=1`, {
+      headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+    });
+    if (r.ok) {
+      sbSetResult('✓ Соединение успешно! Таблицы найдены.', true);
+    } else {
+      const txt = await r.text();
+      if (txt.includes('relation') && txt.includes('does not exist')) {
+        sbSetResult('✕ Таблицы не найдены — выполни SQL из блока выше в Supabase SQL Editor', false);
+      } else {
+        sbSetResult('✕ Ошибка: ' + txt.slice(0,120), false);
+      }
+    }
+  } catch(e) { sbSetResult('✕ Не удалось подключиться: ' + e.message, false); }
+}
+
+async function sbConnect() {
+  const url = document.getElementById('s-sb-url')?.value.trim();
+  const key = document.getElementById('s-sb-key')?.value.trim();
+  if (!url || !key) { sbSetResult('Заполните URL и ключ', false); return; }
+  state.settings.supabase.url = url;
+  state.settings.supabase.anonKey = key;
+  save();
+  sbSetResult('Подключаемся...', null);
+  // Test first
+  try {
+    const r = await fetch(`${url}/rest/v1/projects?limit=1`, {
+      headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+    });
+    if (!r.ok) { sbSetResult('✕ Ошибка подключения — проверь URL и ключ, и выполни SQL', false); return; }
+  } catch(e) { sbSetResult('✕ ' + e.message, false); return; }
+
+  sbSetResult(`Мигрируем данные (${state.projects.length} проектов, ${state.entries.length} записей, ${state.payments.length} платежей)...`, null);
+  const ok = await sb.pushAll();
+  if (ok) {
+    state.settings.supabase.enabled = true;
+    save();
+    showToast('✓ Supabase подключён! Все данные загружены в облако.', 'success');
+    renderPage();
+  } else {
+    sbSetResult('✕ Ошибка при загрузке данных. Убедись что таблицы созданы.', false);
+  }
+}
+
+async function sbSync() {
+  if (!sb.isEnabled()) return;
+  showToast('Синхронизируем...', 'success');
+  await sb.pull();
+  renderPage();
+  showToast('✓ Данные обновлены из облака', 'success');
+}
+
+function sbDisconnect() {
+  if (!confirm('Отключить Supabase? Данные останутся в localStorage.')) return;
+  state.settings.supabase.enabled = false;
+  save();
+  renderPage();
+  showToast('Supabase отключён');
+}
+
+function copySQL() {
+  const sql = `create table projects (
+  id text primary key, name text not null,
+  client text, rate numeric default 0,
+  color text default '#6c63ff', status text default 'active',
+  description text, created_at timestamptz default now()
+);
+create table time_entries (
+  id text primary key, project_id text references projects(id) on delete cascade,
+  task text not null, date date not null, hours numeric not null,
+  start_time text, end_time text, notes text,
+  created_at timestamptz default now()
+);
+create table payments (
+  id text primary key, project_id text references projects(id) on delete set null,
+  amount numeric not null, date date not null,
+  period_from date, period_to date, note text,
+  created_at timestamptz default now()
+);
+alter table projects enable row level security;
+alter table time_entries enable row level security;
+alter table payments enable row level security;
+create policy "open" on projects for all using (true) with check (true);
+create policy "open" on time_entries for all using (true) with check (true);
+create policy "open" on payments for all using (true) with check (true);`;
+  navigator.clipboard.writeText(sql).then(() => showToast('SQL скопирован')).catch(() => showToast('Не удалось скопировать', 'error'));
+}
+
+function setProjectStatus(id, status) {
+  const p = state.projects.find(x=>x.id===id);
+  if (p) {
+    p.status = status;
+    save();
+    if (sb.isEnabled()) sb.upsertProject(p);
+    renderPage();
+    showToast(`Проект «${p.name}» — ${status==='active'?'активирован':status==='paused'?'приостановлен':'закрыт'}`);
+  }
+}
+
+async function testOpenRouter() {
+  const key = state.settings.openrouter.apiKey;
+  const model = state.settings.openrouter.model;
+  if (!key) { showToast('Введите API ключ','error'); return; }
+  const btn = document.getElementById('test-ai-btn');
+  const res = document.getElementById('ai-test-result');
+  btn.textContent = '...'; btn.disabled = true;
+  res.style.color = 'var(--text2)'; res.textContent = 'Проверяем подключение...';
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': location.origin, 'X-Title': 'TimeLog' },
+      body: JSON.stringify({ model, max_tokens: 20, messages: [{ role: 'user', content: 'Reply with: OK' }] })
+    });
+    const d = await r.json();
+    if (d.choices?.[0]?.message?.content) {
+      res.style.color = 'var(--green)'; res.textContent = '✓ Подключение успешно! Модель отвечает.';
+      state.settings.openrouter.enabled = true; save();
+    } else {
+      res.style.color = 'var(--red)'; res.textContent = '✕ Ошибка: ' + (d.error?.message || JSON.stringify(d));
+    }
+  } catch(e) {
+    res.style.color = 'var(--red)'; res.textContent = '✕ Ошибка сети: ' + e.message;
+  }
+  btn.textContent = 'Проверить'; btn.disabled = false;
+}
+
+async function aiPolishEntry(id) {
+  const entry = state.entries.find(e=>e.id===id);
+  if (!entry) return;
+  const or = state.settings.openrouter;
+  if (!or.enabled || !or.apiKey) { showToast('Настройте OpenRouter в настройках','error'); return; }
+  const project = getProject(entry.projectId);
+  showToast('✨ AI улучшает описание...', 'success');
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${or.apiKey}`, 'Content-Type': 'application/json', 'HTTP-Referer': location.origin, 'X-Title': 'TimeLog' },
+      body: JSON.stringify({
+        model: or.model,
+        max_tokens: 200,
+        messages: [
+          { role: 'system', content: state.settings.aiPrompt },
+          { role: 'user', content: `Проект: ${project?.name || '—'}\nЗадача: ${entry.task}${entry.notes ? '\nЗаметки: ' + entry.notes : ''}` }
+        ]
+      })
+    });
+    const d = await r.json();
+    const improved = d.choices?.[0]?.message?.content?.trim();
+    if (improved) {
+      openAIResultModal(id, entry.task, improved);
+    } else {
+      showToast('Ошибка AI: ' + (d.error?.message || 'Нет ответа'), 'error');
+    }
+  } catch(e) {
+    showToast('Ошибка запроса: ' + e.message, 'error');
+  }
+}
+
+function openAIResultModal(entryId, original, improved) {
+  const overlay = document.getElementById('modal-ai-result');
+  document.getElementById('ai-original-text').textContent = original;
+  document.getElementById('ai-improved-text').textContent = improved;
+  document.getElementById('ai-apply-btn').onclick = () => {
+    const entry = state.entries.find(e=>e.id===entryId);
+    if (entry) { entry.task = improved; save(); renderPage(); showToast('✨ Описание обновлено'); }
+    closeModal('modal-ai-result');
+  };
+  openModal('modal-ai-result');
+}
+
+function exportData() {
+  const d = { projects: state.projects, entries: state.entries, payments: state.payments, settings: state.settings, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `timelog-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+}
+function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (!confirm(`Импортировать данные? Это заменит текущие данные.\nПроектов: ${d.projects?.length||0}, Записей: ${d.entries?.length||0}`)) return;
+      state.projects = d.projects || state.projects;
+      state.entries = d.entries || state.entries;
+      state.payments = d.payments || state.payments;
+      save(); renderPage(); showToast('Данные импортированы');
+    } catch { showToast('Ошибка формата файла', 'error'); }
+  };
+  r.readAsText(file);
+}
+function clearAllData() {
+  if (!confirm('Удалить ВСЕ данные? Это действие нельзя отменить.')) return;
+  if (!confirm('Вы уверены? Все проекты, записи и платежи будут удалены.')) return;
+  state.projects = []; state.entries = []; state.payments = [];
+  save(); renderPage(); showToast('Все данные удалены');
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2,10)+'_'+Date.now().toString(36); }
+function pad(n) { return String(n).padStart(2,'0'); }
+function sum(arr) { return arr.reduce((a,b)=>a+b,0); }
+function getProject(id) { return state.projects.find(p=>p.id===id); }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtHours(h) {
+  h = Math.round(h * 100) / 100;
+  const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+  return mm > 0 ? `${hh}ч ${mm}м` : `${hh}ч`;
+}
+function fmtDuration(h) {
+  h = Math.max(0, h);
+  const totalM = Math.round(h * 60);
+  const hh = Math.floor(totalM / 60);
+  const mm = totalM % 60;
+  if (hh > 0 && mm > 0) return `${hh}ч ${mm}м`;
+  if (hh > 0) return `${hh}ч`;
+  return `${mm}м`;
+}
+function fmtMoney(n) {
+  const cur = state.settings?.currency || 'RUB';
+  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: cur, minimumFractionDigits: 0 }).format(Math.round(n));
+}
+function fmtDate(d) { if(!d) return ''; const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function fmtDateLong(d) { if(!d) return ''; const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'}); }
+function getWeekDates() {
+  const now = new Date(); const day = now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return { start: mon.toISOString().slice(0,10), end: sun.toISOString().slice(0,10) };
+}
+function calcTotalEarned() {
+  return sum(state.projects.map(p=>{
+    const hrs=sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
+    return hrs*(p.rate||0);
+  }));
+}
+function calcUnpaid() {
+  return Math.max(0, calcTotalEarned() - sum(state.payments.map(p=>p.amount)));
+}
+function emptyState(title, sub) {
+  return `<div style="padding:24px 0;text-align:center;color:var(--text2)"><div style="font-size:13px;font-weight:600;margin-bottom:4px">${title}</div><div style="font-size:12px">${sub}</div></div>`;
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  const icon = type==='success'?'✓':'✕';
+  el.innerHTML = `<span style="color:${type==='success'?'var(--green)':'var(--red)'}">${icon}</span> ${escHtml(msg)}`;
+  container.appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+// ─── SIDEBAR ─────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
+}
+
+// ─── KEYBOARD ─────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+  }
+});
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); });
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────
+function initApp() {
+  load();
+  state.timer = normalizeTimer(state.timer);
+  if (state.timer.running) startTimerTick();
+  updateTimerUI();
+  renderPage();
+  updateTopbarUser();
+  if (sb.isEnabled()) {
+    sb.pull().then(() => { renderPage(); showToast('✓ Данные синхронизированы', 'success'); }).catch(()=>{});
+  }
+  const params = new URLSearchParams(location.search);
+  if (params.get('page') && pageTitles[params.get('page')]) showPage(params.get('page'));
+  if (params.get('action') === 'add') setTimeout(openAddEntryModal, 100);
+}
+
+// Boot sequence — локальный пароль, без Supabase Auth
+load();
+authBootScreen();
+
+if (auth.isLoggedIn()) {
+  authSuccess();
+} else {
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+// Service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
