@@ -2,13 +2,36 @@
 services:
   postgres:
     restart: always
-    # Do not expose ports — internal network only
 
   postgrest:
     restart: always
 
   web:
     restart: always
-    # Put TLS reverse proxy in front; expose only 80 internally or map to localhost
+    # Bind to localhost only — put host Caddy/nginx in front, or use --profile tls
     ports:
       - "127.0.0.1:${HTTP_PORT:-8080}:80"
+
+  caddy:
+    profiles: ["tls"]
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Set PUBLIC_HOST in .env for TLS}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - timelog
+
+volumes:
+  caddy_data:
+  caddy_config:

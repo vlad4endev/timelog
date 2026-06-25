@@ -69,7 +69,9 @@ chmod +x docker/postgres/init/02-roles.sh docker/docker-entrypoint.sh 2>/dev/nul
 
 echo ""
 echo "✓ Setup complete"
-echo "  Start:  docker compose up -d --build"
+echo "  Dev:    docker compose up -d --build"
+echo "  Prod:   ./scripts/deploy.sh prod"
+echo "  TLS:    ./scripts/deploy.sh tls   (needs PUBLIC_HOST in .env)"
 echo "  Open:   http://localhost:${HTTP_PORT:-8080}"
 echo "  Logs:   docker compose logs -f"
 echo "  Stop:   docker compose down"

@@ -1,8 +1,7 @@
-# Caddy reverse proxy example for production TLS
-# Usage: caddy run --config docker/Caddyfile
-# Requires DNS pointing to this server.
+# Caddy inside Docker (profile tls) — automatic HTTPS via Let's Encrypt
+# Set PUBLIC_HOST in .env (e.g. timelog.example.com), DNS must point to this server.
 
-{$PUBLIC_HOST:localhost} {
+{$PUBLIC_HOST} {
 	encode gzip
-	reverse_proxy localhost:8080
+	reverse_proxy web:80
 }

@@ -1,4 +1,4 @@
-.PHONY: setup up down logs restart icons clean
+.PHONY: setup up down logs restart icons clean prod prod-tls deploy backup health migrate diagnose
 
 setup:
 	./scripts/setup.sh
@@ -8,6 +8,18 @@ icons:
 
 up: setup
 	docker compose up -d --build
+
+prod: setup
+	./scripts/deploy.sh prod
+
+prod-tls: setup
+	./scripts/deploy.sh tls
+
+deploy:
+	./scripts/deploy.sh update
+
+backup:
+	./scripts/backup-db.sh
 
 down:
 	docker compose down
@@ -20,6 +32,12 @@ restart:
 
 clean:
 	docker compose down -v
+
+migrate:
+	./scripts/migrate-db.sh
+
+diagnose:
+	./scripts/diagnose.sh
 
 health:
 	@curl -sf "http://localhost:$${HTTP_PORT:-8080}/health" && echo " web ok"

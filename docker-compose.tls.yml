@@ -1,0 +1,5 @@
+# TLS overlay: use with --profile tls
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.tls.yml --profile tls up -d
+services:
+  web:
+    ports: []

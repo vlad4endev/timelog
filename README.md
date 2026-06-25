@@ -46,10 +46,54 @@ make health  # проверить web + API
 
 ### Production
 
+**На сервере (первый раз):**
+
+```bash
+# 1. Установить Docker (Ubuntu/Debian)
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER"   # перелогиниться
+
+# 2. Клонировать и настроить
+git clone https://github.com/vlad4endev/timelog.git
+cd timelog
+cp .env.example .env
+nano .env   # PUBLIC_URL, PUBLIC_HOST (для HTTPS), пароли уже сгенерирует setup
+
+# 3a. С внешним reverse proxy (nginx/Caddy на хосте)
+./scripts/deploy.sh prod
+# Проксируйте HTTPS → 127.0.0.1:8080 (пример: docker/Caddyfile.host)
+
+# 3b. С автоматическим HTTPS (Caddy в Docker, Let's Encrypt)
+# DNS A-запись → IP сервера, в .env: PUBLIC_HOST=timelog.example.com, PUBLIC_URL=https://timelog.example.com
+./scripts/deploy.sh tls
+```
+
+**Обновление после git pull:**
+
+```bash
+./scripts/deploy.sh update
+# или: make deploy
+```
+
+**Бэкап БД:**
+
+```bash
+./scripts/backup-db.sh          # → backups/timelog-YYYYMMDD-HHMMSS.sql.gz
+```
+
+**Полезные команды:**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f web
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+```
+
+Рекомендации:
+
 1. Задайте `PUBLIC_URL=https://your-domain.com` в `.env`
-2. Поставьте reverse proxy (Caddy/Traefik/nginx) с TLS перед портом `8080`
-3. Не публикуйте порты `postgres` и `postgrest` наружу — только `web`
-4. Регулярный бэкап volume: `docker run --rm -v timelog_postgres_data:/data -v $(pwd):/backup alpine tar czf /backup/pg-backup.tar.gz /data`
+2. Не публикуйте порты `postgres` и `postgrest` наружу — только `web` (или Caddy)
+3. Регулярный бэкап: `./scripts/backup-db.sh` или cron
 
 ## Локальная разработка (без Docker)
 
@@ -84,6 +128,10 @@ SQL-схема также в `docker/postgres/init/01-schema.sql`.
 | `config.js` | Авто-конфиг API (генерируется в Docker) |
 | `docker-compose.yml` | Оркестрация контейнеров |
 | `Dockerfile` | Образ веб-сервера |
+| `docker-compose.prod.yml` | Production overlay (localhost bind + Caddy TLS) |
+| `docker-compose.tls.yml` | Скрывает порт web при режиме TLS |
+| `scripts/deploy.sh` | Деплой на сервер (prod / tls / update) |
+| `scripts/backup-db.sh` | SQL-бэкап PostgreSQL |
 | `docker/postgres/init/` | SQL-инициализация БД |
 | `scripts/setup.sh` | Подготовка `.env` и секретов |
 

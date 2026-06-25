@@ -1,0 +1,8 @@
+# Caddy on the host (outside Docker) — TLS in front of localhost:8080
+# Usage: caddy run --config docker/Caddyfile.host
+# Requires PUBLIC_HOST in environment or replace the domain below.
+
+{$PUBLIC_HOST:localhost} {
+	encode gzip
+	reverse_proxy localhost:8080
+}
