@@ -12,6 +12,9 @@ html.tl-restore #session-boot-overlay{display:flex!important}
 html.tl-restore #global-boot-splash{display:none!important}
 html.tl-show-auth #auth-screen{display:flex!important}
 html.tl-show-auth #global-boot-splash{display:none!important}
+html.tl-app-ready #main-app{display:flex!important}
+html.tl-app-ready #session-boot-overlay{display:none!important}
+html.tl-app-ready #auth-screen{display:none!important}
 html.tl-app-ready #global-boot-splash{display:none!important}
 </style>
 <script>
@@ -2865,35 +2868,29 @@ async function authAfterSuccess(isRegister) {
 }
 
 function authRevealLoginScreen() {
-  document.documentElement.classList.remove('tl-restore', 'tl-auth-boot');
+  appStarted = false;
+  document.documentElement.classList.remove('tl-restore', 'tl-auth-boot', 'tl-app-ready');
   document.documentElement.classList.add('tl-show-auth');
   const bootOverlay = document.getElementById('session-boot-overlay');
   if (bootOverlay) bootOverlay.style.display = 'none';
-  document.getElementById('main-app').style.display = 'none';
   const screen = document.getElementById('auth-screen');
-  if (screen) {
-    screen.style.display = 'flex';
-    screen.classList.remove('leaving');
-  }
+  if (screen) screen.classList.remove('leaving');
 }
 
 function authSuccess() {
   appStarted = true;
+  document.documentElement.classList.add('tl-app-ready');
   document.documentElement.classList.remove('tl-restore', 'tl-auth-boot', 'tl-show-auth');
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('main-app').style.display = 'flex';
   updateTopbarUser();
   try {
     initApp();
   } catch (e) {
     console.error('initApp failed:', e);
     appStarted = false;
+    document.documentElement.classList.remove('tl-app-ready');
     authForceLoginScreen('Ошибка запуска. Попробуйте обновить страницу.');
     return;
   }
-  const bootOverlay = document.getElementById('session-boot-overlay');
-  if (bootOverlay) bootOverlay.style.display = 'none';
-  document.documentElement.classList.add('tl-app-ready');
 }
 
 function authLogout() {
