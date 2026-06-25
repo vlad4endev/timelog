@@ -1708,6 +1708,37 @@ const auth = {
   logout() {
     localStorage.removeItem('tl_session');
     this._currentLogin = null;
+  },
+
+  async changePassword(login, currentPass, newPass) {
+    if (!(await this.checkPassword(login, currentPass))) return { ok: false, error: 'Неверный текущий пароль' };
+    if (newPass.length < 4) return { ok: false, error: 'Минимум 4 символа' };
+    await this.setPassword(login, newPass);
+    return { ok: true };
+  },
+
+  async changeLogin(oldLogin, newLogin, currentPass) {
+    const err = this.validateLogin(newLogin);
+    if (err) return { ok: false, error: err };
+    if (newLogin === oldLogin) return { ok: true };
+    if (!(await this.checkPassword(oldLogin, currentPass))) return { ok: false, error: 'Неверный текущий пароль' };
+    await this.fetchServerHash(newLogin);
+    if (this._serverHash) return { ok: false, error: 'Этот логин уже занят' };
+    const hash = localStorage.getItem(this.pwKey(oldLogin));
+    if (!hash) return { ok: false, error: 'Пароль не найден' };
+    localStorage.setItem(this.pwKey(newLogin), hash);
+    localStorage.removeItem(this.pwKey(oldLogin));
+    const wkey = webauthn.storageKey(oldLogin);
+    const wdata = localStorage.getItem(wkey);
+    if (wdata) {
+      localStorage.setItem(webauthn.storageKey(newLogin), wdata);
+      localStorage.removeItem(wkey);
+    }
+    this.setLogin(newLogin);
+    if (sb.isEnabled()) {
+      await sb.req('POST', 'app_users', { login: newLogin, pw_hash: hash, updated_at: new Date().toISOString() });
+    }
+    return { ok: true };
   }
 };
 
@@ -2015,7 +2046,8 @@ let state = {
     minBillable: 0,
     openrouter: { apiKey: '', model: 'anthropic/claude-3.5-haiku', enabled: false },
     aiPrompt: 'Ты помощник разработчика. Перефразируй описание задачи профессионально и лаконично для технического отчёта на русском языке. Сохрани суть, добавь технические детали если уместно. Верни только переформулированный текст без объяснений.',
-    supabase: { url: '', anonKey: '', enabled: false }
+    supabase: { url: '', anonKey: '', enabled: false },
+    projectHourAlerts: {}
   },
   currentPage: 'dashboard',
   selectedColor: '#059669'
@@ -2047,6 +2079,7 @@ function load() {
         if (d.settings.billableIncrement == null) state.settings.billableIncrement = 0.25;
         if (!d.settings.roundMode) state.settings.roundMode = 'up';
         if (d.settings.minBillable == null) state.settings.minBillable = 0;
+        if (!state.settings.projectHourAlerts) state.settings.projectHourAlerts = {};
       }
     }
   } catch(e) {}
@@ -3175,6 +3208,28 @@ function projectCard(p) {
 }
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────
+function getProjectHours(projectId) {
+  return sum(state.entries.filter(e => e.projectId === projectId && !e.archived).map(e => e.hours));
+}
+
+function checkProjectHourLimit(projectId) {
+  const p = getProject(projectId);
+  if (!p || !(p.maxHours > 0)) return;
+  const hrs = getProjectHours(projectId);
+  if (!state.settings.projectHourAlerts) state.settings.projectHourAlerts = {};
+  if (hrs <= p.maxHours) {
+    if (state.settings.projectHourAlerts[projectId]) {
+      delete state.settings.projectHourAlerts[projectId];
+      save();
+    }
+    return;
+  }
+  if (state.settings.projectHourAlerts[projectId]) return;
+  state.settings.projectHourAlerts[projectId] = true;
+  save();
+  showToast(`Лимит ${fmtHours(p.maxHours)} превышен: ${fmtHours(hrs)} по проекту «${p.name}»`, 'warning');
+}
+
 function renderProjects() {
   return `
   <div class="page-header">
