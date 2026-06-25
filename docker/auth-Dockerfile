@@ -1,0 +1,14 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+RUN npm install --no-save jose@5 pg@8
+
+COPY docker/auth-server.mjs ./auth-server.mjs
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3001/health || exit 1
+
+CMD ["node", "auth-server.mjs"]

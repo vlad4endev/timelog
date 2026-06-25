@@ -826,7 +826,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
         <div class="auth-field">
           <label>Логин</label>
           <input class="auth-input" type="text" id="auth-login" placeholder="Телефон, email или логин"
-            autocomplete="username" inputmode="email"
+            autocomplete="username" inputmode="text"
             oninput="authOnLoginInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-pass')?.focus()}">
         </div>
         <div class="auth-field">
@@ -865,9 +865,9 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
         <div class="auth-field">
           <label>Логин</label>
           <input class="auth-input" type="text" id="auth-setup-login" placeholder="Телефон, email или логин"
-            autocomplete="username" inputmode="email"
+            autocomplete="username" inputmode="text"
             onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-new-pass')?.focus()}">
-          <div style="font-size:11px;color:var(--text2);margin-top:6px">Телефон: +79001234567 · email · логин от 3 символов</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px">Телефон: 89001234567 или +79001234567 · email · логин</div>
         </div>
         <div class="auth-field">
           <label>Новый пароль</label>
@@ -1582,7 +1582,10 @@ const auth = {
     if (s.includes('@')) return s.toLowerCase();
     const digits = s.replace(/[^\d+]/g, '');
     if (digits.length >= 10 && /^\+?\d+$/.test(digits)) {
-      const d = digits.replace(/^\+/, '');
+      let d = digits.replace(/^\+/, '');
+      // Russia: 89001234567 → +79001234567, 9001234567 → +79001234567
+      if (d.length === 11 && d.startsWith('8')) d = '7' + d.slice(1);
+      else if (d.length === 10 && d.startsWith('9')) d = '7' + d;
       return '+' + d;
     }
     return s.toLowerCase();
@@ -1610,6 +1613,82 @@ const auth = {
   getLastLogin() { return localStorage.getItem('tl_login') || ''; },
 
   pwKey(login) { return `tl_pw_hash_${login}`; },
+  tokenKey(login) { return `tl_api_token_${login}`; },
+  dataKey(login) { return `timelog_v1_${login || 'local'}`; },
+
+  authBaseUrl() {
+    const cfg = window.TIMELOG_CONFIG;
+    if (cfg?.authEnabled) return cfg.apiUrl || window.location.origin;
+    return state.settings.supabase.authUrl || '';
+  },
+
+  useServerAuth() {
+    return !!(this.authBaseUrl() && (window.TIMELOG_CONFIG?.authEnabled || state.settings.supabase.authEnabled));
+  },
+
+  getApiToken() {
+    const login = this.getLogin();
+    if (!login) return null;
+    return sessionStorage.getItem(this.tokenKey(login))
+      || localStorage.getItem(this.tokenKey(login));
+  },
+
+  setApiToken(login, token) {
+    if (!login || !token) return;
+    localStorage.setItem(this.tokenKey(login), token);
+    sessionStorage.setItem(this.tokenKey(login), token);
+  },
+
+  clearApiToken(login) {
+    const l = login || this.getLogin();
+    if (!l) return;
+    sessionStorage.removeItem(this.tokenKey(l));
+    localStorage.removeItem(this.tokenKey(l));
+  },
+
+  async authFetch(path, body) {
+    const base = this.authBaseUrl();
+    if (!base) return null;
+    try {
+      const r = await fetch(`${base}${path}`, {
+        method: body ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) return { ok: false, status: r.status, ...data };
+      return { ok: true, ...data };
+    } catch (e) {
+      console.error('Auth API error:', e);
+      return null;
+    }
+  },
+
+  async fetchApiToken(login, pwHash) {
+    const res = await this.authFetch('/auth/token', { login, pwHash });
+    if (!res?.ok || !res.token) return false;
+    this.setApiToken(login, res.token);
+    return true;
+  },
+
+  async registerApi(login, pwHash) {
+    const res = await this.authFetch('/auth/register', { login, pwHash });
+    if (!res?.ok || !res.token) return { ok: false, error: res?.error || 'register failed' };
+    this.setApiToken(login, res.token);
+    return { ok: true };
+  },
+
+  async syncPasswordApi(login, pwHash) {
+    if (!this.useServerAuth()) return;
+    await this.authFetch('/auth/sync-password', { login, pwHash });
+  },
+
+  async ensureSession(login, pwHash = null) {
+    if (!this.useServerAuth()) return true;
+    if (this.getApiToken()) return true;
+    if (!pwHash) return false;
+    return await this.fetchApiToken(login, pwHash);
+  },
 
   async hash(login, pass) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${login}:timelog_salt_2024:${pass}`));
@@ -1638,7 +1717,13 @@ const auth = {
   },
 
   async fetchServerHash(login) {
-    if (!sb.isEnabled() || !login) { this._serverHash = null; return null; }
+    if (!login) { this._serverHash = null; return null; }
+    if (this.useServerAuth()) {
+      const res = await this.authFetch(`/auth/exists?login=${encodeURIComponent(login)}`);
+      this._serverHash = res?.exists ? 'exists' : null;
+      return this._serverHash;
+    }
+    if (!sb.isEnabled()) { this._serverHash = null; return null; }
     const rows = await sb.req('GET', `app_users?login=eq.${encodeURIComponent(login)}&select=pw_hash&limit=1`);
     this._serverHash = rows?.[0]?.pw_hash || null;
     if (!this._serverHash && login === 'default') {
@@ -1649,6 +1734,16 @@ const auth = {
   },
 
   async serverHasUsers() {
+    if (this.useServerAuth()) {
+      const res = await this.authFetch('/auth/has-users');
+      if (res?.hasUsers !== undefined) return !!res.hasUsers;
+      const last = this.getLastLogin();
+      if (last) {
+        const exists = await this.authFetch(`/auth/exists?login=${encodeURIComponent(last)}`);
+        if (exists?.exists) return true;
+      }
+      return false;
+    }
     if (!sb.isEnabled()) return false;
     const rows = await sb.req('GET', 'app_users?select=login&limit=1');
     if (rows && rows.length) return true;
@@ -1664,7 +1759,22 @@ const auth = {
   async checkPassword(login, pass) {
     const h = await this.hash(login, pass);
     const local = localStorage.getItem(this.pwKey(login));
-    if (local && local === h) return true;
+    if (local && local === h) {
+      if (this.useServerAuth() && !this.getApiToken()) await this.fetchApiToken(login, h);
+      return true;
+    }
+
+    if (this.useServerAuth()) {
+      const res = await this.authFetch('/auth/token', { login, pwHash: h });
+      if (res?.ok) {
+        localStorage.setItem(this.pwKey(login), h);
+        if (res.token) this.setApiToken(login, res.token);
+        this._serverHash = h;
+        return true;
+      }
+      return false;
+    }
+
     await this.fetchServerHash(login);
     if (this._serverHash && this._serverHash === h) {
       localStorage.setItem(this.pwKey(login), h);
@@ -1675,7 +1785,8 @@ const auth = {
     if (this._serverHash && this._serverHash === legacyH) {
       const newH = await this.hash(login, pass);
       localStorage.setItem(this.pwKey(login), newH);
-      if (sb.isEnabled()) {
+      await this.syncPasswordApi(login, newH);
+      if (sb.isEnabled() && !this.useServerAuth()) {
         await sb.req('POST', 'app_users', { login, pw_hash: newH, updated_at: new Date().toISOString() });
       }
       this._serverHash = newH;
@@ -1689,14 +1800,25 @@ const auth = {
     localStorage.setItem(this.pwKey(login), h);
     this._serverHash = h;
     this.setLogin(login);
-    if (sb.isEnabled()) {
+    if (this.useServerAuth()) {
+      const reg = await this.registerApi(login, h);
+      if (!reg.ok) {
+        await this.syncPasswordApi(login, h);
+        await this.fetchApiToken(login, h);
+      }
+    } else if (sb.isEnabled()) {
       await sb.req('POST', 'app_users', { login, pw_hash: h, updated_at: new Date().toISOString() });
     }
   },
 
   async syncHashToServerIfNeeded(login) {
     const local = localStorage.getItem(this.pwKey(login));
-    if (!local || !sb.isEnabled()) return;
+    if (!local) return;
+    if (this.useServerAuth()) {
+      await this.syncPasswordApi(login, local);
+      return;
+    }
+    if (!sb.isEnabled()) return;
     await this.fetchServerHash(login);
     if (!this._serverHash) {
       await sb.req('POST', 'app_users', { login, pw_hash: local, updated_at: new Date().toISOString() });
@@ -1710,6 +1832,7 @@ const auth = {
     localStorage.setItem('tl_session', 'ok');
   },
   logout() {
+    this.clearApiToken();
     localStorage.removeItem('tl_session');
     this._currentLogin = null;
   },
@@ -1726,22 +1849,39 @@ const auth = {
     if (err) return { ok: false, error: err };
     if (newLogin === oldLogin) return { ok: true };
     if (!(await this.checkPassword(oldLogin, currentPass))) return { ok: false, error: 'Неверный текущий пароль' };
-    await this.fetchServerHash(newLogin);
-    if (this._serverHash) return { ok: false, error: 'Этот логин уже занят' };
     const hash = localStorage.getItem(this.pwKey(oldLogin));
     if (!hash) return { ok: false, error: 'Пароль не найден' };
-    localStorage.setItem(this.pwKey(newLogin), hash);
-    localStorage.removeItem(this.pwKey(oldLogin));
+    await this.fetchServerHash(newLogin);
+    if (this._serverHash) return { ok: false, error: 'Этот логин уже занят' };
+
+    if (this.useServerAuth()) {
+      const res = await this.authFetch('/auth/change-login', { oldLogin, newLogin, pwHash: hash });
+      if (!res?.ok) return { ok: false, error: res?.error === 'login taken' ? 'Этот логин уже занят' : 'Не удалось сменить логин' };
+      this.clearApiToken(oldLogin);
+      localStorage.setItem(this.pwKey(newLogin), hash);
+      localStorage.removeItem(this.pwKey(oldLogin));
+      this.setApiToken(newLogin, res.token);
+    } else {
+      localStorage.setItem(this.pwKey(newLogin), hash);
+      localStorage.removeItem(this.pwKey(oldLogin));
+      if (sb.isEnabled()) {
+        await sb.req('POST', 'app_users', { login: newLogin, pw_hash: hash, updated_at: new Date().toISOString() });
+        await sb.migrateUserLogin(oldLogin, newLogin);
+      }
+    }
+
     const wkey = webauthn.storageKey(oldLogin);
     const wdata = localStorage.getItem(wkey);
     if (wdata) {
       localStorage.setItem(webauthn.storageKey(newLogin), wdata);
       localStorage.removeItem(wkey);
     }
-    this.setLogin(newLogin);
-    if (sb.isEnabled()) {
-      await sb.req('POST', 'app_users', { login: newLogin, pw_hash: hash, updated_at: new Date().toISOString() });
+    const oldData = localStorage.getItem(this.dataKey(oldLogin));
+    if (oldData) {
+      localStorage.setItem(this.dataKey(newLogin), oldData);
+      localStorage.removeItem(this.dataKey(oldLogin));
     }
+    this.setLogin(newLogin);
     return { ok: true };
   }
 };
@@ -1749,7 +1889,19 @@ const auth = {
 const webauthn = {
   storageKey(login) { return `tl_webauthn_${login}`; },
 
+  _isNative() {
+    return typeof window.TimeLogNative?.isNativePlatform === 'function'
+      && window.TimeLogNative.isNativePlatform();
+  },
+
+  rpId() {
+    if (this._isNative()) return 'localhost';
+    const host = location.hostname;
+    return host === '127.0.0.1' ? 'localhost' : host;
+  },
+
   async canUse() {
+    if (!window.isSecureContext) return false;
     if (!window.PublicKeyCredential || !PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) return false;
     try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch { return false; }
   },
@@ -1775,10 +1927,11 @@ const webauthn = {
   async register(login) {
     if (!login || !await this.canUse()) return false;
     const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const rpId = this.rpId();
     const cred = await navigator.credentials.create({
       publicKey: {
         challenge,
-        rp: { name: 'TimeLog', id: location.hostname },
+        rp: { name: 'TimeLog', id: rpId },
         user: {
           id: new TextEncoder().encode(login),
           name: login,
@@ -1796,7 +1949,8 @@ const webauthn = {
     if (!cred) return false;
     localStorage.setItem(this.storageKey(login), JSON.stringify({
       id: cred.id,
-      rawId: this._bufToB64(cred.rawId)
+      rawId: this._bufToB64(cred.rawId),
+      rpId
     }));
     return true;
   },
@@ -1806,15 +1960,17 @@ const webauthn = {
     if (!raw) return false;
     const stored = JSON.parse(raw);
     const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const rpId = stored.rpId || this.rpId();
+    const allowCred = {
+      id: this._b64ToBuf(stored.rawId),
+      type: 'public-key'
+    };
+    if (!this._isNative()) allowCred.transports = ['internal', 'hybrid'];
     const assertion = await navigator.credentials.get({
       publicKey: {
         challenge,
-        rpId: location.hostname,
-        allowCredentials: [{
-          id: this._b64ToBuf(stored.rawId),
-          type: 'public-key',
-          transports: ['internal', 'hybrid']
-        }],
+        rpId,
+        allowCredentials: [allowCred],
         userVerification: 'required',
         timeout: 60000
       }
@@ -1871,7 +2027,7 @@ async function authBootScreen() {
   const setupHint = document.getElementById('auth-setup-hint');
   if (setupHint) {
     setupHint.textContent = sb.isEnabled()
-      ? 'Создайте аккаунт. Логин и пароль сохранятся на сервере — вход с любого устройства.'
+      ? 'Создайте свой аккаунт. Каждый пользователь видит только свои проекты и записи.'
       : 'Создайте аккаунт. Данные сохранятся только в этом браузере.';
   }
 
@@ -1915,6 +2071,10 @@ async function authBiometricUnlock() {
   try {
     const ok = await webauthn.authenticate(login);
     if (ok) {
+      if (auth.useServerAuth() && !(await auth.ensureSession(login))) {
+        authMsg('Сессия истекла. Войдите с паролем.', 'err');
+        return;
+      }
       auth.login(login);
       await authAfterSuccess();
     } else {
@@ -1927,14 +2087,10 @@ async function authBiometricUnlock() {
 }
 
 function authShowSetup() {
-  auth.serverHasUsers().then(has => {
-    if (has) { authMsg('Аккаунт уже создан. Введите логин и пароль.', 'err'); return; }
-    localStorage.removeItem('tl_session');
-    document.getElementById('auth-unlock-form').style.display = 'none';
-    document.getElementById('auth-setup-form').style.display  = '';
-    authClearMsg();
-    setTimeout(() => document.getElementById('auth-setup-login')?.focus(), 80);
-  });
+  document.getElementById('auth-unlock-form').style.display = 'none';
+  document.getElementById('auth-setup-form').style.display  = '';
+  authClearMsg();
+  setTimeout(() => document.getElementById('auth-setup-login')?.focus(), 80);
 }
 
 async function authSetup() {
@@ -2010,6 +2166,13 @@ function authSuccess() {
 
 function authLogout() {
   auth.logout();
+  state.projects = [];
+  state.entries = [];
+  state.payments = [];
+  state.boardTasks = [];
+  state.reports = [];
+  state.schedule = normalizeSchedule({});
+  state.timer = normalizeTimer({});
   document.getElementById('main-app').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('auth-pass').value = '';
@@ -2061,13 +2224,23 @@ let state = {
 // ─── STORAGE ─────────────────────────────────────────────────────────────
 function save() {
   try {
+    const login = auth.getLogin();
     const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings };
-    localStorage.setItem('timelog_v1', JSON.stringify(d));
+    localStorage.setItem(auth.dataKey(login), JSON.stringify(d));
   } catch(e) {}
 }
 function load() {
   try {
-    const raw = localStorage.getItem('timelog_v1');
+    const login = auth.getLogin();
+    let raw = localStorage.getItem(auth.dataKey(login));
+    if (!raw && login) {
+      const legacy = localStorage.getItem('timelog_v1');
+      if (legacy) {
+        raw = legacy;
+        localStorage.setItem(auth.dataKey(login), legacy);
+      }
+    }
+    if (!raw && !login) raw = localStorage.getItem('timelog_v1');
     if (raw) {
       const d = JSON.parse(raw);
       state.projects = d.projects || [];
@@ -2111,6 +2284,22 @@ const sb = {
 
   userId() { return this.userLogin() || 'default'; },
 
+  authHeaders() {
+    const { anonKey } = state.settings.supabase;
+    const token = auth.getApiToken() || anonKey;
+    return {
+      'apikey': anonKey,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  },
+
+  scopedDelete(table, id) {
+    const login = this.userLogin();
+    if (login) return `${table}?id=eq.${encodeURIComponent(id)}&user_login=eq.${encodeURIComponent(login)}`;
+    return `${table}?id=eq.${encodeURIComponent(id)}`;
+  },
+
   // Low-level fetch wrapper
   async req(method, path, body) {
     const { url, anonKey } = state.settings.supabase;
@@ -2119,9 +2308,7 @@ const sb = {
       const r = await fetch(`${url}/rest/v1/${path}`, {
         method,
         headers: {
-          'apikey': anonKey,
-          'Authorization': `Bearer ${anonKey}`,
-          'Content-Type': 'application/json',
+          ...this.authHeaders(),
           'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=representation' : 'return=representation'
         },
         body: body ? JSON.stringify(body) : undefined
@@ -2257,18 +2444,28 @@ const sb = {
   async upsertScheduleBlock(b) { return await sb.req('POST', 'schedule_blocks', sb.blockToRow(b)); },
   async clearTimerRemote(){ return await sb.req('DELETE', `active_timer?id=eq.${encodeURIComponent(this.userId())}`); },
 
-  // Delete single records
-  async deleteProject(id) { return await sb.req('DELETE', `projects?id=eq.${id}`); },
-  async deleteEntry(id)   { return await sb.req('DELETE', `time_entries?id=eq.${id}`); },
-  async deletePayment(id) { return await sb.req('DELETE', `payments?id=eq.${id}`); },
-  async deleteBoardTask(id){ return await sb.req('DELETE', `board_tasks?id=eq.${id}`); },
-  async deleteReport(id)  { return await sb.req('DELETE', `billing_reports?id=eq.${id}`); },
+  // Delete single records (scoped to current user)
+  async deleteProject(id) { return await sb.req('DELETE', sb.scopedDelete('projects', id)); },
+  async deleteEntry(id)   { return await sb.req('DELETE', sb.scopedDelete('time_entries', id)); },
+  async deletePayment(id) { return await sb.req('DELETE', sb.scopedDelete('payments', id)); },
+  async deleteBoardTask(id){ return await sb.req('DELETE', sb.scopedDelete('board_tasks', id)); },
+  async deleteReport(id)  { return await sb.req('DELETE', sb.scopedDelete('billing_reports', id)); },
   async deleteScheduleOverride(date) {
     const login = this.userLogin();
     const q = login ? `schedule_overrides?date=eq.${date}&user_login=eq.${encodeURIComponent(login)}` : `schedule_overrides?date=eq.${date}`;
     return await sb.req('DELETE', q);
   },
-  async deleteScheduleBlock(id) { return await sb.req('DELETE', `schedule_blocks?id=eq.${id}`); },
+  async deleteScheduleBlock(id) { return await sb.req('DELETE', sb.scopedDelete('schedule_blocks', id)); },
+
+  async migrateUserLogin(oldLogin, newLogin) {
+    if (!oldLogin || !newLogin || oldLogin === newLogin) return;
+    const tables = ['projects', 'board_tasks', 'time_entries', 'billing_reports', 'payments', 'schedule_overrides', 'schedule_blocks'];
+    for (const table of tables) {
+      await sb.req('PATCH', `${table}?user_login=eq.${encodeURIComponent(oldLogin)}`, { user_login: newLogin });
+    }
+    await sb.req('PATCH', `active_timer?id=eq.${encodeURIComponent(oldLogin)}`, { id: newLogin });
+    await sb.req('PATCH', `schedule_settings?id=eq.${encodeURIComponent(oldLogin)}`, { id: newLogin });
+  },
 
   async syncSchedule() {
     await sb.upsertScheduleSettings(state.schedule);
@@ -5904,6 +6101,8 @@ async function profileSaveCredentials() {
       return;
     }
     activeLogin = newLogin;
+    load();
+    if (sb.isEnabled()) await sb.pull();
   }
   if (passChanged) {
     const r = await auth.changePassword(activeLogin, curPass, newPass);
@@ -6150,51 +6349,7 @@ function renderSettings() {
       ${!s.supabase.enabled ? `
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 14px;margin-bottom:14px">
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">SQL для создания таблиц — выполни в Supabase → SQL Editor</div>
-        <pre style="font-size:11px;color:var(--accent2);line-height:1.6;overflow-x:auto;white-space:pre-wrap">create table projects (
-  id text primary key, name text not null,
-  client text, rate numeric default 0,
-  color text default '#059669', status text default 'active',
-  description text, created_at timestamptz default now(),
-  user_login text
-);
-create table board_tasks (
-  id text primary key, project_id text references projects(id) on delete cascade,
-  title text not null, description text,
-  status text not null default 'todo', position integer not null default 0,
-  priority text default 'medium',
-  created_at timestamptz default now(), updated_at timestamptz default now(),
-  user_login text
-);
-create table time_entries (
-  id text primary key, project_id text references projects(id) on delete cascade,
-  task text not null, date date not null, hours numeric not null,
-  start_time text, end_time text, notes text,
-  task_id text references board_tasks(id) on delete set null,
-  created_at timestamptz default now(),
-  user_login text
-);
-create table payments (
-  id text primary key, project_id text references projects(id) on delete set null,
-  amount numeric not null, date date not null,
-  period_from date, period_to date, note text,
-  created_at timestamptz default now(),
-  user_login text
-);
-create table app_users (
-  login text primary key,
-  pw_hash text not null,
-  updated_at timestamptz default now()
-);
-alter table projects enable row level security;
-alter table board_tasks enable row level security;
-alter table time_entries enable row level security;
-alter table payments enable row level security;
-alter table app_users enable row level security;
-create policy "open" on projects for all using (true) with check (true);
-create policy "open" on board_tasks for all using (true) with check (true);
-create policy "open" on time_entries for all using (true) with check (true);
-create policy "open" on payments for all using (true) with check (true);
-create policy "open" on app_users for all using (true) with check (true);</pre>
+        <pre style="font-size:11px;color:var(--accent2);line-height:1.6;overflow-x:auto;white-space:pre-wrap">${escHtml(getCloudDbSql())}</pre>
         <button onclick="copySQL()" class="btn btn-ghost btn-sm" style="margin-top:8px">Копировать SQL</button>
       </div>` : ''}
 
@@ -6261,6 +6416,62 @@ function toggleAI(val) {
 }
 
 // ─── SUPABASE UI ──────────────────────────────────────────────────────────
+function getCloudDbSql() {
+  return `-- TimeLog: multi-user schema (user_login isolates data per account)
+create table if not exists app_users (
+  login text primary key, pw_hash text not null, updated_at timestamptz default now()
+);
+create table if not exists projects (
+  id text primary key, name text not null, client text, rate numeric default 0,
+  color text default '#059669', status text default 'active', description text,
+  max_hours numeric, spec_text text, spec_file_name text, spec_file_mime text, spec_file_data text,
+  created_at timestamptz default now(), user_login text not null
+);
+create table if not exists board_tasks (
+  id text primary key, project_id text references projects(id) on delete cascade,
+  title text not null, description text, status text not null default 'todo',
+  position integer not null default 0, priority text default 'medium', archived boolean default false,
+  created_at timestamptz default now(), updated_at timestamptz default now(), user_login text not null
+);
+create table if not exists time_entries (
+  id text primary key, project_id text references projects(id) on delete cascade,
+  task text not null, date date not null, hours numeric not null,
+  start_time text, end_time text, notes text, task_id text, report_id text, archived boolean default false,
+  created_at timestamptz default now(), user_login text not null
+);
+create table if not exists billing_reports (
+  id text primary key, title text, period_from date not null, period_to date not null,
+  project_id text, entry_ids text[] default '{}', text text not null,
+  total_hours numeric default 0, total_amount numeric default 0, status text default 'unpaid',
+  paid_at timestamptz, created_at timestamptz default now(), user_login text not null
+);
+create table if not exists payments (
+  id text primary key, project_id text, amount numeric not null, date date not null,
+  period_from date, period_to date, note text,
+  created_at timestamptz default now(), user_login text not null
+);
+create table if not exists active_timer (
+  id text primary key, running boolean default false, start_time bigint,
+  project_id text, task text, task_id text, paused boolean default false,
+  paused_ms bigint default 0, pause_start bigint, updated_at timestamptz default now()
+);
+create table if not exists schedule_settings (
+  id text primary key, week_template jsonb not null default '{"mon":8,"tue":8,"wed":8,"thu":8,"fri":8,"sat":0,"sun":0}',
+  updated_at timestamptz default now()
+);
+create table if not exists schedule_overrides (
+  user_login text not null, date date not null, type text not null default 'off',
+  hours numeric, note text, created_at timestamptz default now(),
+  primary key (user_login, date)
+);
+create table if not exists schedule_blocks (
+  id text primary key, date date not null, start_time text not null, end_time text not null,
+  title text, note text, created_at timestamptz default now(), user_login text not null
+);
+-- For self-hosted Docker: RLS is applied automatically.
+-- For Supabase: enable RLS and filter by user_login in the app, or deploy the TimeLog auth service.`;
+}
+
 function sbSetResult(msg, ok) {
   const el = document.getElementById('sb-test-result');
   if (el) { el.textContent = msg; el.style.color = ok ? 'var(--green)' : ok===false ? 'var(--red)' : 'var(--text2)'; }
@@ -6275,6 +6486,15 @@ async function sbTest() {
   save();
   sbSetResult('Проверяем...', null);
   try {
+    if (auth.useServerAuth()) {
+      const health = await auth.authFetch('/auth/health');
+      if (health?.ok) {
+        sbSetResult('✓ Сервер доступен (изолированные данные по пользователям)', true);
+        return;
+      }
+      sbSetResult('✕ Auth-сервер недоступен', false);
+      return;
+    }
     const r = await fetch(`${url}/rest/v1/projects?limit=1`, {
       headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
     });
@@ -6299,12 +6519,16 @@ async function sbConnect() {
   state.settings.supabase.anonKey = key;
   save();
   sbSetResult('Подключаемся...', null);
-  // Test first
   try {
-    const r = await fetch(`${url}/rest/v1/projects?limit=1`, {
-      headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
-    });
-    if (!r.ok) { sbSetResult('✕ Ошибка подключения — проверь URL и ключ, и выполни SQL', false); return; }
+    if (auth.useServerAuth()) {
+      const health = await auth.authFetch('/auth/health');
+      if (!health?.ok) { sbSetResult('✕ Auth-сервер недоступен', false); return; }
+    } else {
+      const r = await fetch(`${url}/rest/v1/projects?limit=1`, {
+        headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+      });
+      if (!r.ok) { sbSetResult('✕ Ошибка подключения — проверь URL и ключ, и выполни SQL', false); return; }
+    }
   } catch(e) { sbSetResult('✕ ' + e.message, false); return; }
 
   sbSetResult(`Мигрируем данные (${state.projects.length} проектов, ${state.entries.length} записей, ${state.payments.length} платежей)...`, null);
@@ -6337,52 +6561,7 @@ function sbDisconnect() {
 }
 
 function copySQL() {
-  const sql = `create table projects (
-  id text primary key, name text not null,
-  client text, rate numeric default 0,
-  color text default '#059669', status text default 'active',
-  description text, created_at timestamptz default now(),
-  user_login text
-);
-create table board_tasks (
-  id text primary key, project_id text references projects(id) on delete cascade,
-  title text not null, description text,
-  status text not null default 'todo', position integer not null default 0,
-  priority text default 'medium',
-  created_at timestamptz default now(), updated_at timestamptz default now(),
-  user_login text
-);
-create table time_entries (
-  id text primary key, project_id text references projects(id) on delete cascade,
-  task text not null, date date not null, hours numeric not null,
-  start_time text, end_time text, notes text,
-  task_id text references board_tasks(id) on delete set null,
-  created_at timestamptz default now(),
-  user_login text
-);
-create table payments (
-  id text primary key, project_id text references projects(id) on delete set null,
-  amount numeric not null, date date not null,
-  period_from date, period_to date, note text,
-  created_at timestamptz default now(),
-  user_login text
-);
-create table app_users (
-  login text primary key,
-  pw_hash text not null,
-  updated_at timestamptz default now()
-);
-alter table projects enable row level security;
-alter table board_tasks enable row level security;
-alter table time_entries enable row level security;
-alter table payments enable row level security;
-alter table app_users enable row level security;
-create policy "open" on projects for all using (true) with check (true);
-create policy "open" on board_tasks for all using (true) with check (true);
-create policy "open" on time_entries for all using (true) with check (true);
-create policy "open" on payments for all using (true) with check (true);
-create policy "open" on app_users for all using (true) with check (true);`;
-  navigator.clipboard.writeText(sql).then(() => showToast('SQL скопирован')).catch(() => showToast('Не удалось скопировать', 'error'));
+  navigator.clipboard.writeText(getCloudDbSql()).then(() => showToast('SQL скопирован')).catch(() => showToast('Не удалось скопировать', 'error'));
 }
 
 function setProjectStatus(id, status) {
@@ -6664,21 +6843,30 @@ window.addEventListener('beforeinstallprompt', (e) => {
 // ─── DOCKER / SELF-HOSTED CONFIG ─────────────────────────────────────────
 function applyDockerConfig() {
   const cfg = window.TIMELOG_CONFIG;
-  if (!cfg || !cfg.autoConnect || !cfg.anonKey) return false;
-  state.settings.supabase.url = cfg.apiUrl || window.location.origin;
-  state.settings.supabase.anonKey = cfg.anonKey;
-  state.settings.supabase.enabled = true;
-  save();
-  return true;
+  if (!cfg) return false;
+  if (cfg.apiUrl) state.settings.supabase.url = cfg.apiUrl;
+  if (cfg.anonKey) state.settings.supabase.anonKey = cfg.anonKey;
+  if (cfg.authEnabled) state.settings.supabase.authEnabled = true;
+  if (cfg.autoConnect && cfg.anonKey) {
+    if (!cfg.apiUrl) state.settings.supabase.url = window.location.origin;
+    state.settings.supabase.enabled = true;
+    return true;
+  }
+  return !!(cfg.apiUrl && cfg.anonKey);
 }
 
 // Boot sequence — логин + пароль, Face ID
-load();
 auth.migrateLegacyLocal();
 applyDockerConfig();
 (async () => {
   await authBootScreen();
   if (auth.isLoggedIn()) {
+    if (auth.useServerAuth() && !(await auth.ensureSession(auth.getLogin()))) {
+      auth.logout();
+      document.getElementById('auth-screen').style.display = 'flex';
+      return;
+    }
+    load();
     authSuccess();
   } else {
     document.getElementById('auth-screen').style.display = 'flex';

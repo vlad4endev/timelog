@@ -34,6 +34,21 @@ services:
     networks:
       - timelog
 
+  auth:
+    build:
+      context: .
+      dockerfile: docker/auth-Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (min 32 chars)}
+      DATABASE_URL: postgres://${POSTGRES_USER:-timelog}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-timelog}
+      AUTH_PORT: "3001"
+    networks:
+      - timelog
+
   web:
     build: .
     restart: unless-stopped
@@ -46,6 +61,8 @@ services:
       postgres:
         condition: service_healthy
       postgrest:
+        condition: service_started
+      auth:
         condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]

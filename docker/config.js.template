@@ -1,5 +1,6 @@
 window.TIMELOG_CONFIG = {
   apiUrl: "",
   anonKey: "${ANON_KEY}",
-  autoConnect: ${AUTO_CONNECT}
+  autoConnect: ${AUTO_CONNECT},
+  authEnabled: true
 };
