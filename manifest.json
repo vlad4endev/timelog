@@ -48,6 +48,12 @@
       "description": "Быстро добавить запись времени"
     },
     {
+      "name": "Планирование",
+      "short_name": "План",
+      "url": "/?page=planning&source=shortcut",
+      "description": "График работы и план vs факт"
+    },
+    {
       "name": "Аналитика",
       "short_name": "Аналитика",
       "url": "/?page=analytics&source=shortcut",

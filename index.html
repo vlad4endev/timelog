@@ -392,6 +392,8 @@ tr:hover td{background:var(--bg3)}
 .mobile-timer-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0;animation:pulse 1.5s infinite}
 .mobile-timer-info{flex:1;min-width:0;cursor:pointer}
 .mobile-timer-task{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mobile-timer-earned{font-size:11px;font-weight:600;color:#4ade80;font-variant-numeric:tabular-nums;margin-top:1px}
+.mobile-timer-earned:empty{display:none}
 .mobile-timer-time{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.03em}
 .mobile-timer-actions{display:flex;gap:6px;flex-shrink:0}
 .mobile-timer-btn{width:var(--touch-min);height:36px;border-radius:8px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;font-weight:600}
@@ -432,7 +434,7 @@ tr:hover td{background:var(--bg3)}
 .mts-btn-stop{background:var(--red);color:#fff;box-shadow:0 4px 20px rgba(220,38,38,.35)}
 body.mts-open .mobile-timer-bar{display:none!important}
 body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
-body.mts-open .content{visibility:hidden}
+@media(min-width:769px){.mobile-timer-screen{display:none!important}}
 
 /* PWA install banner */
 .pwa-install-banner{position:fixed;bottom:calc(var(--bottom-nav-h) + var(--safe-bottom) + 8px);left:12px;right:12px;z-index:300;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;animation:slideUp .3s ease}
@@ -755,12 +757,50 @@ body.mts-open .content{visibility:hidden}
   </div>
 </div>
 
+<!-- Mobile fullscreen timer -->
+<div id="mobile-timer-screen" class="mobile-timer-screen hidden" aria-hidden="true">
+  <div class="mts-bg" id="mts-bg"></div>
+  <div class="mts-content">
+    <button type="button" class="mts-minimize" onclick="closeMobileTimerScreen()" aria-label="Свернуть">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      Свернуть
+    </button>
+    <div class="mts-status">
+      <span class="mts-dot running" id="mts-dot"></span>
+      <span id="mts-status-text">Идёт запись</span>
+    </div>
+    <div class="mts-time" id="mts-time">00:00:00</div>
+    <div class="mts-earned" id="mts-earned"></div>
+    <div class="mts-billable" id="mts-billable"></div>
+    <div class="mts-meta">
+      <div class="mts-project">
+        <span class="mts-project-dot" id="mts-project-dot"></span>
+        <span class="mts-project-name" id="mts-project-name">Проект</span>
+      </div>
+      <div class="mts-project-sub" id="mts-project-sub"></div>
+      <div class="mts-task" id="mts-task"></div>
+      <div class="mts-started" id="mts-started"></div>
+    </div>
+    <div class="mts-actions">
+      <button type="button" class="mts-btn mts-btn-pause" id="mts-pause-btn" onclick="togglePauseTimer()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        Пауза
+      </button>
+      <button type="button" class="mts-btn mts-btn-stop" onclick="stopTimer()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        Стоп
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Mobile active timer strip -->
 <div id="mobile-timer-bar" class="mobile-timer-bar hidden">
-  <div class="mobile-timer-info" onclick="showPage('dashboard')">
+  <div class="mobile-timer-info" onclick="openMobileTimerScreen()">
     <div class="mobile-timer-dot"></div>
     <div>
       <div class="mobile-timer-task" id="mobile-timer-task">Запись времени</div>
+      <div class="mobile-timer-earned" id="mobile-timer-earned"></div>
       <div class="mobile-timer-time" id="mobile-timer-time">00:00:00</div>
     </div>
   </div>
@@ -1664,6 +1704,7 @@ function getTimerElapsedHours() { return getTimerElapsedMs() / 3600000; }
 function resetTimerState() {
   state.timer = normalizeTimer({});
   clearInterval(timerInterval);
+  closeMobileTimerScreen();
   save();
   persistTimerBackground();
   updateTimerUI();
@@ -1768,6 +1809,103 @@ async function requestTimerNotifications() {
 
 // ─── TIMER ───────────────────────────────────────────────────────────────
 let timerInterval = null;
+let mobileTimerScreenOpen = false;
+
+function isMobileView() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+function hexToRgb(hex) {
+  const h = (hex || '#059669').replace('#', '');
+  if (h.length !== 6) return '5,150,105';
+  return `${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)}`;
+}
+function openMobileTimerScreen() {
+  if (!state.timer.running || !isMobileView()) return;
+  mobileTimerScreenOpen = true;
+  const screen = document.getElementById('mobile-timer-screen');
+  if (screen) {
+    screen.classList.remove('hidden');
+    screen.setAttribute('aria-hidden', 'false');
+  }
+  document.body.classList.add('mts-open');
+  updateMobileTimerScreen();
+}
+function closeMobileTimerScreen() {
+  mobileTimerScreenOpen = false;
+  const screen = document.getElementById('mobile-timer-screen');
+  if (screen) {
+    screen.classList.add('hidden');
+    screen.setAttribute('aria-hidden', 'true');
+  }
+  document.body.classList.remove('mts-open');
+}
+function updateMobileTimerScreen() {
+  const screen = document.getElementById('mobile-timer-screen');
+  if (!screen || screen.classList.contains('hidden')) return;
+  const isPaused = state.timer.paused;
+  const project = getProject(state.timer.projectId);
+  const accent = project?.color || '#059669';
+  screen.style.setProperty('--mts-accent', accent);
+  screen.style.setProperty('--mts-accent-rgb', hexToRgb(accent));
+
+  const elapsedMs = getTimerElapsedMs();
+  const secs = Math.floor(elapsedMs / 1000);
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  const ts = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const earnedText = fmtTimerEarnedUI();
+  const billH = roundBillableHours(getTimerElapsedHours());
+  const amount = calcEntryAmount(state.timer.projectId, billH);
+
+  const timeEl = document.getElementById('mts-time');
+  const earnedEl = document.getElementById('mts-earned');
+  const billEl = document.getElementById('mts-billable');
+  const dotEl = document.getElementById('mts-dot');
+  const statusEl = document.getElementById('mts-status-text');
+  const projName = document.getElementById('mts-project-name');
+  const projSub = document.getElementById('mts-project-sub');
+  const projDot = document.getElementById('mts-project-dot');
+  const taskEl = document.getElementById('mts-task');
+  const startedEl = document.getElementById('mts-started');
+  const pauseBtn = document.getElementById('mts-pause-btn');
+
+  if (timeEl) {
+    timeEl.textContent = ts;
+    timeEl.classList.toggle('paused', isPaused);
+  }
+  if (earnedEl) {
+    earnedEl.textContent = earnedText;
+    earnedEl.classList.toggle('paused', isPaused);
+  }
+  if (billEl) {
+    if (amount > 0) billEl.textContent = `К оплате: ${fmtHours(billH)} · ${fmtMoney(amount)}`;
+    else billEl.textContent = `К оплате: ${fmtHours(billH)}`;
+  }
+  if (dotEl) {
+    dotEl.classList.toggle('paused', isPaused);
+    dotEl.classList.toggle('running', !isPaused);
+  }
+  if (statusEl) statusEl.textContent = isPaused ? 'На паузе' : 'Идёт запись';
+  if (projName) projName.textContent = project?.name || 'Без проекта';
+  if (projDot) projDot.style.background = accent;
+  if (projSub) {
+    const parts = [];
+    if (project?.client) parts.push(project.client);
+    if (project?.rate) parts.push(fmtMoney(project.rate) + '/ч');
+    projSub.textContent = parts.join(' · ');
+    projSub.style.display = parts.length ? 'block' : 'none';
+  }
+  if (taskEl) taskEl.textContent = state.timer.task || 'Без описания';
+  if (startedEl && state.timer.startTime) {
+    const d = new Date(state.timer.startTime);
+    startedEl.textContent = `Начато в ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} · ${d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' })}`;
+  }
+  if (pauseBtn) {
+    pauseBtn.innerHTML = isPaused
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Продолжить'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Пауза';
+  }
+}
+
 function startTimer(projectId, task, taskId) {
   if (taskId) {
     const bt = getBoardTask(taskId);
@@ -1785,6 +1923,10 @@ function startTimer(projectId, task, taskId) {
   persistTimerBackground();
   startTimerTick();
   updateTimerUI();
+  if (isMobileView()) {
+    showPage('dashboard');
+    openMobileTimerScreen();
+  }
 }
 function startTimerFromModal() {
   const projectId = document.getElementById('timer-project').value;
@@ -1951,11 +2093,13 @@ function updateTimerUI() {
   const mobileBar = document.getElementById('mobile-timer-bar');
   const mobileTime = document.getElementById('mobile-timer-time');
   const mobileTask = document.getElementById('mobile-timer-task');
+  const mobileEarned = document.getElementById('mobile-timer-earned');
   const mobilePause = document.getElementById('mobile-timer-pause');
   const bottomFab = document.getElementById('bottom-nav-fab');
   if (mobileBar) mobileBar.classList.toggle('hidden', !isActive);
   if (mobileTime) mobileTime.textContent = ts;
   if (mobileTask) mobileTask.textContent = (isPaused ? '⏸ ' : '') + (state.timer.task || 'Запись времени');
+  if (mobileEarned) mobileEarned.textContent = earnedText;
   if (mobilePause) {
     mobilePause.innerHTML = isPaused
       ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
@@ -1970,7 +2114,10 @@ function updateTimerUI() {
         : '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" id="bottom-nav-fab-icon"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
     }
   }
-  document.body.classList.toggle('timer-active-mobile', isActive);
+  document.body.classList.toggle('timer-active-mobile', isActive && !mobileTimerScreenOpen);
+
+  if (!isActive) closeMobileTimerScreen();
+  else if (mobileTimerScreenOpen) updateMobileTimerScreen();
 }
 function openQuickTimer() {
   if (state.timer.running) { stopTimer(); return; }
