@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Reassign all rows from one user_login to another (e.g. default → vladislav4endev).
+# Use "null" as from_login to move rows where user_login IS NULL.
 # Usage: ./scripts/migrate-user-data.sh <from_login> <to_login>
 set -euo pipefail
 
@@ -12,6 +13,7 @@ TO="${2:-}"
 if [[ -z "$FROM" || -z "$TO" ]]; then
   echo "Usage: $0 <from_login> <to_login>"
   echo "Example: $0 default vladislav4endev"
+  echo "         $0 null vladislav4endev"
   exit 1
 fi
 
@@ -34,28 +36,52 @@ fi
 FROM_ESC="${FROM//\'/\'\'}"
 TO_ESC="${TO//\'/\'\'}"
 
-echo "→ Moving data user_login '$FROM' → '$TO' in database '$DB_NAME'..."
+if [[ "$FROM" == "null" ]]; then
+  FROM_LABEL="(null user_login)"
+  WHERE_CLAUSE="user_login IS NULL"
+  TIMER_SQL=""
+else
+  FROM_LABEL="'$FROM'"
+  WHERE_CLAUSE="user_login = '${FROM_ESC}'"
+  TIMER_SQL="
+UPDATE active_timer SET id = '${TO_ESC}' WHERE id = '${FROM_ESC}';
+UPDATE schedule_settings SET id = '${TO_ESC}' WHERE id = '${FROM_ESC}';"
+fi
+
+echo "→ Moving data ${FROM_LABEL} → '$TO' in database '$DB_NAME'..."
+
+echo "=== projects by user_login (before) ==="
+docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -c \
+  "SELECT COALESCE(user_login, '(null)') AS user_login, COUNT(*)::int AS projects
+   FROM projects GROUP BY user_login ORDER BY projects DESC, user_login;"
+
+COUNT=$(docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -tAc \
+  "SELECT COUNT(*)::int FROM projects WHERE ${WHERE_CLAUSE};")
+
+if [[ "${COUNT:-0}" -eq 0 ]]; then
+  echo ""
+  echo "✕ No projects found for ${FROM_LABEL} (count=0)."
+  echo "  Run ./scripts/list-user-data.sh for a full report."
+  echo ""
+  echo "  If the database is empty, data may only exist in the browser:"
+  echo "  1. Deploy latest code: ./scripts/deploy.sh update"
+  echo "  2. Open the app in the browser where you used TimeLog before"
+  echo "  3. Log in as vladislav4endev (password min. 8 characters)"
+  echo "  4. Settings → ↻ Synchronize"
+  exit 1
+fi
 
 docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" <<EOSQL
 BEGIN;
 
-DO \$\$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM projects WHERE user_login = '${FROM_ESC}' LIMIT 1) THEN
-    RAISE EXCEPTION 'No projects found for user_login %', '${FROM_ESC}';
-  END IF;
-END
-\$\$;
-
-UPDATE projects         SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
-UPDATE board_tasks      SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
-UPDATE time_entries     SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
-UPDATE billing_reports  SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
-UPDATE payments         SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
-UPDATE schedule_overrides SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
-UPDATE schedule_blocks  SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
-UPDATE active_timer     SET id = '${TO_ESC}' WHERE id = '${FROM_ESC}';
-UPDATE schedule_settings SET id = '${TO_ESC}' WHERE id = '${FROM_ESC}';
+UPDATE projects         SET user_login = '${TO_ESC}' WHERE ${WHERE_CLAUSE};
+UPDATE board_tasks      SET user_login = '${TO_ESC}' WHERE ${WHERE_CLAUSE};
+UPDATE time_entries     SET user_login = '${TO_ESC}' WHERE ${WHERE_CLAUSE};
+UPDATE billing_reports  SET user_login = '${TO_ESC}' WHERE ${WHERE_CLAUSE};
+UPDATE payments         SET user_login = '${TO_ESC}' WHERE ${WHERE_CLAUSE};
+UPDATE schedule_overrides SET user_login = '${TO_ESC}' WHERE ${WHERE_CLAUSE};
+UPDATE schedule_blocks  SET user_login = '${TO_ESC}' WHERE ${WHERE_CLAUSE};
+${TIMER_SQL}
 
 COMMIT;
 
