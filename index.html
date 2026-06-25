@@ -251,6 +251,10 @@ tr:hover td{background:var(--bg3)}
 .report-header{background:linear-gradient(135deg,var(--accent3),var(--accent));border-radius:var(--radius);padding:24px;margin-bottom:20px;color:#fff;box-shadow:0 8px 24px rgba(5,150,105,.2)}
 .report-title{font-size:22px;font-weight:700;margin-bottom:4px}
 .report-period{font-size:14px;opacity:.8}
+.telegram-preview{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius2);padding:14px 16px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;color:var(--text);max-height:360px;overflow-y:auto}
+.report-card{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.report-card:hover{border-color:var(--accent-border);box-shadow:var(--shadow)}
+.report-card.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-light)}
 
 /* Analytics */
 .analytics-section{margin-bottom:20px}
@@ -500,15 +504,22 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div class="modal-body">
       <input type="hidden" id="entry-edit-id">
+      <input type="hidden" id="entry-task-id">
       <div class="form-group">
         <label class="form-label">Проект *</label>
-        <select class="form-select" id="entry-project">
+        <select class="form-select" id="entry-project" onchange="entryProjectChanged()">
           <option value="">Выберите проект</option>
+        </select>
+      </div>
+      <div class="form-group" id="entry-board-task-wrap" style="display:none">
+        <label class="form-label">Задача на доске</label>
+        <select class="form-select" id="entry-board-task" onchange="entryBoardTaskSelected()">
+          <option value="">— Без привязки к задаче</option>
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">Задача / Описание работы *</label>
-        <input type="text" class="form-input" id="entry-task" placeholder="Что вы делали?">
+        <input type="text" class="form-input" id="entry-task" placeholder="Что вы делали?" oninput="entryTaskTextChanged()">
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -688,6 +699,49 @@ tr:hover td{background:var(--bg3)}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-board-task')">Отмена</button>
       <button class="btn btn-primary" onclick="saveBoardTask()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-task-hours">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">Добавить время вручную</div>
+      <button class="btn-icon" onclick="closeModal('modal-task-hours')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="task-hours-task-id">
+      <div id="task-hours-task-title" style="font-size:15px;font-weight:600;margin-bottom:4px"></div>
+      <div id="task-hours-project" class="text-sm text-muted mb16"></div>
+      <div id="task-hours-logged" class="text-xs text-muted mb12"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Дата</label>
+          <input type="date" class="form-input" id="task-hours-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Часов к оплате</label>
+          <input type="number" class="form-input" id="task-hours-hours" placeholder="0" min="0" step="0.25"
+            oninput="updateTaskHoursPreview()">
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addTaskHoursMinutes(15)">+15м</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addTaskHoursMinutes(30)">+30м</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addTaskHoursMinutes(60)">+1ч</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addTaskHoursMinutes(120)">+2ч</button>
+          </div>
+          <div id="task-hours-preview" class="text-xs mt4" style="display:none;color:var(--accent2)"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Заметки (опц.)</label>
+        <textarea class="form-textarea" id="task-hours-notes" placeholder="Комментарий к записи..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-task-hours')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveTaskHours()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -913,6 +967,7 @@ let state = {
   entries: [],
   payments: [],
   boardTasks: [],
+  reports: [],
   timer: { running: false, startTime: null, projectId: null, task: '', taskId: null, paused: false, pausedMs: 0, pauseStart: null },
   settings: {
     defaultRate: 0,
@@ -931,7 +986,7 @@ let state = {
 // ─── STORAGE ─────────────────────────────────────────────────────────────
 function save() {
   try {
-    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, timer: state.timer, settings: state.settings };
+    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, timer: state.timer, settings: state.settings };
     localStorage.setItem('timelog_v1', JSON.stringify(d));
   } catch(e) {}
 }
@@ -944,6 +999,7 @@ function load() {
       state.entries  = d.entries  || [];
       state.payments = d.payments || [];
       state.boardTasks = d.boardTasks || [];
+      state.reports = d.reports || [];
       state.timer    = normalizeTimer(d.timer);
       if (d.settings) {
         state.settings = Object.assign({}, state.settings, d.settings);
@@ -986,39 +1042,47 @@ const sb = {
     return { id: p.id, name: p.name, client: p.client||null, rate: p.rate||0, color: p.color||'#059669', status: p.status||'active', description: p.desc||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
   },
   entryToRow(e) {
-    return { id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, task_id: e.taskId||null, created_at: new Date(e.createdAt||Date.now()).toISOString() };
+    return { id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, task_id: e.taskId||null, report_id: e.reportId||null, archived: !!e.archived, created_at: new Date(e.createdAt||Date.now()).toISOString() };
   },
   paymentToRow(p) {
     return { id: p.id, project_id: p.projectId||null, amount: p.amount, date: p.date, period_from: p.from||null, period_to: p.to||null, note: p.note||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
   },
   boardTaskToRow(t) {
-    return { id: t.id, project_id: t.projectId, title: t.title, description: t.desc||null, status: t.status||'todo', position: t.position||0, priority: t.priority||'medium', created_at: new Date(t.createdAt||Date.now()).toISOString(), updated_at: new Date(t.updatedAt||Date.now()).toISOString() };
+    return { id: t.id, project_id: t.projectId, title: t.title, description: t.desc||null, status: t.status||'todo', position: t.position||0, priority: t.priority||'medium', archived: !!t.archived, created_at: new Date(t.createdAt||Date.now()).toISOString(), updated_at: new Date(t.updatedAt||Date.now()).toISOString() };
+  },
+  reportToRow(r) {
+    return { id: r.id, title: r.title||null, period_from: r.from, period_to: r.to, project_id: r.projectId||null, entry_ids: r.entryIds||[], text: r.text, total_hours: r.totalHours||0, total_amount: r.totalAmount||0, status: r.status||'unpaid', paid_at: r.paidAt ? new Date(r.paidAt).toISOString() : null, created_at: new Date(r.createdAt||Date.now()).toISOString() };
   },
   rowToProject(r) {
     return { id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#059669', status: r.status||'active', desc: r.description||'', createdAt: new Date(r.created_at).getTime() };
   },
   rowToEntry(r) {
-    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, reportId: r.report_id||null, archived: !!r.archived, createdAt: new Date(r.created_at).getTime() };
   },
   rowToPayment(r) {
     return { id: r.id, projectId: r.project_id||null, amount: r.amount, date: r.date, from: r.period_from||'', to: r.period_to||'', note: r.note||'', createdAt: new Date(r.created_at).getTime() };
   },
   rowToBoardTask(r) {
-    return { id: r.id, projectId: r.project_id, title: r.title, desc: r.description||'', status: r.status||'todo', position: r.position||0, priority: r.priority||'medium', createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
+    return { id: r.id, projectId: r.project_id, title: r.title, desc: r.description||'', status: r.status||'todo', position: r.position||0, priority: r.priority||'medium', archived: !!r.archived, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
+  },
+  rowToReport(r) {
+    return { id: r.id, title: r.title||'', from: r.period_from, to: r.period_to, projectId: r.project_id||null, entryIds: r.entry_ids||[], text: r.text||'', totalHours: r.total_hours||0, totalAmount: r.total_amount||0, status: r.status||'unpaid', paidAt: r.paid_at ? new Date(r.paid_at).getTime() : null, createdAt: new Date(r.created_at).getTime() };
   },
 
   // Pull everything from Supabase into state
   async pull() {
-    const [projects, entries, payments, boardTasks] = await Promise.all([
+    const [projects, entries, payments, boardTasks, reports] = await Promise.all([
       sb.req('GET', 'projects?order=created_at.asc'),
       sb.req('GET', 'time_entries?order=created_at.desc'),
       sb.req('GET', 'payments?order=created_at.desc'),
-      sb.req('GET', 'board_tasks?order=position.asc')
+      sb.req('GET', 'board_tasks?order=position.asc'),
+      sb.req('GET', 'billing_reports?order=created_at.desc')
     ]);
     if (projects !== null) state.projects = projects.map(sb.rowToProject);
     if (entries  !== null) state.entries  = entries.map(sb.rowToEntry);
     if (payments !== null) state.payments = payments.map(sb.rowToPayment);
     if (boardTasks !== null) state.boardTasks = boardTasks.map(sb.rowToBoardTask);
+    if (reports !== null) state.reports = reports.map(sb.rowToReport);
     save(); // mirror to localStorage
   },
 
@@ -1027,12 +1091,14 @@ const sb = {
   async upsertEntry(e)    { return await sb.req('POST', 'time_entries', sb.entryToRow(e)); },
   async upsertPayment(p)  { return await sb.req('POST', 'payments',     sb.paymentToRow(p)); },
   async upsertBoardTask(t){ return await sb.req('POST', 'board_tasks',  sb.boardTaskToRow(t)); },
+  async upsertReport(r)   { return await sb.req('POST', 'billing_reports', sb.reportToRow(r)); },
 
   // Delete single records
   async deleteProject(id) { return await sb.req('DELETE', `projects?id=eq.${id}`); },
   async deleteEntry(id)   { return await sb.req('DELETE', `time_entries?id=eq.${id}`); },
   async deletePayment(id) { return await sb.req('DELETE', `payments?id=eq.${id}`); },
   async deleteBoardTask(id){ return await sb.req('DELETE', `board_tasks?id=eq.${id}`); },
+  async deleteReport(id)  { return await sb.req('DELETE', `billing_reports?id=eq.${id}`); },
 
   // Push all local data to Supabase (migration)
   async pushAll() {
@@ -1040,7 +1106,8 @@ const sb = {
       ...state.projects.map(p => sb.upsertProject(p)),
       ...state.entries.map(e  => sb.upsertEntry(e)),
       ...state.payments.map(p => sb.upsertPayment(p)),
-      ...state.boardTasks.map(t => sb.upsertBoardTask(t))
+      ...state.boardTasks.map(t => sb.upsertBoardTask(t)),
+      ...state.reports.map(r => sb.upsertReport(r))
     ]);
     return results.every(r => r !== null);
   },
@@ -1316,9 +1383,9 @@ function renderPage() {
 function renderDashboard() {
   const today = new Date().toISOString().slice(0,10);
   const week = getWeekDates();
-  const todayEntries = state.entries.filter(e => e.date === today);
-  const weekEntries  = state.entries.filter(e => e.date >= week.start && e.date <= week.end);
-  const monthEntries = state.entries.filter(e => e.date.slice(0,7) === today.slice(0,7));
+  const todayEntries = state.entries.filter(e => e.date === today && !e.archived);
+  const weekEntries  = state.entries.filter(e => e.date >= week.start && e.date <= week.end && !e.archived);
+  const monthEntries = state.entries.filter(e => e.date.slice(0,7) === today.slice(0,7) && !e.archived);
   const todayH  = sum(todayEntries.map(e=>e.hours));
   const weekH   = sum(weekEntries.map(e=>e.hours));
   const monthH  = sum(monthEntries.map(e=>e.hours));
@@ -1426,7 +1493,7 @@ function renderDashboard() {
       </button>
     </div>`;
 
-  const recentEntries = [...state.entries].sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt).slice(0,10);
+  const recentEntries = state.entries.filter(e => !e.archived).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt).slice(0,10);
 
   return `
   <style>
@@ -1613,7 +1680,7 @@ function entryItem(e) {
 }
 
 function projectCard(p) {
-  const hrs = sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
+  const hrs = sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
   const earned = hrs * (p.rate || 0);
   return `<div class="card-sm mb8" style="border-left:3px solid ${p.color||'#059669'}">
     <div class="flex items-center justify-between mb4">
@@ -1643,7 +1710,7 @@ function renderProjects() {
 }
 
 function renderProjectFull(p) {
-  const entries = state.entries.filter(e => e.projectId === p.id);
+  const entries = state.entries.filter(e => e.projectId === p.id && !e.archived);
   const projectTasks = getProjectBoardTasks(p.id);
   const hrs = sum(entries.map(e=>e.hours));
   const earned = hrs * (p.rate || 0);
@@ -1700,12 +1767,15 @@ let boardDragTaskId = null;
 
 function getBoardTask(id) { return state.boardTasks.find(t => t.id === id); }
 function getProjectBoardTasks(projectId, status) {
-  let tasks = state.boardTasks.filter(t => t.projectId === projectId);
+  let tasks = state.boardTasks.filter(t => t.projectId === projectId && !t.archived);
   if (status) tasks = tasks.filter(t => t.status === status);
   return tasks.sort((a, b) => (a.position - b.position) || (b.updatedAt - a.updatedAt));
 }
 function getTaskHours(taskId) {
-  return sum(state.entries.filter(e => e.taskId === taskId).map(e => e.hours));
+  return sum(state.entries.filter(e => e.taskId === taskId && !e.archived).map(e => e.hours));
+}
+function getTaskEarned(taskId) {
+  return sum(state.entries.filter(e => e.taskId === taskId && !e.archived).map(e => calcEntryAmount(e.projectId, e.hours)));
 }
 function ensureBoardProject() {
   if (boardFilterProject && getProject(boardFilterProject)) return boardFilterProject;
@@ -1733,6 +1803,7 @@ function showBoardForProject(projectId) {
 function renderBoardCard(t, showProject) {
   const p = getProject(t.projectId);
   const hours = getTaskHours(t.id);
+  const earned = getTaskEarned(t.id);
   const isActive = state.timer.running && state.timer.taskId === t.id;
   const priColor = BOARD_PRIORITY_COLORS[t.priority] || BOARD_PRIORITY_COLORS.medium;
   const borderColor = p?.color || '#059669';
@@ -1744,7 +1815,7 @@ function renderBoardCard(t, showProject) {
     <div class="board-card-meta">
       ${showProject && p ? `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:${borderColor}"></span>${escHtml(p.name)}</span>` : ''}
       <span><span class="priority-dot" style="background:${priColor}"></span> ${BOARD_PRIORITY_LABELS[t.priority]||'Средний'}</span>
-      ${hours > 0 ? `<span style="color:var(--accent2);font-weight:600">${fmtHours(hours)}</span>` : ''}
+      ${hours > 0 ? `<span style="color:var(--accent2);font-weight:600">${fmtHours(hours)}${earned > 0 ? ' · ' + fmtMoney(earned) : ''}</span>` : ''}
       ${isActive ? '<span class="badge badge-emerald">● Таймер</span>' : ''}
     </div>
     ${t.desc ? `<div class="text-xs text-muted mb8" style="line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escHtml(t.desc)}</div>` : ''}
@@ -1756,6 +1827,10 @@ function renderBoardCard(t, showProject) {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
         Стоп
       </button>`}
+      <button class="btn-timer-card" onclick="openTaskHoursModal('${t.id}')" title="Добавить время вручную" style="background:var(--bg3);color:var(--text2);border-color:var(--border)">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        +Время
+      </button>
       <button class="btn-icon btn-sm" onclick="editBoardTask('${t.id}')" title="Редактировать">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
@@ -1797,6 +1872,7 @@ function renderBoardTable(tasks) {
     </tr></thead>
     <tbody>${tasks.map(t => {
       const hours = getTaskHours(t.id);
+      const earned = getTaskEarned(t.id);
       const isActive = state.timer.running && state.timer.taskId === t.id;
       const statusBadge = t.status === 'done' ? 'badge-green' : t.status === 'in_progress' ? 'badge-amber' : 'badge-gray';
       return `<tr${isActive ? ' style="background:var(--accent-light)"' : ''}>
@@ -1807,7 +1883,7 @@ function renderBoardTable(tasks) {
         </td>
         <td><span class="badge ${statusBadge}">${BOARD_STATUS_LABELS[t.status]||t.status}</span></td>
         <td><span style="color:${BOARD_PRIORITY_COLORS[t.priority]||'var(--text2)'}">${BOARD_PRIORITY_LABELS[t.priority]||'—'}</span></td>
-        <td style="font-weight:600;color:var(--accent2);white-space:nowrap">${hours > 0 ? fmtHours(hours) : '—'}</td>
+        <td style="font-weight:600;color:var(--accent2);white-space:nowrap">${hours > 0 ? fmtHours(hours) + (earned > 0 ? `<div class="text-xs text-green">${fmtMoney(earned)}</div>` : '') : '—'}</td>
         <td class="text-sm text-muted" style="white-space:nowrap">${fmtDate(new Date(t.updatedAt).toISOString().slice(0,10))}</td>
         <td><div class="flex gap4">
           ${!isActive ? `<button class="btn btn-success btn-sm" onclick="startBoardTimer('${t.id}')" title="Запустить таймер">
@@ -1815,6 +1891,9 @@ function renderBoardTable(tasks) {
           </button>` : `<button class="btn btn-danger btn-sm" onclick="stopTimer()" title="Остановить">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
           </button>`}
+          <button class="btn-icon" onclick="openTaskHoursModal('${t.id}')" title="Добавить время вручную">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </button>
           <button class="btn-icon" onclick="editBoardTask('${t.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           <button class="btn-icon" onclick="deleteBoardTask('${t.id}')" style="color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
         </div></td>
@@ -2046,7 +2125,7 @@ function boardDrop(e, newStatus) {
 // ─── TIMELOG ──────────────────────────────────────────────────────────────
 let filterProject = '', filterDateFrom = '', filterDateTo = '';
 function renderTimelog() {
-  let entries = [...state.entries].sort((a,b) => b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
+  let entries = state.entries.filter(e => !e.archived).sort((a,b) => b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
   if (filterProject) entries = entries.filter(e=>e.projectId===filterProject);
   if (filterDateFrom) entries = entries.filter(e=>e.date>=filterDateFrom);
   if (filterDateTo) entries = entries.filter(e=>e.date<=filterDateTo);
@@ -2124,7 +2203,7 @@ function getDateRange(from, to) {
 }
 
 function getAnalyticsEntries() {
-  let entries = state.entries.filter(e => e.date >= analyticsFrom && e.date <= analyticsTo);
+  let entries = state.entries.filter(e => e.date >= analyticsFrom && e.date <= analyticsTo && !e.archived);
   if (analyticsProject) entries = entries.filter(e => e.projectId === analyticsProject);
   return entries;
 }
@@ -2178,7 +2257,7 @@ function renderAnalyticsDailyChart(entries) {
 }
 
 function renderAnalyticsTaskStages() {
-  let tasks = state.boardTasks;
+  let tasks = state.boardTasks.filter(t => !t.archived);
   if (analyticsProject) tasks = tasks.filter(t => t.projectId === analyticsProject);
   const counts = { todo: 0, in_progress: 0, done: 0 };
   tasks.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++; });
@@ -2204,11 +2283,12 @@ function renderAnalyticsTaskStages() {
       const p = getProject(t.projectId);
       const col = BOARD_COLUMNS.find(c => c.id === t.status);
       const hrs = getTaskHours(t.id);
+      const earned = getTaskEarned(t.id);
       return `<div class="analytics-task-row">
         <div style="width:8px;height:8px;border-radius:50%;background:${p?.color || '#059669'};flex-shrink:0"></div>
         <div class="flex-1 truncate">
           <div class="fw-6">${escHtml(t.title)}</div>
-          <div class="text-xs text-muted">${escHtml(p?.name || 'Проект')} · ${fmtHours(hrs)} залогировано</div>
+          <div class="text-xs text-muted">${escHtml(p?.name || 'Проект')} · ${fmtHours(hrs)} залогировано${earned > 0 ? ' · ' + fmtMoney(earned) : ''}</div>
         </div>
         <span class="badge ${col?.badge || 'badge-gray'}">${col?.label || t.status}</span>
         <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showBoardForProject('${t.projectId}')">Доска</button>
@@ -2356,37 +2436,249 @@ function setAnalyticsPeriod(period) {
 }
 
 // ─── REPORTS ──────────────────────────────────────────────────────────────
-let reportFrom = '', reportTo = '', reportProject = '';
+let reportFrom = '', reportTo = '', reportProject = '', reportTitle = '', selectedReportId = '';
+
+function isActiveEntry(e) { return !e.archived; }
+
+function getReportableEntries(from, to, projectId) {
+  return state.entries.filter(e =>
+    isActiveEntry(e) &&
+    !e.reportId &&
+    e.date >= from &&
+    e.date <= to &&
+    (!projectId || e.projectId === projectId)
+  );
+}
+
+function fmtDateShort(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+}
+
+function pluralRu(n, one, few, many) {
+  const abs = Math.abs(n) % 100;
+  const n1 = abs % 10;
+  if (abs > 10 && abs < 20) return many;
+  if (n1 > 1 && n1 < 5) return few;
+  if (n1 === 1) return one;
+  return many;
+}
+
+function fmtHoursTelegram(h) {
+  const totalM = Math.round(Math.max(0, h) * 60);
+  const hh = Math.floor(totalM / 60);
+  const mm = totalM % 60;
+  const parts = [];
+  if (hh > 0) parts.push(`${hh} ${pluralRu(hh, 'час', 'часа', 'часов')}`);
+  if (mm > 0) parts.push(`${mm} ${pluralRu(mm, 'минута', 'минуты', 'минут')}`);
+  return parts.length ? parts.join(' ') : '0 минут';
+}
+
+function groupEntriesByProject(entries) {
+  const byProject = {};
+  entries.forEach(e => {
+    if (!byProject[e.projectId]) byProject[e.projectId] = [];
+    byProject[e.projectId].push(e);
+  });
+  return Object.entries(byProject)
+    .map(([projectId, list]) => ({
+      projectId,
+      name: getProject(projectId)?.name || 'Проект',
+      hours: sum(list.map(e => e.hours)),
+      entries: [...list].sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
+    }))
+    .sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name, 'ru'));
+}
+
+function getDefaultReportTitle(projectId) {
+  if (projectId) {
+    const p = getProject(projectId);
+    if (p) return p.name;
+  }
+  return `Работы за ${fmtDate(reportFrom)} — ${fmtDate(reportTo)}`;
+}
+
+function getReportTitleInput() {
+  return document.getElementById('rep-title')?.value?.trim() || reportTitle || '';
+}
+
+function buildTelegramReportText(entries, title) {
+  const groups = groupEntriesByProject(entries);
+  const totalH = sum(entries.map(e => e.hours));
+  const totalAmount = entries.reduce((acc, e) => acc + calcEntryAmount(e.projectId, e.hours), 0);
+  const reportTitleLine = title || getDefaultReportTitle(reportProject || null);
+  const lines = [];
+
+  lines.push(`${reportTitleLine} (${fmtHoursTelegram(totalH)})`);
+
+  if (groups.length > 1) {
+    groups.forEach(g => {
+      lines.push(`• ${g.name} (${fmtHoursTelegram(g.hours)})`);
+    });
+    lines.push('');
+  }
+
+  groups.forEach((g, idx) => {
+    if (idx > 0 || groups.length > 1) lines.push('');
+    lines.push(`${g.name} (${fmtHoursTelegram(g.hours)})`);
+    if (g.entries.length === 1) {
+      const task = (g.entries[0].task || 'Без описания').replace(/\s+/g, ' ').trim();
+      lines.push(` - ${task}`);
+    } else {
+      g.entries.forEach(e => {
+        const task = (e.task || 'Без описания').replace(/\s+/g, ' ').trim();
+        lines.push(`• ${task}`);
+      });
+    }
+  });
+
+  lines.push('');
+  lines.push(`Итого: ${fmtHoursTelegram(totalH)}${totalAmount > 0 ? ' · ' + fmtMoney(totalAmount) : ''}`);
+
+  return lines.join('\n');
+}
+
+function collectReport() {
+  const entries = getReportableEntries(reportFrom, reportTo, reportProject || null);
+  if (!entries.length) {
+    showToast('Нет записей для отчёта за выбранный период', 'error');
+    return;
+  }
+
+  const title = getReportTitleInput() || getDefaultReportTitle(reportProject || null);
+  reportTitle = title;
+  const text = buildTelegramReportText(entries, title);
+  const totalHours = sum(entries.map(e => e.hours));
+  const totalAmount = entries.reduce((acc, e) => acc + calcEntryAmount(e.projectId, e.hours), 0);
+  const entryIds = entries.map(e => e.id);
+  const report = {
+    id: uid(),
+    title,
+    from: reportFrom,
+    to: reportTo,
+    projectId: reportProject || null,
+    entryIds,
+    text,
+    totalHours,
+    totalAmount,
+    status: 'unpaid',
+    paidAt: null,
+    createdAt: Date.now()
+  };
+
+  state.reports.unshift(report);
+  entries.forEach(e => { e.reportId = report.id; });
+  save();
+  if (sb.isEnabled()) {
+    sb.upsertReport(report);
+    entries.forEach(e => sb.upsertEntry(e));
+  }
+  selectedReportId = report.id;
+  renderPage();
+  showToast(`Отчёт собран: ${entries.length} записей`);
+}
+
+async function markReportPaid(reportId) {
+  const report = state.reports.find(r => r.id === reportId);
+  if (!report || report.status === 'paid') return;
+  if (!confirm('Отметить отчёт как оплаченный? Все записи и связанные задачи уйдут в архив.')) return;
+
+  report.status = 'paid';
+  report.paidAt = Date.now();
+
+  const entryIds = new Set(report.entryIds || []);
+  const taskIds = new Set();
+
+  state.entries.forEach(e => {
+    if (entryIds.has(e.id)) {
+      e.archived = true;
+      if (e.taskId) taskIds.add(e.taskId);
+      if (sb.isEnabled()) sb.upsertEntry(e);
+    }
+  });
+
+  state.boardTasks.forEach(t => {
+    if (taskIds.has(t.id)) {
+      t.archived = true;
+      t.updatedAt = Date.now();
+      if (sb.isEnabled()) sb.upsertBoardTask(t);
+    }
+  });
+
+  save();
+  if (sb.isEnabled()) await sb.upsertReport(report);
+  renderPage();
+  showToast('Отчёт оплачен, задачи в архиве');
+}
+
+async function deleteReport(reportId) {
+  const report = state.reports.find(r => r.id === reportId);
+  if (!report) return;
+  if (report.status === 'paid') { showToast('Нельзя удалить оплаченный отчёт', 'error'); return; }
+  if (!confirm('Удалить отчёт? Записи снова станут доступны для нового отчёта.')) return;
+
+  const entryIds = new Set(report.entryIds || []);
+  state.entries.forEach(e => {
+    if (entryIds.has(e.id) && e.reportId === reportId) {
+      e.reportId = null;
+      if (sb.isEnabled()) sb.upsertEntry(e);
+    }
+  });
+
+  state.reports = state.reports.filter(r => r.id !== reportId);
+  if (selectedReportId === reportId) selectedReportId = '';
+  save();
+  if (sb.isEnabled()) await sb.deleteReport(reportId);
+  renderPage();
+  showToast('Отчёт удалён');
+}
+
+function selectReport(id) {
+  selectedReportId = selectedReportId === id ? '' : id;
+  renderPage();
+}
+
+async function copyReportText(reportId) {
+  const report = state.reports.find(r => r.id === reportId);
+  if (!report) return;
+  try {
+    await navigator.clipboard.writeText(report.text);
+    showToast('Скопировано для Telegram');
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = report.text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showToast('Скопировано для Telegram');
+  }
+}
+
 function renderReports() {
   const today = new Date().toISOString().slice(0,10);
   const monthStart = today.slice(0,7)+'-01';
   if (!reportFrom) reportFrom = monthStart;
   if (!reportTo) reportTo = today;
 
-  let entries = state.entries.filter(e => e.date >= reportFrom && e.date <= reportTo);
-  if (reportProject) entries = entries.filter(e=>e.projectId===reportProject);
+  const pendingEntries = getReportableEntries(reportFrom, reportTo, reportProject || null);
+  const pendingH = sum(pendingEntries.map(e => e.hours));
+  const pendingAmount = pendingEntries.reduce((acc, e) => acc + calcEntryAmount(e.projectId, e.hours), 0);
 
-  const totalH = sum(entries.map(e=>e.hours));
-  const byProject = {};
-  entries.forEach(e => {
-    if (!byProject[e.projectId]) byProject[e.projectId] = { entries: [], hours: 0 };
-    byProject[e.projectId].entries.push(e);
-    byProject[e.projectId].hours += e.hours;
-  });
-
-  const totalEarned = Object.entries(byProject).reduce((acc,[pid,d])=>{
-    const p = getProject(pid);
-    return acc + d.hours * (p?.rate || 0);
-  }, 0);
-
-  const paidInPeriod = sum(state.payments.filter(pay=>pay.date>=reportFrom&&pay.date<=reportTo).map(p=>p.amount));
+  const sortedReports = [...state.reports].sort((a, b) => b.createdAt - a.createdAt);
+  const unpaidCount = sortedReports.filter(r => r.status === 'unpaid').length;
+  const selected = sortedReports.find(r => r.id === selectedReportId);
 
   return `
   <div class="page-header">
-    <div><div class="page-title">Отчёт</div></div>
-    <button class="btn btn-primary" onclick="printReport()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-      Печать / PDF
+    <div>
+      <div class="page-title">Отчёты</div>
+      <div class="page-sub">${unpaidCount ? unpaidCount + ' не оплачено' : 'Сбор и отправка в Telegram'}</div>
+    </div>
+    <button class="btn btn-primary" onclick="collectReport()" ${pendingEntries.length ? '' : 'disabled'}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Собрать отчёт
     </button>
   </div>
 
@@ -2412,55 +2704,80 @@ function renderReports() {
         <button class="btn btn-ghost btn-sm" onclick="setReportPeriod('month')">Месяц</button>
         <button class="btn btn-ghost btn-sm" onclick="setReportPeriod('all')">Всё</button>
       </div>
+      <div style="flex:1;min-width:100%;margin-top:4px">
+        <div class="text-xs text-muted mb4">Название отчёта</div>
+        <input type="text" class="form-input" id="rep-title" value="${escHtml(reportTitle || getDefaultReportTitle(reportProject || null))}" placeholder="Например: Перенос проектов с Lovable на облачные сервера" oninput="reportTitle=this.value" style="padding:7px 10px">
+      </div>
+    </div>
+    <div class="flex items-center justify-between mt12 pt12" style="border-top:1px solid var(--border)">
+      <div class="text-sm text-muted">Готово к сбору: <strong style="color:var(--text)">${pendingEntries.length}</strong> записей · ${fmtHoursTelegram(pendingH)}${pendingAmount > 0 ? ' · ' + fmtMoney(pendingAmount) : ''}</div>
+      ${pendingEntries.length ? `<button class="btn btn-ghost btn-sm" onclick="previewReportText()">Предпросмотр</button>` : ''}
     </div>
   </div>
 
-  <div class="report-header">
-    <div class="report-title" style="display:flex;align-items:center;gap:8px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Отчёт по рабочему времени</div>
-    <div class="report-period">${fmtDate(reportFrom)} — ${fmtDate(reportTo)}</div>
-    <div style="display:flex;gap:32px;margin-top:16px;flex-wrap:wrap">
-      <div><div style="font-size:12px;opacity:.7;margin-bottom:4px">Всего часов</div><div style="font-size:24px;font-weight:700">${fmtHours(totalH)}</div></div>
-      ${totalEarned>0?`<div><div style="font-size:12px;opacity:.7;margin-bottom:4px">К оплате</div><div style="font-size:24px;font-weight:700">${fmtMoney(totalEarned)}</div></div>`:''}
-      ${paidInPeriod>0?`<div><div style="font-size:12px;opacity:.7;margin-bottom:4px">Получено</div><div style="font-size:24px;font-weight:700">${fmtMoney(paidInPeriod)}</div></div>`:''}
-      <div><div style="font-size:12px;opacity:.7;margin-bottom:4px">Записей</div><div style="font-size:24px;font-weight:700">${entries.length}</div></div>
+  ${selected ? `
+  <div class="card mb16">
+    <div class="flex items-center justify-between mb12">
+      <div>
+        <div style="font-size:16px;font-weight:700">${escHtml(selected.title || `${fmtDate(selected.from)} — ${fmtDate(selected.to)}`)}</div>
+        <div class="text-sm text-muted mt4">${selected.entryIds?.length || 0} записей · ${fmtHoursTelegram(selected.totalHours)}${selected.totalAmount > 0 ? ' · ' + fmtMoney(selected.totalAmount) : ''}</div>
+      </div>
+      <div class="flex gap8 items-center">
+        <span class="badge ${selected.status === 'paid' ? 'badge-green' : 'badge-amber'}">${selected.status === 'paid' ? 'Оплачено' : 'Не оплачен'}</span>
+        <button class="btn btn-primary btn-sm" onclick="copyReportText('${selected.id}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Копировать
+        </button>
+        ${selected.status === 'unpaid' ? `<button class="btn btn-ghost btn-sm" style="color:var(--green)" onclick="markReportPaid('${selected.id}')">Оплачено</button>` : ''}
+        ${selected.status === 'unpaid' ? `<button class="btn-icon" onclick="deleteReport('${selected.id}')" style="color:var(--red)" title="Удалить"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>` : ''}
+      </div>
     </div>
-  </div>
+    <div class="telegram-preview" id="report-text-preview">${escHtml(selected.text)}</div>
+    <div class="text-xs text-muted mt8">Формат для Telegram: каждая задача с новой строки</div>
+  </div>` : ''}
 
-  ${Object.entries(byProject).length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><h3>Нет данных</h3><p>Нет записей за выбранный период</p></div>` :
-    Object.entries(byProject).sort((a,b)=>b[1].hours-a[1].hours).map(([pid, data]) => {
-      const p = getProject(pid);
-      const earned = data.hours * (p?.rate || 0);
-      const paidForProject = sum(state.payments.filter(pay=>pay.projectId===pid&&pay.date>=reportFrom&&pay.date<=reportTo).map(pay=>pay.amount));
-      return `<div class="card mb12">
-        <div class="flex items-center justify-between mb12">
-          <div class="flex items-center gap8">
-            <div style="width:12px;height:12px;border-radius:50%;background:${p?.color||'#059669'}"></div>
-            <div style="font-size:16px;font-weight:700">${escHtml(p?.name || 'Удалённый проект')}</div>
-            ${p?.client?`<div class="text-sm text-muted">· ${escHtml(p.client)}</div>`:''}
+  <div class="section-title" style="margin-top:0">Сохранённые отчёты</div>
+  ${sortedReports.length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><h3>Нет отчётов</h3><p>Выберите период и нажмите «Собрать отчёт»</p></div>` :
+    sortedReports.map(r => {
+      const isSelected = selectedReportId === r.id;
+      return `<div class="card mb12 report-card${isSelected ? ' selected' : ''}" onclick="selectReport('${r.id}')">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap8">
+              <span style="font-size:15px;font-weight:600">${escHtml(r.title || `${fmtDate(r.from)} — ${fmtDate(r.to)}`)}</span>
+              <span class="badge ${r.status === 'paid' ? 'badge-green' : 'badge-amber'}">${r.status === 'paid' ? 'Оплачено' : 'Не оплачен'}</span>
+            </div>
+            <div class="text-sm text-muted mt4">
+              ${r.projectId && getProject(r.projectId) ? escHtml(getProject(r.projectId).name) + ' · ' : ''}${r.entryIds?.length || 0} записей · ${fmtHoursTelegram(r.totalHours)}${r.totalAmount > 0 ? ' · ' + fmtMoney(r.totalAmount) : ''}
+            </div>
           </div>
-          <div class="flex gap8 items-center">
-            <div style="font-size:18px;font-weight:700;color:var(--accent2)">${fmtHours(data.hours)}</div>
-            ${earned>0?`<div style="font-size:16px;font-weight:600;color:var(--green)">${fmtMoney(earned)}</div>`:''}
-            ${paidForProject>0?`<span class="badge badge-green">Оплачено: ${fmtMoney(paidForProject)}</span>`:''}
+          <div class="flex gap6" onclick="event.stopPropagation()">
+            <button class="btn btn-ghost btn-sm" onclick="copyReportText('${r.id}')">Копировать</button>
+            ${r.status === 'unpaid' ? `<button class="btn btn-ghost btn-sm" style="color:var(--green)" onclick="markReportPaid('${r.id}')">Оплачено</button>` : ''}
           </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr>
-              <th>Дата</th><th>Задача</th><th>Время</th><th>Часы</th>${p?.rate?'<th>Сумма</th>':''}
-            </tr></thead>
-            <tbody>${data.entries.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr>
-              <td style="white-space:nowrap">${fmtDate(e.date)}</td>
-              <td>${escHtml(e.task)}${e.notes?`<div class="text-xs text-muted mt4">${escHtml(e.notes)}</div>`:''}</td>
-              <td style="white-space:nowrap">${e.start&&e.end?`${e.start}–${e.end}`:''}</td>
-              <td style="font-weight:600;color:var(--accent2)">${fmtHours(e.hours)}</td>
-              ${p?.rate?`<td style="color:var(--green)">${fmtMoney(e.hours*(p.rate||0))}</td>`:''}
-            </tr>`).join('')}</tbody>
-          </table>
         </div>
       </div>`;
     }).join('')}
   `;
+}
+
+function previewReportText() {
+  const entries = getReportableEntries(reportFrom, reportTo, reportProject || null);
+  if (!entries.length) return;
+  const title = getReportTitleInput() || getDefaultReportTitle(reportProject || null);
+  const text = buildTelegramReportText(entries, title);
+  const preview = document.createElement('div');
+  preview.className = 'card';
+  preview.style.cssText = 'position:fixed;inset:20px;z-index:1000;max-width:640px;margin:auto;max-height:80vh;overflow:auto;padding:20px';
+  preview.innerHTML = `
+    <div class="flex items-center justify-between mb12">
+      <div style="font-weight:700">Предпросмотр для Telegram</div>
+      <button class="btn btn-ghost btn-sm" onclick="this.closest('.card').remove()">Закрыть</button>
+    </div>
+    <div class="telegram-preview">${escHtml(text)}</div>
+    <button class="btn btn-primary btn-sm mt12" onclick="navigator.clipboard.writeText(${JSON.stringify(text)}).then(()=>showToast('Скопировано'))">Копировать</button>
+  `;
+  document.body.appendChild(preview);
 }
 
 function updateReport() {
@@ -2477,39 +2794,15 @@ function setReportPeriod(period) {
   renderPage();
 }
 function printReport() {
+  const report = state.reports.find(r => r.id === selectedReportId);
+  if (!report) { showToast('Сначала выберите отчёт', 'error'); return; }
   const printWin = window.open('', '_blank');
-  const today = new Date().toISOString().slice(0,10);
-  const entries = state.entries.filter(e=>e.date>=reportFrom&&e.date<=reportTo&&(!reportProject||e.projectId===reportProject));
-  const byProject = {};
-  entries.forEach(e=>{if(!byProject[e.projectId])byProject[e.projectId]={entries:[],hours:0};byProject[e.projectId].entries.push(e);byProject[e.projectId].hours+=e.hours;});
-  const totalH = sum(entries.map(e=>e.hours));
-  const totalE = Object.entries(byProject).reduce((a,[pid,d])=>a+d.hours*(getProject(pid)?.rate||0),0);
-
-  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Отчёт ${fmtDate(reportFrom)} — ${fmtDate(reportTo)}</title>
-  <style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;padding:24px;font-size:14px}
-  h1{font-size:22px;margin-bottom:4px}h2{font-size:17px;margin:20px 0 8px;border-bottom:2px solid #eee;padding-bottom:6px}
-  table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#f5f5f5;text-align:left;padding:8px 10px;font-size:12px}
-  td{padding:8px 10px;border-bottom:1px solid #eee}.summary{display:flex;gap:32px;margin:16px 0;padding:16px;background:#f9f9f9;border-radius:8px}
-  .sv{font-size:22px;font-weight:700;color:#059669}.sl{font-size:12px;color:#666;margin-bottom:4px}.meta{color:#666;font-size:13px}
-  @media print{.no-print{display:none}}</style></head><body>
+  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Отчёт ${fmtDate(report.from)} — ${fmtDate(report.to)}</title>
+  <style>body{font-family:-apple-system,sans-serif;padding:24px;font-size:14px;white-space:pre-wrap;line-height:1.6}
+  h1{font-size:20px;margin-bottom:8px}.meta{color:#666;font-size:13px;margin-bottom:20px}</style></head><body>
   <h1>Отчёт по рабочему времени</h1>
-  <div class="meta">Период: ${fmtDate(reportFrom)} — ${fmtDate(reportTo)} · Сформирован: ${fmtDate(today)}</div>
-  <div class="summary">
-    <div><div class="sl">Всего часов</div><div class="sv">${fmtHours(totalH)}</div></div>
-    ${totalE>0?`<div><div class="sl">К оплате</div><div class="sv">${fmtMoney(totalE)}</div></div>`:''}
-    <div><div class="sl">Записей</div><div class="sv">${entries.length}</div></div>
-  </div>
-  ${Object.entries(byProject).map(([pid,data])=>{
-    const p=getProject(pid);const earned=data.hours*(p?.rate||0);
-    return `<h2>${p?.name||'Проект'} ${p?.client?`<span style="font-size:14px;color:#666">· ${p.client}</span>`:''}
-      <span style="float:right;font-size:14px">${fmtHours(data.hours)} ${earned>0?'· '+fmtMoney(earned):''}</span></h2>
-    <table><thead><tr><th>Дата</th><th>Задача</th><th>Время</th><th>Часов</th>${p?.rate?'<th>Сумма</th>':''}</tr></thead><tbody>
-    ${data.entries.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr>
-      <td>${fmtDate(e.date)}</td><td>${e.task}${e.notes?`<br><span style="font-size:12px;color:#888">${e.notes}</span>`:''}</td>
-      <td>${e.start&&e.end?e.start+'–'+e.end:''}</td><td>${fmtHours(e.hours)}</td>
-      ${p?.rate?`<td>${fmtMoney(e.hours*(p.rate||0))}</td>`:''}
-    </tr>`).join('')}</tbody></table>`;
-  }).join('')}
+  <div class="meta">${fmtDate(report.from)} — ${fmtDate(report.to)} · ${report.status === 'paid' ? 'Оплачено' : 'Не оплачен'}</div>
+  <pre>${report.text.replace(/</g,'&lt;')}</pre>
   </body></html>`);
   printWin.document.close();
   setTimeout(()=>printWin.print(),300);
@@ -2548,7 +2841,7 @@ function renderPayments() {
   <div class="section-title" style="margin-top:0">Статус по проектам</div>
   <div class="card mb16">
     ${state.projects.filter(p=>p.rate).map(p=>{
-      const hrs=sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
+      const hrs=sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
       const earned=hrs*(p.rate||0);
       const paid=sum(state.payments.filter(pay=>pay.projectId===p.id).map(pay=>pay.amount));
       const pct=earned>0?Math.min(100,Math.round(paid/earned*100)):0;
@@ -2652,6 +2945,7 @@ function updateEntryBillablePreview() {
 function openAddEntryModal() {
   document.getElementById('entry-modal-title').textContent = 'Добавить запись';
   document.getElementById('entry-edit-id').value = '';
+  document.getElementById('entry-task-id').value = '';
   document.getElementById('entry-project').value = '';
   document.getElementById('entry-task').value = '';
   document.getElementById('entry-date').value = new Date().toISOString().slice(0,10);
@@ -2669,8 +2963,10 @@ function editEntry(id) {
   if (!e) return;
   document.getElementById('entry-modal-title').textContent = 'Редактировать запись';
   document.getElementById('entry-edit-id').value = id;
+  document.getElementById('entry-task-id').value = e.taskId || '';
   populateProjectSelects();
   document.getElementById('entry-project').value = e.projectId;
+  populateEntryBoardTasks(e.projectId, e.taskId || '');
   document.getElementById('entry-task').value = e.task;
   document.getElementById('entry-date').value = e.date;
   document.getElementById('entry-hours').value = e.hours;
@@ -2699,12 +2995,18 @@ function saveEntry() {
   }
   const entry = {
     id: editId || uid(), projectId, task, date, hours,
-    taskId: editId ? (state.entries.find(e=>e.id===editId)?.taskId || null) : null,
+    taskId: document.getElementById('entry-task-id')?.value || null,
     start: document.getElementById('entry-start').value,
     end: document.getElementById('entry-end').value,
     notes,
     createdAt: editId ? (state.entries.find(e=>e.id===editId)?.createdAt||Date.now()) : Date.now()
   };
+  const linkedTask = entry.taskId ? getBoardTask(entry.taskId) : null;
+  if (linkedTask && linkedTask.status === 'todo') {
+    linkedTask.status = 'in_progress';
+    linkedTask.updatedAt = Date.now();
+    if (sb.isEnabled()) sb.upsertBoardTask(linkedTask);
+  }
   if (editId) {
     const idx = state.entries.findIndex(e=>e.id===editId);
     if (idx>=0) state.entries[idx]=entry;
@@ -3071,7 +3373,7 @@ create policy "open" on payments for all using (true) with check (true);</pre>
     <div class="card mb16">
       ${state.projects.length === 0 ? `<div class="text-muted text-sm">Нет проектов. Создайте проект в разделе «Проекты».</div>` :
         state.projects.map(p => {
-          const hrs = sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
+          const hrs = sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
           const statusMap = { active: ['var(--green)', 'Активный'], paused: ['var(--amber)', 'Пауза'], done: ['var(--text2)', 'Завершён'] };
           const [stColor, stLabel] = statusMap[p.status] || statusMap.active;
           return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
@@ -3312,7 +3614,7 @@ function openAIResultModal(entryId, original, improved) {
 }
 
 function exportData() {
-  const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, settings: state.settings, exportedAt: new Date().toISOString() };
+  const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, settings: state.settings, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `timelog-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
@@ -3328,6 +3630,7 @@ function importData(e) {
       state.entries = d.entries || state.entries;
       state.payments = d.payments || state.payments;
       state.boardTasks = d.boardTasks || state.boardTasks;
+      state.reports = d.reports || state.reports;
       save(); renderPage(); showToast('Данные импортированы');
     } catch { showToast('Ошибка формата файла', 'error'); }
   };
@@ -3336,7 +3639,7 @@ function importData(e) {
 function clearAllData() {
   if (!confirm('Удалить ВСЕ данные? Это действие нельзя отменить.')) return;
   if (!confirm('Вы уверены? Все проекты, записи и платежи будут удалены.')) return;
-  state.projects = []; state.entries = []; state.payments = []; state.boardTasks = [];
+  state.projects = []; state.entries = []; state.payments = []; state.boardTasks = []; state.reports = [];
   save(); renderPage(); showToast('Все данные удалены');
 }
 
@@ -3378,7 +3681,7 @@ function getWeekDates() {
 }
 function calcTotalEarned() {
   return sum(state.projects.map(p=>{
-    const hrs=sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
+    const hrs=sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
     return hrs*(p.rate||0);
   }));
 }

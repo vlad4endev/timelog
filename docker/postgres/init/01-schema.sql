@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS time_entries (
 
 CREATE TABLE IF NOT EXISTS billing_reports (
   id           TEXT PRIMARY KEY,
+  title        TEXT,
   period_from  DATE NOT NULL,
   period_to    DATE NOT NULL,
   project_id   TEXT REFERENCES projects(id) ON DELETE SET NULL,
