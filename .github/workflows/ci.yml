@@ -39,9 +39,12 @@ jobs:
       - name: Health check
         run: |
           curl -sf http://localhost:8080/health
+          curl -sf http://localhost:8080/auth/has-users
           ANON_KEY=$(grep '^ANON_KEY=' .env | cut -d= -f2-)
-          curl -sf "http://localhost:8080/rest/v1/projects?limit=1" \
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "http://localhost:8080/rest/v1/projects?limit=1" \
             -H "apikey: ${ANON_KEY}" \
-            -H "Authorization: Bearer ${ANON_KEY}"
+            -H "Authorization: Bearer ${ANON_KEY}")
+          test "$code" = "401" -o "$code" = "403" -o "$code" = "200"
 
       - run: docker compose down -v

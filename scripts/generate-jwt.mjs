@@ -16,7 +16,7 @@ const token = await new SignJWT({ role: 'anon' })
   .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
   .setIssuedAt()
   .setIssuer('timelog')
-  .setExpirationTime('3650d')
+  .setExpirationTime('365d')
   .sign(key);
 
 process.stdout.write(token);

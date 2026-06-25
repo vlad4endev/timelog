@@ -872,7 +872,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
         <div class="auth-field">
           <label>Новый пароль</label>
           <div style="position:relative">
-            <input class="auth-input" type="password" id="auth-new-pass" placeholder="Минимум 4 символа"
+            <input class="auth-input" type="password" id="auth-new-pass" placeholder="Минимум 8 символов"
               autocomplete="new-password">
             <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-new-pass')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -1605,6 +1605,19 @@ const auth = {
     return '';
   },
 
+  MIN_PASSWORD_LENGTH: 8,
+  _sessionPass: null,
+
+  validatePassword(pass) {
+    if (!pass || pass.length < this.MIN_PASSWORD_LENGTH) return `Минимум ${this.MIN_PASSWORD_LENGTH} символов`;
+    return '';
+  },
+
+  clearLocalPassword(login) {
+    const l = login || this.getLogin();
+    if (l) localStorage.removeItem(this.pwKey(l));
+  },
+
   getLogin() { return this._currentLogin || localStorage.getItem('tl_login') || ''; },
   setLogin(login) {
     this._currentLogin = login;
@@ -1629,14 +1642,21 @@ const auth = {
   getApiToken() {
     const login = this.getLogin();
     if (!login) return null;
-    return sessionStorage.getItem(this.tokenKey(login))
-      || localStorage.getItem(this.tokenKey(login));
+    let token = sessionStorage.getItem(this.tokenKey(login));
+    if (!token) {
+      token = localStorage.getItem(this.tokenKey(login));
+      if (token) {
+        sessionStorage.setItem(this.tokenKey(login), token);
+        localStorage.removeItem(this.tokenKey(login));
+      }
+    }
+    return token;
   },
 
   setApiToken(login, token) {
     if (!login || !token) return;
-    localStorage.setItem(this.tokenKey(login), token);
     sessionStorage.setItem(this.tokenKey(login), token);
+    localStorage.removeItem(this.tokenKey(login));
   },
 
   clearApiToken(login) {
@@ -1664,30 +1684,35 @@ const auth = {
     }
   },
 
-  async fetchApiToken(login, pwHash) {
-    const res = await this.authFetch('/auth/token', { login, pwHash });
+  async fetchApiToken(login, password) {
+    const res = await this.authFetch('/auth/token', { login, password });
     if (!res?.ok || !res.token) return false;
     this.setApiToken(login, res.token);
     return true;
   },
 
-  async registerApi(login, pwHash) {
-    const res = await this.authFetch('/auth/register', { login, pwHash });
-    if (!res?.ok || !res.token) return { ok: false, error: res?.error || 'register failed' };
+  async registerApi(login, password) {
+    const res = await this.authFetch('/auth/register', { login, password });
+    if (!res?.ok || !res.token) return { ok: false, status: res?.status, error: res?.error || 'register failed' };
     this.setApiToken(login, res.token);
     return { ok: true };
   },
 
-  async syncPasswordApi(login, pwHash) {
-    if (!this.useServerAuth()) return;
-    await this.authFetch('/auth/sync-password', { login, pwHash });
+  async changePasswordApi(login, currentPassword, newPassword) {
+    const res = await this.authFetch('/auth/change-password', {
+      login, currentPassword, newPassword
+    });
+    if (!res?.ok) return { ok: false, error: res?.error || 'change failed' };
+    if (res.token) this.setApiToken(login, res.token);
+    return { ok: true };
   },
 
-  async ensureSession(login, pwHash = null) {
+  async ensureSession(login, password = null) {
     if (!this.useServerAuth()) return true;
     if (this.getApiToken()) return true;
-    if (!pwHash) return false;
-    return await this.fetchApiToken(login, pwHash);
+    const pass = password || this._sessionPass;
+    if (!pass) return false;
+    return await this.fetchApiToken(login, pass);
   },
 
   async hash(login, pass) {
@@ -1757,23 +1782,25 @@ const auth = {
   },
 
   async checkPassword(login, pass) {
-    const h = await this.hash(login, pass);
-    const local = localStorage.getItem(this.pwKey(login));
-    if (local && local === h) {
-      if (this.useServerAuth() && !this.getApiToken()) await this.fetchApiToken(login, h);
-      return true;
-    }
-
     if (this.useServerAuth()) {
-      const res = await this.authFetch('/auth/token', { login, pwHash: h });
+      let res = await this.authFetch('/auth/token', { login, password: pass });
+      if (!res?.ok) {
+        const h = await this.hash(login, pass);
+        res = await this.authFetch('/auth/token', { login, pwHash: h });
+      }
       if (res?.ok) {
-        localStorage.setItem(this.pwKey(login), h);
         if (res.token) this.setApiToken(login, res.token);
-        this._serverHash = h;
+        this._sessionPass = pass;
+        this.clearLocalPassword(login);
+        this._serverHash = 'exists';
         return true;
       }
       return false;
     }
+
+    const h = await this.hash(login, pass);
+    const local = localStorage.getItem(this.pwKey(login));
+    if (local && local === h) return true;
 
     await this.fetchServerHash(login);
     if (this._serverHash && this._serverHash === h) {
@@ -1785,8 +1812,7 @@ const auth = {
     if (this._serverHash && this._serverHash === legacyH) {
       const newH = await this.hash(login, pass);
       localStorage.setItem(this.pwKey(login), newH);
-      await this.syncPasswordApi(login, newH);
-      if (sb.isEnabled() && !this.useServerAuth()) {
+      if (sb.isEnabled()) {
         await sb.req('POST', 'app_users', { login, pw_hash: newH, updated_at: new Date().toISOString() });
       }
       this._serverHash = newH;
@@ -1796,28 +1822,41 @@ const auth = {
   },
 
   async setPassword(login, pass) {
+    this.setLogin(login);
+    if (this.useServerAuth()) {
+      const passErr = this.validatePassword(pass);
+      if (passErr) throw new Error(passErr);
+      const reg = await this.registerApi(login, pass);
+      if (!reg.ok) {
+        let msg = reg.error || 'register failed';
+        if (msg.includes('8 characters')) msg = 'Минимум 8 символов';
+        throw new Error(msg);
+      }
+      this._sessionPass = pass;
+      this.clearLocalPassword(login);
+      this._serverHash = 'exists';
+      return;
+    }
     const h = await this.hash(login, pass);
     localStorage.setItem(this.pwKey(login), h);
     this._serverHash = h;
-    this.setLogin(login);
-    if (this.useServerAuth()) {
-      const reg = await this.registerApi(login, h);
-      if (!reg.ok) {
-        await this.syncPasswordApi(login, h);
-        await this.fetchApiToken(login, h);
-      }
-    } else if (sb.isEnabled()) {
+    if (sb.isEnabled()) {
       await sb.req('POST', 'app_users', { login, pw_hash: h, updated_at: new Date().toISOString() });
     }
   },
 
   async syncHashToServerIfNeeded(login) {
-    const local = localStorage.getItem(this.pwKey(login));
-    if (!local) return;
     if (this.useServerAuth()) {
-      await this.syncPasswordApi(login, local);
+      const res = await this.authFetch(`/auth/exists?login=${encodeURIComponent(login)}`);
+      if (res?.exists) return;
+      if (!this._sessionPass) return;
+      const passErr = this.validatePassword(this._sessionPass);
+      if (passErr) return;
+      await this.registerApi(login, this._sessionPass);
       return;
     }
+    const local = localStorage.getItem(this.pwKey(login));
+    if (!local) return;
     if (!sb.isEnabled()) return;
     await this.fetchServerHash(login);
     if (!this._serverHash) {
@@ -1833,13 +1872,22 @@ const auth = {
   },
   logout() {
     this.clearApiToken();
+    this._sessionPass = null;
     localStorage.removeItem('tl_session');
     this._currentLogin = null;
   },
 
   async changePassword(login, currentPass, newPass) {
     if (!(await this.checkPassword(login, currentPass))) return { ok: false, error: 'Неверный текущий пароль' };
-    if (newPass.length < 4) return { ok: false, error: 'Минимум 4 символа' };
+    const passErr = this.validatePassword(newPass);
+    if (passErr) return { ok: false, error: passErr };
+    if (this.useServerAuth()) {
+      const r = await this.changePasswordApi(login, currentPass, newPass);
+      if (!r.ok) return { ok: false, error: r.error === 'password must be at least 8 characters' ? 'Минимум 8 символов' : 'Не удалось сменить пароль' };
+      this._sessionPass = newPass;
+      this.clearLocalPassword(login);
+      return { ok: true };
+    }
     await this.setPassword(login, newPass);
     return { ok: true };
   },
@@ -1849,19 +1897,20 @@ const auth = {
     if (err) return { ok: false, error: err };
     if (newLogin === oldLogin) return { ok: true };
     if (!(await this.checkPassword(oldLogin, currentPass))) return { ok: false, error: 'Неверный текущий пароль' };
-    const hash = localStorage.getItem(this.pwKey(oldLogin));
-    if (!hash) return { ok: false, error: 'Пароль не найден' };
     await this.fetchServerHash(newLogin);
     if (this._serverHash) return { ok: false, error: 'Этот логин уже занят' };
 
     if (this.useServerAuth()) {
-      const res = await this.authFetch('/auth/change-login', { oldLogin, newLogin, pwHash: hash });
+      const res = await this.authFetch('/auth/change-login', { oldLogin, newLogin, password: currentPass });
       if (!res?.ok) return { ok: false, error: res?.error === 'login taken' ? 'Этот логин уже занят' : 'Не удалось сменить логин' };
       this.clearApiToken(oldLogin);
-      localStorage.setItem(this.pwKey(newLogin), hash);
-      localStorage.removeItem(this.pwKey(oldLogin));
+      this.clearLocalPassword(oldLogin);
+      this.clearLocalPassword(newLogin);
       this.setApiToken(newLogin, res.token);
+      this._sessionPass = currentPass;
     } else {
+      const hash = localStorage.getItem(this.pwKey(oldLogin));
+      if (!hash) return { ok: false, error: 'Пароль не найден' };
       localStorage.setItem(this.pwKey(newLogin), hash);
       localStorage.removeItem(this.pwKey(oldLogin));
       if (sb.isEnabled()) {
@@ -2100,7 +2149,8 @@ async function authSetup() {
   const pass  = document.getElementById('auth-new-pass').value;
   const pass2 = document.getElementById('auth-new-pass2').value;
   if (!pass) { authMsg('Введите пароль', 'err'); return; }
-  if (pass.length < 4) { authMsg('Минимум 4 символа', 'err'); return; }
+  const passErr = auth.validatePassword(pass);
+  if (passErr) { authMsg(passErr, 'err'); return; }
   if (pass !== pass2)  { authMsg('Пароли не совпадают', 'err'); return; }
   await auth.fetchServerHash(login);
   if (auth._serverHash) {
@@ -2110,7 +2160,13 @@ async function authSetup() {
   }
   const btn = document.getElementById('auth-setup-btn');
   btn.disabled = true; btn.textContent = 'Сохраняем...';
-  await auth.setPassword(login, pass);
+  try {
+    await auth.setPassword(login, pass);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Создать аккаунт и войти';
+    authMsg(e.message === 'login taken' ? 'Этот логин уже занят' : (e.message || 'Не удалось создать аккаунт'), 'err');
+    return;
+  }
   if (sb.isEnabled() && (state.projects.length || state.entries.length)) {
     await sb.pushAll();
   }
@@ -2635,7 +2691,10 @@ const timerBg = {
           if (state.timer.running) startTimerTick();
           updateTimerUI();
         }
-        if (e.data?.type === 'NOTIF_ACTION') handleTimerNotifAction(e.data.action);
+        if (e.data?.type === 'NOTIF_ACTION') {
+          if (e.source !== navigator.serviceWorker.controller) return;
+          handleTimerNotifAction(e.data.action);
+        }
       });
       if (navigator.serviceWorker.controller) {
         await this.restoreFromSW();
@@ -2653,7 +2712,7 @@ const timerBg = {
     window.addEventListener('beforeunload', () => persistTimerBackground(true));
     const params = new URLSearchParams(location.search);
     const action = params.get('timerAction');
-    if (action) handleTimerNotifAction(action);
+    if (action && ['pause', 'stop', 'resume'].includes(action)) handleTimerNotifAction(action);
     timerBgReady = true;
   },
   restoreFromSW() {
@@ -5719,6 +5778,12 @@ function onProjectSpecFileSelected(ev) {
     ev.target.value = '';
     return;
   }
+  const mime = file.type || guessMimeFromName(file.name);
+  if (mime === 'text/html' || /\.html?$/i.test(file.name)) {
+    showToast('HTML-файлы запрещены из соображений безопасности', 'error');
+    ev.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
     const result = reader.result;
@@ -5808,7 +5873,7 @@ function renderProjectSpecFilePreview(p) {
     if (!blob) return `<div class="text-sm text-muted">Не удалось загрузить PDF</div>`;
     revokeProjectOverviewBlob();
     projectOverviewBlobUrl = URL.createObjectURL(blob);
-    return `<div class="project-overview-preview"><iframe src="${projectOverviewBlobUrl}" title="${escHtml(p.specFileName)}"></iframe></div>`;
+    return `<div class="project-overview-preview"><iframe sandbox="" src="${projectOverviewBlobUrl}" title="${escHtml(p.specFileName)}"></iframe></div>`;
   }
   if (isTextSpecMime(mime, p.specFileName)) {
     return `<div class="project-overview-text" id="project-overview-file-text">Загрузка…</div>`;
@@ -6085,7 +6150,7 @@ async function profileSaveCredentials() {
     return;
   }
   if (passChanged) {
-    if (newPass.length < 4) { showToast('Новый пароль: минимум 4 символа', 'error'); return; }
+    if (newPass.length < auth.MIN_PASSWORD_LENGTH) { showToast(`Новый пароль: минимум ${auth.MIN_PASSWORD_LENGTH} символов`, 'error'); return; }
     if (newPass !== newPass2) { showToast('Пароли не совпадают', 'error'); return; }
   }
 
@@ -6191,7 +6256,7 @@ function renderSettings() {
       <div class="settings-toggle-row" style="margin-bottom:0">
         <div>
           <div style="font-size:15px;font-weight:600;margin-bottom:4px">${bioLabel}</div>
-          <div class="text-sm text-muted">Быстрый вход на этом устройстве без ввода пароля</div>
+          <div class="text-sm text-muted">Блокировка устройства — не заменяет пароль на сервере</div>
           <div class="text-xs text-muted mt4" id="profile-biometric-hint">${bioEnabled ? bioLabel + ' включён' : 'Сначала сохраните пароль, затем включите ' + bioLabel}</div>
         </div>
         ${bioEnabled ? `
@@ -6468,8 +6533,49 @@ create table if not exists schedule_blocks (
   id text primary key, date date not null, start_time text not null, end_time text not null,
   title text, note text, created_at timestamptz default now(), user_login text not null
 );
--- For self-hosted Docker: RLS is applied automatically.
--- For Supabase: enable RLS and filter by user_login in the app, or deploy the TimeLog auth service.`;
+-- For self-hosted Docker: RLS is applied automatically on first init.
+-- For Supabase: run the block below in SQL Editor (requires TimeLog auth service for login JWTs).
+
+-- === RLS (Supabase / external Postgres) ===
+-- create role if needed via Supabase dashboard: timelog_user NOLOGIN
+-- grant timelog_user to authenticator; grant usage on schema public to timelog_user;
+
+create or replace function app_jwt_login() returns text
+  language sql stable as $$
+  select nullif(current_setting('request.jwt.claim.login', true), '');
+$$;
+
+alter table projects enable row level security;
+alter table board_tasks enable row level security;
+alter table time_entries enable row level security;
+alter table billing_reports enable row level security;
+alter table payments enable row level security;
+alter table schedule_overrides enable row level security;
+alter table schedule_blocks enable row level security;
+alter table active_timer enable row level security;
+alter table schedule_settings enable row level security;
+alter table app_users enable row level security;
+
+create policy projects_user on projects for all to timelog_user
+  using (user_login = app_jwt_login()) with check (user_login = app_jwt_login());
+create policy board_tasks_user on board_tasks for all to timelog_user
+  using (user_login = app_jwt_login()) with check (user_login = app_jwt_login());
+create policy time_entries_user on time_entries for all to timelog_user
+  using (user_login = app_jwt_login()) with check (user_login = app_jwt_login());
+create policy billing_reports_user on billing_reports for all to timelog_user
+  using (user_login = app_jwt_login()) with check (user_login = app_jwt_login());
+create policy payments_user on payments for all to timelog_user
+  using (user_login = app_jwt_login()) with check (user_login = app_jwt_login());
+create policy schedule_overrides_user on schedule_overrides for all to timelog_user
+  using (user_login = app_jwt_login()) with check (user_login = app_jwt_login());
+create policy schedule_blocks_user on schedule_blocks for all to timelog_user
+  using (user_login = app_jwt_login()) with check (user_login = app_jwt_login());
+create policy active_timer_user on active_timer for all to timelog_user
+  using (id = app_jwt_login()) with check (id = app_jwt_login());
+create policy schedule_settings_user on schedule_settings for all to timelog_user
+  using (id = app_jwt_login()) with check (id = app_jwt_login());
+
+revoke all on all tables in schema public from anon;`;
 }
 
 function sbSetResult(msg, ok) {

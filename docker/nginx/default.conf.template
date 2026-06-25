@@ -1,3 +1,6 @@
+limit_req_zone $binary_remote_addr zone=auth_api:10m rate=20r/m;
+limit_req_status 429;
+
 server {
   listen 80;
   server_name _;
@@ -9,6 +12,7 @@ server {
   add_header X-Content-Type-Options "nosniff" always;
   add_header Referrer-Policy "strict-origin-when-cross-origin" always;
   add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https: wss:; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" always;
 
   location = /health {
     access_log off;
@@ -17,14 +21,6 @@ server {
   }
 
   location /rest/v1/ {
-    if ($request_method = OPTIONS) {
-      add_header Access-Control-Allow-Origin $http_origin always;
-      add_header Access-Control-Allow-Methods "GET, POST, PATCH, PUT, DELETE, OPTIONS" always;
-      add_header Access-Control-Allow-Headers "Authorization, Content-Type, apikey, Prefer, Range" always;
-      add_header Access-Control-Max-Age 86400 always;
-      add_header Content-Length 0;
-      return 204;
-    }
     proxy_pass http://postgrest:3000/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -32,19 +28,10 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 30s;
-    add_header Access-Control-Allow-Origin $http_origin always;
-    add_header Vary Origin always;
   }
 
   location /auth/ {
-    if ($request_method = OPTIONS) {
-      add_header Access-Control-Allow-Origin $http_origin always;
-      add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-      add_header Access-Control-Allow-Headers "Authorization, Content-Type, apikey, Prefer" always;
-      add_header Access-Control-Max-Age 86400 always;
-      add_header Content-Length 0;
-      return 204;
-    }
+    limit_req zone=auth_api burst=10 nodelay;
     proxy_pass http://auth:3001/auth/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -52,8 +39,6 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 30s;
-    add_header Access-Control-Allow-Origin $http_origin always;
-    add_header Vary Origin always;
   }
 
   location = /sw.js {

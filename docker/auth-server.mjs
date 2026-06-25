@@ -4,11 +4,22 @@
  */
 import http from 'node:http';
 import pg from 'pg';
-import { SignJWT } from 'jose';
+import { SignJWT, jwtVerify } from 'jose';
+import {
+  hashPassword,
+  isLegacyHash,
+  validateLogin,
+  validateNewPassword,
+  verifyLegacyPwHash,
+  verifyPassword,
+} from './auth-crypto.mjs';
 
 const PORT = Number(process.env.AUTH_PORT || 3001);
 const JWT_SECRET = process.env.JWT_SECRET;
 const DATABASE_URL = process.env.DATABASE_URL;
+const TOKEN_TTL = process.env.AUTH_TOKEN_TTL || '14d';
+const RATE_WINDOW_MS = Number(process.env.AUTH_RATE_WINDOW_MS || 60_000);
+const RATE_MAX = Number(process.env.AUTH_RATE_MAX || 30);
 
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
   console.error('JWT_SECRET must be at least 32 characters');
@@ -21,14 +32,75 @@ if (!DATABASE_URL) {
 
 const pool = new pg.Pool({ connectionString: DATABASE_URL });
 const key = new TextEncoder().encode(JWT_SECRET);
+const rateBuckets = new Map();
+
+function normalizeLogin(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  let s = raw.trim();
+  if (s.includes('@')) return s.toLowerCase();
+  if (/^\d/.test(s) || s.startsWith('+')) {
+    let d = s.replace(/\D/g, '');
+    if (d.length === 11 && d.startsWith('8')) d = '7' + d.slice(1);
+    else if (d.length === 10 && d.startsWith('9')) d = '7' + d;
+    return '+' + d;
+  }
+  return s.toLowerCase();
+}
+
+function clientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
+  return req.socket.remoteAddress || 'unknown';
+}
+
+function checkRateLimit(req) {
+  const ip = clientIp(req);
+  const now = Date.now();
+  let bucket = rateBuckets.get(ip);
+  if (!bucket || now >= bucket.resetAt) {
+    bucket = { count: 0, resetAt: now + RATE_WINDOW_MS };
+    rateBuckets.set(ip, bucket);
+  }
+  bucket.count += 1;
+  if (bucket.count > RATE_MAX) return false;
+  return true;
+}
+
+function isAllowedOrigin(origin, req) {
+  if (!origin) return false;
+  try {
+    const o = new URL(origin);
+    const host = req.headers.host || '';
+    if (!host) return false;
+    if (o.host === host) return true;
+    const allowed = (process.env.ALLOWED_ORIGINS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return allowed.includes(origin);
+  } catch {
+    return false;
+  }
+}
 
 async function signToken(login) {
   return new SignJWT({ role: 'timelog_user', login })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setIssuedAt()
     .setIssuer('timelog')
-    .setExpirationTime('30d')
+    .setExpirationTime(TOKEN_TTL)
     .sign(key);
+}
+
+async function verifyBearerToken(authHeader) {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    const { payload } = await jwtVerify(authHeader.slice(7), key, { issuer: 'timelog' });
+    if (payload.role !== 'timelog_user' || typeof payload.login !== 'string') return null;
+    return payload.login;
+  } catch {
+    return null;
+  }
 }
 
 async function readBody(req) {
@@ -43,8 +115,9 @@ async function readBody(req) {
 }
 
 function json(res, status, data, req) {
-  if (req?.headers?.origin) {
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+  const origin = req?.headers?.origin;
+  if (origin && isAllowedOrigin(origin, req)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
   const body = JSON.stringify(data);
@@ -57,7 +130,14 @@ function json(res, status, data, req) {
 
 function handleCors(req, res) {
   const origin = req.headers.origin;
-  if (!origin) return false;
+  if (!origin || !isAllowedOrigin(origin, req)) {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(403);
+      res.end();
+      return true;
+    }
+    return false;
+  }
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, Prefer');
@@ -76,6 +156,39 @@ async function getUserHash(login) {
     [login]
   );
   return r.rows[0]?.pw_hash || null;
+}
+
+async function setUserHash(login, pwHash) {
+  await pool.query(
+    `INSERT INTO app_users (login, pw_hash, updated_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (login) DO UPDATE SET pw_hash = EXCLUDED.pw_hash, updated_at = NOW()`,
+    [login, pwHash]
+  );
+}
+
+async function upgradeLegacyHash(login, password) {
+  const stored = await getUserHash(login);
+  if (!stored || !isLegacyHash(stored)) return;
+  const next = await hashPassword(password);
+  await setUserHash(login, next);
+}
+
+async function authenticateCredentials(login, body) {
+  const stored = await getUserHash(login);
+  if (!stored) return { ok: false, reason: 'invalid' };
+
+  if (body.password) {
+    const valid = await verifyPassword(login, body.password, stored);
+    if (!valid) return { ok: false, reason: 'invalid' };
+    if (isLegacyHash(stored)) await upgradeLegacyHash(login, body.password);
+    return { ok: true };
+  }
+
+  if (body.pwHash && (await verifyLegacyPwHash(login, body.pwHash, stored))) {
+    return { ok: true, legacy: true };
+  }
+
+  return { ok: false, reason: 'invalid' };
 }
 
 async function migrateLogin(oldLogin, newLogin) {
@@ -118,9 +231,16 @@ async function migrateLogin(oldLogin, newLogin) {
 
 const server = http.createServer(async (req, res) => {
   if (handleCors(req, res)) return;
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
-  if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/auth/health')) {
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const isAuthRoute = url.pathname.startsWith('/auth/');
+
+  if (isAuthRoute && !checkRateLimit(req)) {
+    json(res, 429, { error: 'too many requests' }, req);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/health') {
     json(res, 200, { ok: true }, req);
     return;
   }
@@ -132,8 +252,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/auth/exists') {
-    const login = (url.searchParams.get('login') || '').trim();
-    if (!login) {
+    const login = normalizeLogin(url.searchParams.get('login') || '');
+    const err = validateLogin(login);
+    if (err) {
       json(res, 400, { error: 'login required' }, req);
       return;
     }
@@ -148,14 +269,18 @@ const server = http.createServer(async (req, res) => {
       json(res, 400, { error: 'invalid json' }, req);
       return;
     }
-    const login = (body.login || '').trim();
-    const pwHash = body.pwHash || '';
-    if (!login || !pwHash) {
-      json(res, 400, { error: 'login and pwHash required' }, req);
+    const login = normalizeLogin(body.login || '');
+    const loginErr = validateLogin(login);
+    if (loginErr) {
+      json(res, 400, { error: loginErr }, req);
       return;
     }
-    const stored = await getUserHash(login);
-    if (!stored || stored !== pwHash) {
+    if (!body.password && !body.pwHash) {
+      json(res, 400, { error: 'password required' }, req);
+      return;
+    }
+    const auth = await authenticateCredentials(login, body);
+    if (!auth.ok) {
       json(res, 401, { error: 'invalid credentials' }, req);
       return;
     }
@@ -170,10 +295,16 @@ const server = http.createServer(async (req, res) => {
       json(res, 400, { error: 'invalid json' }, req);
       return;
     }
-    const login = (body.login || '').trim();
-    const pwHash = body.pwHash || '';
-    if (!login || !pwHash) {
-      json(res, 400, { error: 'login and pwHash required' }, req);
+    const login = normalizeLogin(body.login || '');
+    const loginErr = validateLogin(login);
+    if (loginErr) {
+      json(res, 400, { error: loginErr }, req);
+      return;
+    }
+    const password = body.password || '';
+    const passErr = validateNewPassword(password);
+    if (passErr) {
+      json(res, 400, { error: passErr }, req);
       return;
     }
     const existing = await getUserHash(login);
@@ -181,6 +312,7 @@ const server = http.createServer(async (req, res) => {
       json(res, 409, { error: 'login taken' }, req);
       return;
     }
+    const pwHash = await hashPassword(password);
     await pool.query(
       'INSERT INTO app_users (login, pw_hash, updated_at) VALUES ($1, $2, NOW())',
       [login, pwHash]
@@ -196,20 +328,25 @@ const server = http.createServer(async (req, res) => {
       json(res, 400, { error: 'invalid json' }, req);
       return;
     }
-    const oldLogin = (body.oldLogin || '').trim();
-    const newLogin = (body.newLogin || '').trim();
-    const pwHash = body.pwHash || '';
-    if (!oldLogin || !newLogin || !pwHash) {
-      json(res, 400, { error: 'oldLogin, newLogin and pwHash required' }, req);
+    const oldLogin = normalizeLogin(body.oldLogin || '');
+    const newLogin = normalizeLogin(body.newLogin || '');
+    const loginErr = validateLogin(oldLogin) || validateLogin(newLogin);
+    if (loginErr) {
+      json(res, 400, { error: loginErr }, req);
       return;
     }
     if (oldLogin === newLogin) {
+      const tokenLogin = await verifyBearerToken(req.headers.authorization || '');
+      if (tokenLogin !== oldLogin) {
+        json(res, 401, { error: 'unauthorized' }, req);
+        return;
+      }
       const token = await signToken(newLogin);
       json(res, 200, { token, login: newLogin }, req);
       return;
     }
-    const stored = await getUserHash(oldLogin);
-    if (!stored || stored !== pwHash) {
+    const auth = await authenticateCredentials(oldLogin, body);
+    if (!auth.ok) {
       json(res, 401, { error: 'invalid credentials' }, req);
       return;
     }
@@ -230,24 +367,35 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && url.pathname === '/auth/sync-password') {
+  if (req.method === 'POST' && url.pathname === '/auth/change-password') {
     const body = await readBody(req);
     if (body === null) {
       json(res, 400, { error: 'invalid json' }, req);
       return;
     }
-    const login = (body.login || '').trim();
-    const pwHash = body.pwHash || '';
-    if (!login || !pwHash) {
-      json(res, 400, { error: 'login and pwHash required' }, req);
+    const login = normalizeLogin(body.login || '');
+    const loginErr = validateLogin(login);
+    if (loginErr) {
+      json(res, 400, { error: loginErr }, req);
       return;
     }
-    await pool.query(
-      `INSERT INTO app_users (login, pw_hash, updated_at) VALUES ($1, $2, NOW())
-       ON CONFLICT (login) DO UPDATE SET pw_hash = EXCLUDED.pw_hash, updated_at = NOW()`,
-      [login, pwHash]
-    );
-    json(res, 200, { ok: true }, req);
+    const newPassErr = validateNewPassword(body.newPassword || '');
+    if (newPassErr) {
+      json(res, 400, { error: newPassErr }, req);
+      return;
+    }
+    const auth = await authenticateCredentials(login, {
+      password: body.currentPassword,
+      pwHash: body.currentPwHash,
+    });
+    if (!auth.ok) {
+      json(res, 401, { error: 'invalid credentials' }, req);
+      return;
+    }
+    const pwHash = await hashPassword(body.newPassword);
+    await setUserHash(login, pwHash);
+    const token = await signToken(login);
+    json(res, 200, { token, login }, req);
     return;
   }
 

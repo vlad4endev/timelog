@@ -4,6 +4,7 @@ WORKDIR /app
 
 RUN npm install --no-save jose@5 pg@8
 
+COPY docker/auth-crypto.mjs ./auth-crypto.mjs
 COPY docker/auth-server.mjs ./auth-server.mjs
 
 EXPOSE 3001

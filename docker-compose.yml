@@ -46,6 +46,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (min 32 chars)}
       DATABASE_URL: postgres://${POSTGRES_USER:-timelog}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-timelog}
       AUTH_PORT: "3001"
+      AUTH_TOKEN_TTL: ${AUTH_TOKEN_TTL:-14d}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     networks:
       - timelog
 
