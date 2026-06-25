@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timelog-v5';
+const CACHE_NAME = 'timelog-v6';
 const TIMER_DB = 'timelog-timer';
 const TIMER_STORE = 'timer';
 const TIMER_NOTIF_TAG = 'timelog-active-timer';
@@ -78,6 +78,37 @@ function fmtDuration(ms) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function calcEarned(timer, now = Date.now()) {
+  const rate = timer?.rate || 0;
+  if (!rate) return 0;
+  return rate * (calcElapsedMs(timer, now) / 3600000);
+}
+
+function fmtMoneyLive(amount, currency = 'RUB') {
+  try {
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  } catch {
+    return `${Math.round(amount * 100) / 100} ${currency}`;
+  }
+}
+
+function buildTimerNotifContent(timer, now = Date.now()) {
+  const elapsed = fmtDuration(calcElapsedMs(timer, now));
+  const title = timer.paused ? `⏸ ${elapsed}` : elapsed;
+  const parts = [];
+  if (timer.task) parts.push(timer.task);
+  else if (timer.projectName) parts.push(timer.projectName);
+  const earned = calcEarned(timer, now);
+  if (earned > 0) parts.push(`+ ${fmtMoneyLive(earned, timer.currency || 'RUB')}`);
+  const body = parts.length ? parts.join(' · ') : 'TimeLog';
+  return { title, body };
+}
+
 async function updateTimerNotification(timer) {
   if (!self.registration?.showNotification) return;
   if (!timer?.running) {
@@ -85,14 +116,13 @@ async function updateTimerNotification(timer) {
     notifs.forEach(n => n.close());
     return;
   }
-  const elapsed = fmtDuration(calcElapsedMs(timer));
-  const title = timer.paused ? '⏸ Таймер на паузе' : '⏱ Таймер работает';
-  const body = `${timer.task || 'Задача'} · ${elapsed}`;
+  const { title, body } = buildTimerNotifContent(timer);
   await self.registration.showNotification(title, {
     body,
     tag: TIMER_NOTIF_TAG,
-    renotify: true,
+    renotify: false,
     silent: true,
+    ongoing: true,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     data: { url: '/' },
@@ -103,12 +133,22 @@ async function updateTimerNotification(timer) {
 }
 
 let notifInterval = null;
-function scheduleNotificationUpdates(timer) {
-  clearInterval(notifInterval);
-  if (!timer?.running) return;
+function scheduleNotificationUpdates() {
+  if (notifInterval) return;
   notifInterval = setInterval(() => {
-    updateTimerNotification(timer).catch(() => {});
-  }, 60000);
+    readTimer()
+      .then(timer => {
+        if (timer?.running) return updateTimerNotification(timer);
+        clearInterval(notifInterval);
+        notifInterval = null;
+        return updateTimerNotification(null);
+      })
+      .catch(() => {});
+  }, 1000);
+}
+function stopNotificationUpdates() {
+  clearInterval(notifInterval);
+  notifInterval = null;
 }
 
 self.addEventListener('install', event => {
@@ -124,7 +164,7 @@ self.addEventListener('activate', event => {
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => readTimer()).then(timer => {
       if (timer?.running) {
-        scheduleNotificationUpdates(timer);
+        scheduleNotificationUpdates();
         return updateTimerNotification(timer);
       }
     })
@@ -154,12 +194,11 @@ self.addEventListener('message', event => {
       (async () => {
         if (timer?.running) {
           await writeTimer(timer);
-          scheduleNotificationUpdates(timer);
+          scheduleNotificationUpdates();
           await updateTimerNotification(timer);
         } else {
           await clearTimer();
-          clearInterval(notifInterval);
-          notifInterval = null;
+          stopNotificationUpdates();
           await updateTimerNotification(null);
         }
       })()
@@ -175,7 +214,6 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('notificationclick', event => {
-  event.notification.close();
   const action = event.action;
   const url = event.notification.data?.url || '/';
 
@@ -184,7 +222,7 @@ self.addEventListener('notificationclick', event => {
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of clients) {
         if ('focus' in client) {
-          client.postMessage({ type: 'NOTIF_ACTION', action });
+          if (action) client.postMessage({ type: 'NOTIF_ACTION', action });
           return client.focus();
         }
       }

@@ -5,9 +5,27 @@
   "scripts": {
     "setup": "./scripts/setup.sh",
     "icons": "node scripts/generate-icons.mjs",
-    "jwt": "node scripts/generate-jwt.mjs"
+    "jwt": "node scripts/generate-jwt.mjs",
+    "copy:www": "node scripts/copy-www.mjs",
+    "build:bridge": "node scripts/build-native-bridge.mjs",
+    "build:cap": "npm run icons && npm run copy:www && npm run build:bridge",
+    "cap:sync": "npm run build:cap && npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "cap:open:ios": "npx cap open ios",
+    "cap:run:android": "npm run cap:sync && npx cap run android",
+    "cap:run:ios": "npm run cap:sync && npx cap run ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.2.0",
+    "@capacitor/app": "^7.0.1",
+    "@capacitor/core": "^7.2.0",
+    "@capacitor/ios": "^7.2.0",
+    "@capacitor/local-notifications": "^7.0.1",
+    "@capawesome-team/capacitor-android-foreground-service": "^7.0.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.2.0",
+    "esbuild": "^0.25.0",
     "jose": "^5.9.6",
     "pngjs": "^7.0.0"
   }

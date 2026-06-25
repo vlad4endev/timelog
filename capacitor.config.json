@@ -1,0 +1,11 @@
+{
+  "appId": "dev.timelog.app",
+  "appName": "TimeLog",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

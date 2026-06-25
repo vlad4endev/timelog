@@ -1,10 +1,19 @@
-.PHONY: setup up down logs restart icons clean prod prod-tls deploy backup health migrate diagnose
+.PHONY: setup up down logs restart icons clean prod prod-tls deploy backup health migrate diagnose cap-sync cap-android cap-ios
 
 setup:
 	./scripts/setup.sh
 
 icons:
 	npm run icons
+
+cap-sync:
+	npm run cap:sync
+
+cap-android:
+	npm run cap:open:android
+
+cap-ios:
+	npm run cap:open:ios
 
 up: setup
 	docker compose up -d --build

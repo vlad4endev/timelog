@@ -2,3 +2,14 @@
 node_modules
 .DS_Store
 *.log
+www/
+
+# Capacitor native build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+ios/App/Pods/
+ios/DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/

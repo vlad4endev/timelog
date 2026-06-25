@@ -95,6 +95,45 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 2. Не публикуйте порты `postgres` и `postgrest` наружу — только `web` (или Caddy)
 3. Регулярный бэкап: `./scripts/backup-db.sh` или cron
 
+## Мобильное приложение (Capacitor)
+
+Нативная обёртка для Android и iOS с **постоянным виджетом таймера в шторке** (время + наработка).
+
+### Требования
+
+| Платформа | Инструменты |
+|-----------|-------------|
+| Android | Android Studio, JDK 17 |
+| iOS | macOS, Xcode, CocoaPods |
+
+### Сборка
+
+```bash
+npm install
+npm run cap:sync          # скопировать web → www и синхронизировать с native
+npm run cap:open:android  # открыть в Android Studio
+npm run cap:open:ios      # открыть в Xcode
+```
+
+Запуск на устройстве:
+
+```bash
+npm run cap:run:android
+npm run cap:run:ios
+```
+
+После изменений в `index.html` всегда выполняйте `npm run cap:sync` перед сборкой native.
+
+### Таймер в шторке
+
+- **Android** — foreground service (`specialUse: work_timer`): обновление каждую секунду, кнопки Пауза/Стоп
+- **iOS** — local notification с тем же форматом (ограничения iOS на фоновое обновление)
+- **PWA в браузере** — service worker notification (как раньше)
+
+### API URL в native
+
+По умолчанию приложение грузит `config.js` из bundle. Для подключения к серверу отредактируйте `config.js` перед `npm run cap:sync` или задайте URL в настройках приложения после установки.
+
 ## Локальная разработка (без Docker)
 
 ```bash
@@ -132,7 +171,9 @@ SQL-схема также в `docker/postgres/init/01-schema.sql`.
 | `scripts/deploy.sh` | Деплой на сервер (prod / tls / update) |
 | `scripts/backup-db.sh` | SQL-бэкап PostgreSQL |
 | `docker/postgres/init/` | SQL-инициализация БД |
-| `scripts/setup.sh` | Подготовка `.env` и секретов |
+| `capacitor/` | JS-мост к нативным плагинам (таймер в шторке) |
+| `capacitor.config.json` | Конфиг Capacitor |
+| `android/`, `ios/` | Нативные проекты Capacitor |
 
 ## Главное для почасовой оплаты
 

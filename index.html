@@ -1565,6 +1565,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   </div>
 </div>
 
+<script src="native-bridge.js"></script>
 <script>
 // ─── AUTH (логин + пароль + Face ID) ─────────────────────────────────────
 const auth = {
@@ -2313,10 +2314,46 @@ function buildTimerSyncPayload() {
     projectName: project?.name || ''
   };
 }
+const nativeTimer = {
+  _active: false,
+  available() {
+    return typeof window.TimeLogNative?.isNativePlatform === 'function'
+      && window.TimeLogNative.isNativePlatform();
+  },
+  init() {
+    if (!this.available()) return;
+    window.TimeLogNative.initNativeTimer(action => {
+      if (action === 'sync') reconcileTimerOnWake();
+      else handleTimerNotifAction(action);
+    });
+  },
+  async sync(timer) {
+    if (!this.available()) return;
+    try {
+      if (timer?.running) {
+        if (this._active) await window.TimeLogNative.updateNativeTimer(timer);
+        else {
+          this._active = true;
+          await window.TimeLogNative.startNativeTimer(timer);
+        }
+      } else if (this._active) {
+        this._active = false;
+        await window.TimeLogNative.stopNativeTimer();
+      }
+    } catch (e) {
+      console.warn('native timer sync failed', e);
+    }
+  }
+};
 function syncTimerNotification() {
+  const payload = buildTimerSyncPayload();
+  if (nativeTimer.available()) {
+    nativeTimer.sync(payload);
+    return;
+  }
   const ctrl = navigator.serviceWorker?.controller;
   if (ctrl && state.timer.running) {
-    ctrl.postMessage({ type: 'TIMER_SYNC', timer: buildTimerSyncPayload() });
+    ctrl.postMessage({ type: 'TIMER_SYNC', timer: payload });
   }
 }
 function mergeTimers(local, remote) {
@@ -2347,6 +2384,11 @@ let timerBgReady = false;
 const timerBg = {
   async init() {
     if (timerBgReady) return;
+    nativeTimer.init();
+    if (nativeTimer.available()) {
+      timerBgReady = true;
+      return;
+    }
     if (!('serviceWorker' in navigator)) return;
     try {
       swRegistration = await navigator.serviceWorker.register('sw.js');
@@ -2409,8 +2451,12 @@ function reconcileTimerOnWake() {
 function persistTimerBackground(syncOnly) {
   if (!syncOnly) save();
   const timer = buildTimerSyncPayload();
-  const ctrl = navigator.serviceWorker?.controller;
-  if (ctrl) ctrl.postMessage({ type: 'TIMER_SYNC', timer });
+  if (nativeTimer.available()) {
+    nativeTimer.sync(timer);
+  } else {
+    const ctrl = navigator.serviceWorker?.controller;
+    if (ctrl) ctrl.postMessage({ type: 'TIMER_SYNC', timer });
+  }
   if (sb.isEnabled()) {
     if (state.timer.running) sb.upsertTimer(state.timer);
     else sb.clearTimerRemote();
@@ -2431,6 +2477,7 @@ function handleTimerNotifAction(action) {
 }
 
 async function requestTimerNotifications() {
+  if (nativeTimer.available()) return true;
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'granted') return true;
   if (Notification.permission !== 'denied') {
@@ -6379,7 +6426,7 @@ function dismissInstallBanner() {
   localStorage.setItem('timelog_pwa_dismissed', String(Date.now()));
 }
 function showInstallBannerIfNeeded() {
-  if (isStandalonePWA()) return;
+  if (nativeTimer.available() || isStandalonePWA()) return;
   const dismissed = parseInt(localStorage.getItem('timelog_pwa_dismissed') || '0', 10);
   if (dismissed && Date.now() - dismissed < 7 * 24 * 60 * 60 * 1000) return;
   const banner = document.getElementById('pwa-install-banner');

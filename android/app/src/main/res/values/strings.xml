@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TimeLog</string>
+    <string name="title_activity_main">TimeLog</string>
+    <string name="package_name">dev.timelog.app</string>
+    <string name="custom_url_scheme">dev.timelog.app</string>
+</resources>
