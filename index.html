@@ -255,6 +255,11 @@ tr:hover td{background:var(--bg3)}
 .auth-email-lbl{font-size:13px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .auth-logout{padding:4px 10px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text2);font-size:12px;cursor:pointer;transition:.15s}
 .auth-logout:hover{border-color:var(--red);color:var(--red)}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--text2);font-size:12px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.auth-biometric-btn{width:100%;padding:13px;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius2);font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:border-color .15s,background .15s}
+.auth-biometric-btn:hover{border-color:var(--accent);background:var(--accent-light)}
+.auth-biometric-btn svg{color:var(--accent)}
 .hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
 .btn-pause{background:var(--amber);color:#fff}
 .btn-pause:hover{background:#d97706}
@@ -799,6 +804,12 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
       <!-- Unlock form (shown when password already set) -->
       <div id="auth-unlock-form">
         <div class="auth-field">
+          <label>Логин</label>
+          <input class="auth-input" type="text" id="auth-login" placeholder="Телефон, email или логин"
+            autocomplete="username" inputmode="email"
+            oninput="authOnLoginInput()" onkeydown="if(event.key==='Enter')document.getElementById('auth-pass')?.focus()">
+        </div>
+        <div class="auth-field">
           <label>Пароль</label>
           <div style="position:relative">
             <input class="auth-input" type="password" id="auth-pass" placeholder="Введите пароль"
@@ -809,18 +820,32 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
           </div>
         </div>
         <button class="auth-btn" id="auth-unlock-btn" onclick="authUnlock()">Войти</button>
-        <div style="margin-top:20px;padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)">
-          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Первый раз здесь или забыли пароль?</div>
+        <div id="auth-biometric-wrap" style="display:none">
+          <div class="auth-divider">или</div>
+          <button type="button" class="auth-biometric-btn" id="auth-biometric-btn" onclick="authBiometricUnlock()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 11c-2.2 0-4 1.3-4 3v1h8v-1c0-1.7-1.8-3-4-3z"/><path d="M17 11V9a5 5 0 0 0-10 0v2"/><rect x="5" y="11" width="14" height="10" rx="2"/></svg>
+            <span id="auth-biometric-label">Face ID</span>
+          </button>
+        </div>
+        <div id="auth-reset-block" style="margin-top:20px;padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Первый раз на этом устройстве без сервера?</div>
           <button onclick="authShowSetup()" style="width:100%;padding:9px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius2);color:var(--accent);font-size:13px;font-weight:500;cursor:pointer">
-            Установить / сбросить пароль
+            Установить пароль
           </button>
         </div>
       </div>
 
-      <!-- Setup form (first time, or reset) -->
+      <!-- Setup form (first time only) -->
       <div id="auth-setup-form" style="display:none">
-        <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
-          Придумайте пароль для входа в приложение. Он сохранится только в этом браузере.
+        <div id="auth-setup-hint" style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+          Придумайте пароль для входа в приложение.
+        </div>
+        <div class="auth-field">
+          <label>Логин</label>
+          <input class="auth-input" type="text" id="auth-setup-login" placeholder="Телефон, email или логин"
+            autocomplete="username" inputmode="email"
+            onkeydown="if(event.key==='Enter')document.getElementById('auth-new-pass')?.focus()">
+          <div style="font-size:11px;color:var(--text2);margin-top:6px">Телефон: +79001234567 · email · логин от 3 символов</div>
         </div>
         <div class="auth-field">
           <label>Новый пароль</label>
@@ -837,7 +862,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
           <input class="auth-input" type="password" id="auth-new-pass2" placeholder="••••••••"
             autocomplete="new-password" onkeydown="if(event.key==='Enter')authSetup()">
         </div>
-        <button class="auth-btn" id="auth-setup-btn" onclick="authSetup()">Установить пароль и войти</button>
+        <button class="auth-btn" id="auth-setup-btn" onclick="authSetup()">Создать аккаунт и войти</button>
       </div>
     </div>
   </div>
@@ -1487,22 +1512,227 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 </div>
 
 <script>
-// ─── AUTH ────────────────────────────────────────────────────────────────
-// ─── AUTH (локальный пароль) ──────────────────────────────────────────────
+// ─── AUTH (логин + пароль + Face ID) ─────────────────────────────────────
 const auth = {
-  async hash(str) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str + 'timelog_salt_2024'));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  _serverHash: null,
+  _currentLogin: null,
+
+  normalizeLogin(raw) {
+    const s = (raw || '').trim();
+    if (!s) return '';
+    if (s.includes('@')) return s.toLowerCase();
+    const digits = s.replace(/[^\d+]/g, '');
+    if (digits.length >= 10 && /^\+?\d+$/.test(digits)) {
+      const d = digits.replace(/^\+/, '');
+      return '+' + d;
+    }
+    return s.toLowerCase();
   },
-  hasPassword()  { return !!localStorage.getItem('tl_pw_hash'); },
-  async checkPassword(pass) {
-    const stored = localStorage.getItem('tl_pw_hash');
-    return stored && (await this.hash(pass)) === stored;
+
+  validateLogin(login) {
+    if (!login) return 'Введите логин';
+    if (login.includes('@')) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(login)) return 'Некорректный email';
+      return '';
+    }
+    if (login.startsWith('+')) {
+      if (!/^\+\d{10,15}$/.test(login)) return 'Некорректный номер телефона';
+      return '';
+    }
+    if (!/^[a-z0-9._-]{3,64}$/.test(login)) return 'Логин: минимум 3 символа (буквы, цифры, . _ -)';
+    return '';
   },
-  async setPassword(pass) { localStorage.setItem('tl_pw_hash', await this.hash(pass)); },
-  isLoggedIn()   { return localStorage.getItem('tl_session') === 'ok'; },
-  login()        { localStorage.setItem('tl_session', 'ok'); },
-  logout()       { localStorage.removeItem('tl_session'); }
+
+  getLogin() { return this._currentLogin || localStorage.getItem('tl_login') || ''; },
+  setLogin(login) {
+    this._currentLogin = login;
+    if (login) localStorage.setItem('tl_login', login);
+  },
+  getLastLogin() { return localStorage.getItem('tl_login') || ''; },
+
+  pwKey(login) { return `tl_pw_hash_${login}`; },
+
+  async hash(login, pass) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${login}:timelog_salt_2024:${pass}`));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  async legacyHash(pass) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass + 'timelog_salt_2024'));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  migrateLegacyLocal() {
+    const legacy = localStorage.getItem('tl_pw_hash');
+    if (!legacy) return;
+    const login = localStorage.getItem('tl_login') || 'default';
+    if (!localStorage.getItem(this.pwKey(login))) {
+      localStorage.setItem(this.pwKey(login), legacy);
+      localStorage.setItem('tl_login', login);
+    }
+    localStorage.removeItem('tl_pw_hash');
+  },
+
+  hasLocalPassword(login) {
+    const l = login || this.getLastLogin();
+    return l ? !!localStorage.getItem(this.pwKey(l)) : false;
+  },
+
+  async fetchServerHash(login) {
+    if (!sb.isEnabled() || !login) { this._serverHash = null; return null; }
+    const rows = await sb.req('GET', `app_users?login=eq.${encodeURIComponent(login)}&select=pw_hash&limit=1`);
+    this._serverHash = rows?.[0]?.pw_hash || null;
+    if (!this._serverHash && login === 'default') {
+      const old = await sb.req('GET', 'app_auth?id=eq.default&select=pw_hash&limit=1');
+      this._serverHash = old?.[0]?.pw_hash || null;
+    }
+    return this._serverHash;
+  },
+
+  async serverHasUsers() {
+    if (!sb.isEnabled()) return false;
+    const rows = await sb.req('GET', 'app_users?select=login&limit=1');
+    if (rows && rows.length) return true;
+    const old = await sb.req('GET', 'app_auth?select=id&limit=1');
+    return !!(old && old.length);
+  },
+
+  hasPassword(login) {
+    const l = login || this.getLastLogin();
+    return l ? (this.hasLocalPassword(l) || !!this._serverHash) : false;
+  },
+
+  async checkPassword(login, pass) {
+    const h = await this.hash(login, pass);
+    const local = localStorage.getItem(this.pwKey(login));
+    if (local && local === h) return true;
+    await this.fetchServerHash(login);
+    if (this._serverHash && this._serverHash === h) {
+      localStorage.setItem(this.pwKey(login), h);
+      return true;
+    }
+    const legacyH = await this.legacyHash(pass);
+    if (local && local === legacyH) return true;
+    if (this._serverHash && this._serverHash === legacyH) {
+      const newH = await this.hash(login, pass);
+      localStorage.setItem(this.pwKey(login), newH);
+      if (sb.isEnabled()) {
+        await sb.req('POST', 'app_users', { login, pw_hash: newH, updated_at: new Date().toISOString() });
+      }
+      this._serverHash = newH;
+      return true;
+    }
+    return false;
+  },
+
+  async setPassword(login, pass) {
+    const h = await this.hash(login, pass);
+    localStorage.setItem(this.pwKey(login), h);
+    this._serverHash = h;
+    this.setLogin(login);
+    if (sb.isEnabled()) {
+      await sb.req('POST', 'app_users', { login, pw_hash: h, updated_at: new Date().toISOString() });
+    }
+  },
+
+  async syncHashToServerIfNeeded(login) {
+    const local = localStorage.getItem(this.pwKey(login));
+    if (!local || !sb.isEnabled()) return;
+    await this.fetchServerHash(login);
+    if (!this._serverHash) {
+      await sb.req('POST', 'app_users', { login, pw_hash: local, updated_at: new Date().toISOString() });
+      this._serverHash = local;
+    }
+  },
+
+  isLoggedIn() { return localStorage.getItem('tl_session') === 'ok' && !!this.getLogin(); },
+  login(login) {
+    this.setLogin(login);
+    localStorage.setItem('tl_session', 'ok');
+  },
+  logout() {
+    localStorage.removeItem('tl_session');
+    this._currentLogin = null;
+  }
+};
+
+const webauthn = {
+  storageKey(login) { return `tl_webauthn_${login}`; },
+
+  async canUse() {
+    if (!window.PublicKeyCredential || !PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) return false;
+    try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch { return false; }
+  },
+
+  label() {
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'Face ID';
+    return 'Биометрия';
+  },
+
+  hasCredential(login) {
+    if (!login) return false;
+    try { return !!localStorage.getItem(this.storageKey(login)); } catch { return false; }
+  },
+
+  _bufToB64(buf) {
+    return btoa(String.fromCharCode(...new Uint8Array(buf)));
+  },
+
+  _b64ToBuf(b64) {
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  },
+
+  async register(login) {
+    if (!login || !await this.canUse()) return false;
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'TimeLog', id: location.hostname },
+        user: {
+          id: new TextEncoder().encode(login),
+          name: login,
+          displayName: login
+        },
+        pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+          residentKey: 'preferred'
+        },
+        timeout: 60000
+      }
+    });
+    if (!cred) return false;
+    localStorage.setItem(this.storageKey(login), JSON.stringify({
+      id: cred.id,
+      rawId: this._bufToB64(cred.rawId)
+    }));
+    return true;
+  },
+
+  async authenticate(login) {
+    const raw = localStorage.getItem(this.storageKey(login));
+    if (!raw) return false;
+    const stored = JSON.parse(raw);
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        rpId: location.hostname,
+        allowCredentials: [{
+          id: this._b64ToBuf(stored.rawId),
+          type: 'public-key',
+          transports: ['internal', 'hybrid']
+        }],
+        userVerification: 'required',
+        timeout: 60000
+      }
+    });
+    return !!assertion;
+  },
+
+  remove(login) { localStorage.removeItem(this.storageKey(login)); }
 };
 
 function authMsg(text, type) {
@@ -1517,56 +1747,168 @@ function authTogglePass(id) {
   if (el) el.type = el.type === 'password' ? 'text' : 'password';
 }
 
-// Показать нужную форму при старте
-function authBootScreen() {
-  const hasPass = auth.hasPassword();
+function authGetUnlockLogin() {
+  return auth.normalizeLogin(document.getElementById('auth-login')?.value || auth.getLastLogin() || '');
+}
+
+function authOnLoginInput() { authUpdateBiometricUI(); }
+
+function authUpdateBiometricUI() {
+  const login = authGetUnlockLogin();
+  const wrap = document.getElementById('auth-biometric-wrap');
+  const label = document.getElementById('auth-biometric-label');
+  if (label) label.textContent = webauthn.label();
+  if (!wrap) return;
+  wrap.style.display = (login && webauthn.hasCredential(login)) ? '' : 'none';
+}
+
+async function authBootScreen() {
+  const lastLogin = auth.getLastLogin();
+  const loginEl = document.getElementById('auth-login');
+  const setupLoginEl = document.getElementById('auth-setup-login');
+  if (loginEl && lastLogin) loginEl.value = lastLogin;
+  if (setupLoginEl && lastLogin) setupLoginEl.value = lastLogin;
+
+  const serverUsers = await auth.serverHasUsers();
+  if (lastLogin) await auth.fetchServerHash(lastLogin);
+  const hasPass = serverUsers || auth.hasLocalPassword(lastLogin) || !!auth._serverHash;
+
   document.getElementById('auth-unlock-form').style.display = hasPass ? '' : 'none';
   document.getElementById('auth-setup-form').style.display  = hasPass ? 'none' : '';
+  const resetBlock = document.getElementById('auth-reset-block');
+  if (resetBlock) resetBlock.style.display = serverUsers ? 'none' : '';
+
+  const setupHint = document.getElementById('auth-setup-hint');
+  if (setupHint) {
+    setupHint.textContent = sb.isEnabled()
+      ? 'Создайте аккаунт. Логин и пароль сохранятся на сервере — вход с любого устройства.'
+      : 'Создайте аккаунт. Данные сохранятся только в этом браузере.';
+  }
+
+  authUpdateBiometricUI();
   authClearMsg();
   setTimeout(() => {
-    const f = hasPass ? 'auth-pass' : 'auth-new-pass';
+    const f = hasPass ? (loginEl?.value ? 'auth-pass' : 'auth-login') : 'auth-setup-login';
     document.getElementById(f)?.focus();
   }, 80);
 }
 
-// Войти с существующим паролем
 async function authUnlock() {
+  const login = authGetUnlockLogin();
+  const err = auth.validateLogin(login);
+  if (err) { authMsg(err, 'err'); return; }
   const pass = document.getElementById('auth-pass').value;
   if (!pass) { authMsg('Введите пароль', 'err'); return; }
   const btn = document.getElementById('auth-unlock-btn');
   btn.disabled = true; btn.textContent = 'Проверяем...';
-  const ok = await auth.checkPassword(pass);
+  const ok = await auth.checkPassword(login, pass);
   btn.disabled = false; btn.textContent = 'Войти';
-  if (ok) { auth.login(); authSuccess(); }
-  else {
-    authMsg('Неверный пароль', 'err');
+  if (ok) {
+    await auth.syncHashToServerIfNeeded(login);
+    auth.login(login);
+    await authAfterSuccess();
+  } else {
+    authMsg('Неверный логин или пароль', 'err');
     document.getElementById('auth-pass').value = '';
     document.getElementById('auth-pass').focus();
   }
 }
 
-// Показать форму создания пароля (сброс)
-function authShowSetup() {
-  localStorage.removeItem('tl_pw_hash');
-  localStorage.removeItem('tl_session');
-  document.getElementById('auth-unlock-form').style.display = 'none';
-  document.getElementById('auth-setup-form').style.display  = '';
-  authClearMsg();
-  setTimeout(() => document.getElementById('auth-new-pass')?.focus(), 80);
+async function authBiometricUnlock() {
+  const login = authGetUnlockLogin();
+  const err = auth.validateLogin(login);
+  if (err) { authMsg(err, 'err'); return; }
+  if (!webauthn.hasCredential(login)) { authMsg('Сначала войдите с паролем и включите ' + webauthn.label(), 'err'); return; }
+  const btn = document.getElementById('auth-biometric-btn');
+  if (btn) btn.disabled = true;
+  authMsg('', '');
+  try {
+    const ok = await webauthn.authenticate(login);
+    if (ok) {
+      auth.login(login);
+      await authAfterSuccess();
+    } else {
+      authMsg(webauthn.label() + ' не распознан', 'err');
+    }
+  } catch (e) {
+    authMsg(e.name === 'NotAllowedError' ? 'Отменено' : (webauthn.label() + ' недоступен'), 'err');
+  }
+  if (btn) btn.disabled = false;
 }
 
-// Установить новый пароль
+function authShowSetup() {
+  auth.serverHasUsers().then(has => {
+    if (has) { authMsg('Аккаунт уже создан. Введите логин и пароль.', 'err'); return; }
+    localStorage.removeItem('tl_session');
+    document.getElementById('auth-unlock-form').style.display = 'none';
+    document.getElementById('auth-setup-form').style.display  = '';
+    authClearMsg();
+    setTimeout(() => document.getElementById('auth-setup-login')?.focus(), 80);
+  });
+}
+
 async function authSetup() {
+  const login = auth.normalizeLogin(document.getElementById('auth-setup-login')?.value || '');
+  const err = auth.validateLogin(login);
+  if (err) { authMsg(err, 'err'); return; }
   const pass  = document.getElementById('auth-new-pass').value;
   const pass2 = document.getElementById('auth-new-pass2').value;
   if (!pass) { authMsg('Введите пароль', 'err'); return; }
   if (pass.length < 4) { authMsg('Минимум 4 символа', 'err'); return; }
   if (pass !== pass2)  { authMsg('Пароли не совпадают', 'err'); return; }
+  await auth.fetchServerHash(login);
+  if (auth._serverHash) {
+    authMsg('Этот логин уже занят. Войдите с паролем.', 'err');
+    await authBootScreen();
+    return;
+  }
   const btn = document.getElementById('auth-setup-btn');
   btn.disabled = true; btn.textContent = 'Сохраняем...';
-  await auth.setPassword(pass);
-  auth.login();
+  await auth.setPassword(login, pass);
+  if (sb.isEnabled() && (state.projects.length || state.entries.length)) {
+    await sb.pushAll();
+  }
+  auth.login(login);
+  btn.disabled = false; btn.textContent = 'Создать аккаунт и войти';
+  await authAfterSuccess();
+}
+
+async function authOfferBiometric() {
+  const login = auth.getLogin();
+  if (!login || webauthn.hasCredential(login) || !await webauthn.canUse()) return;
+  if (!confirm(`Включить ${webauthn.label()} для быстрого входа на этом устройстве?`)) return;
+  try {
+    await webauthn.register(login);
+    showToast(`✓ ${webauthn.label()} включён`, 'success');
+  } catch {
+    showToast(`Не удалось включить ${webauthn.label()}`, 'error');
+  }
+}
+
+async function authEnableBiometric() {
+  const login = auth.getLogin();
+  if (!login) { showToast('Сначала войдите в аккаунт', 'error'); return; }
+  if (!await webauthn.canUse()) { showToast(webauthn.label() + ' недоступен на этом устройстве', 'error'); return; }
+  try {
+    await webauthn.register(login);
+    showToast(`✓ ${webauthn.label()} включён`, 'success');
+    renderPage();
+  } catch {
+    showToast(`Не удалось включить ${webauthn.label()}`, 'error');
+  }
+}
+
+function authDisableBiometric() {
+  const login = auth.getLogin();
+  if (!login) return;
+  webauthn.remove(login);
+  showToast(`${webauthn.label()} отключён`);
+  renderPage();
+}
+
+async function authAfterSuccess() {
   authSuccess();
+  await authOfferBiometric();
 }
 
 function authSuccess() {
@@ -1587,7 +1929,10 @@ function authLogout() {
 function updateTopbarUser() {
   const bar = document.getElementById('topbar-user');
   if (!bar) return;
-  bar.innerHTML = `<button class="auth-logout" onclick="authLogout()">Выйти</button>`;
+  const login = auth.getLogin();
+  bar.innerHTML = `
+    ${login ? `<span class="auth-email-lbl" title="${escHtml(login)}">${escHtml(login)}</span>` : ''}
+    <button class="auth-logout" onclick="authLogout()">Выйти</button>`;
 }
 
 // Заглушки для совместимости
@@ -1655,6 +2000,22 @@ function load() {
 
 // ─── SUPABASE LAYER ──────────────────────────────────────────────────────
 const sb = {
+  userLogin() { return auth.getLogin() || ''; },
+
+  scope(path) {
+    const login = this.userLogin();
+    if (!login) return path;
+    const sep = path.includes('?') ? '&' : '?';
+    return `${path}${sep}user_login=eq.${encodeURIComponent(login)}`;
+  },
+
+  userRow(extra) {
+    const login = this.userLogin();
+    return login ? { ...extra, user_login: login } : extra;
+  },
+
+  userId() { return this.userLogin() || 'default'; },
+
   // Low-level fetch wrapper
   async req(method, path, body) {
     const { url, anonKey } = state.settings.supabase;
@@ -1678,28 +2039,28 @@ const sb = {
 
   // Map local → DB column names
   projectToRow(p) {
-    return { id: p.id, name: p.name, client: p.client||null, rate: p.rate||0, color: p.color||'#059669', status: p.status||'active', description: p.desc||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
+    return this.userRow({ id: p.id, name: p.name, client: p.client||null, rate: p.rate||0, color: p.color||'#059669', status: p.status||'active', description: p.desc||null, created_at: new Date(p.createdAt||Date.now()).toISOString() });
   },
   entryToRow(e) {
-    return { id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, task_id: e.taskId||null, report_id: e.reportId||null, archived: !!e.archived, created_at: new Date(e.createdAt||Date.now()).toISOString() };
+    return this.userRow({ id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, task_id: e.taskId||null, report_id: e.reportId||null, archived: !!e.archived, created_at: new Date(e.createdAt||Date.now()).toISOString() });
   },
   paymentToRow(p) {
-    return { id: p.id, project_id: p.projectId||null, amount: p.amount, date: p.date, period_from: p.from||null, period_to: p.to||null, note: p.note||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
+    return this.userRow({ id: p.id, project_id: p.projectId||null, amount: p.amount, date: p.date, period_from: p.from||null, period_to: p.to||null, note: p.note||null, created_at: new Date(p.createdAt||Date.now()).toISOString() });
   },
   boardTaskToRow(t) {
-    return { id: t.id, project_id: t.projectId, title: t.title, description: t.desc||null, status: t.status||'todo', position: t.position||0, priority: t.priority||'medium', archived: !!t.archived, created_at: new Date(t.createdAt||Date.now()).toISOString(), updated_at: new Date(t.updatedAt||Date.now()).toISOString() };
+    return this.userRow({ id: t.id, project_id: t.projectId, title: t.title, description: t.desc||null, status: t.status||'todo', position: t.position||0, priority: t.priority||'medium', archived: !!t.archived, created_at: new Date(t.createdAt||Date.now()).toISOString(), updated_at: new Date(t.updatedAt||Date.now()).toISOString() });
   },
   reportToRow(r) {
-    return { id: r.id, title: r.title||null, period_from: r.from, period_to: r.to, project_id: r.projectId||null, entry_ids: r.entryIds||[], text: r.text, total_hours: r.totalHours||0, total_amount: r.totalAmount||0, status: r.status||'unpaid', paid_at: r.paidAt ? new Date(r.paidAt).toISOString() : null, created_at: new Date(r.createdAt||Date.now()).toISOString() };
+    return this.userRow({ id: r.id, title: r.title||null, period_from: r.from, period_to: r.to, project_id: r.projectId||null, entry_ids: r.entryIds||[], text: r.text, total_hours: r.totalHours||0, total_amount: r.totalAmount||0, status: r.status||'unpaid', paid_at: r.paidAt ? new Date(r.paidAt).toISOString() : null, created_at: new Date(r.createdAt||Date.now()).toISOString() });
   },
   scheduleSettingsToRow(s) {
-    return { id: 'default', week_template: s.weekTemplate, updated_at: new Date().toISOString() };
+    return { id: this.userId(), week_template: s.weekTemplate, updated_at: new Date().toISOString() };
   },
   overrideToRow(date, o) {
-    return { date, type: o.type, hours: o.hours ?? null, note: o.note || null };
+    return this.userRow({ date, type: o.type, hours: o.hours ?? null, note: o.note || null });
   },
   blockToRow(b) {
-    return { id: b.id, date: b.date, start_time: b.start, end_time: b.end, title: b.title || null, note: b.note || null, created_at: new Date(b.createdAt||Date.now()).toISOString() };
+    return this.userRow({ id: b.id, date: b.date, start_time: b.start, end_time: b.end, title: b.title || null, note: b.note || null, created_at: new Date(b.createdAt||Date.now()).toISOString() });
   },
   rowToProject(r) {
     return { id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#059669', status: r.status||'active', desc: r.description||'', createdAt: new Date(r.created_at).getTime() };
@@ -1721,7 +2082,7 @@ const sb = {
   },
   timerToRow(t) {
     return {
-      id: 'current', running: !!t.running, start_time: t.startTime || null,
+      id: this.userId(), running: !!t.running, start_time: t.startTime || null,
       project_id: t.projectId || null, task: t.task || '', task_id: t.taskId || null,
       paused: !!t.paused, paused_ms: t.pausedMs || 0, pause_start: t.pauseStart || null,
       updated_at: new Date(t.updatedAt || Date.now()).toISOString()
@@ -1739,16 +2100,17 @@ const sb = {
 
   // Pull everything from Supabase into state
   async pull() {
+    const uid = encodeURIComponent(this.userId());
     const [projects, entries, payments, boardTasks, reports, timerRow, scheduleSettings, scheduleOverrides, scheduleBlocks] = await Promise.all([
-      sb.req('GET', 'projects?order=created_at.asc'),
-      sb.req('GET', 'time_entries?order=created_at.desc'),
-      sb.req('GET', 'payments?order=created_at.desc'),
-      sb.req('GET', 'board_tasks?order=position.asc'),
-      sb.req('GET', 'billing_reports?order=created_at.desc'),
-      sb.req('GET', 'active_timer?id=eq.current&limit=1'),
-      sb.req('GET', 'schedule_settings?id=eq.default&limit=1'),
-      sb.req('GET', 'schedule_overrides?order=date.asc'),
-      sb.req('GET', 'schedule_blocks?order=date.asc')
+      sb.req('GET', sb.scope('projects?order=created_at.asc')),
+      sb.req('GET', sb.scope('time_entries?order=created_at.desc')),
+      sb.req('GET', sb.scope('payments?order=created_at.desc')),
+      sb.req('GET', sb.scope('board_tasks?order=position.asc')),
+      sb.req('GET', sb.scope('billing_reports?order=created_at.desc')),
+      sb.req('GET', `active_timer?id=eq.${uid}&limit=1`),
+      sb.req('GET', `schedule_settings?id=eq.${uid}&limit=1`),
+      sb.req('GET', sb.scope('schedule_overrides?order=date.asc')),
+      sb.req('GET', sb.scope('schedule_blocks?order=date.asc'))
     ]);
     if (projects !== null) state.projects = projects.map(sb.rowToProject);
     if (entries  !== null) state.entries  = entries.map(sb.rowToEntry);
@@ -1787,7 +2149,7 @@ const sb = {
   async upsertScheduleSettings(s) { return await sb.req('POST', 'schedule_settings', sb.scheduleSettingsToRow(s)); },
   async upsertScheduleOverride(date, o) { return await sb.req('POST', 'schedule_overrides', sb.overrideToRow(date, o)); },
   async upsertScheduleBlock(b) { return await sb.req('POST', 'schedule_blocks', sb.blockToRow(b)); },
-  async clearTimerRemote(){ return await sb.req('DELETE', 'active_timer?id=eq.current'); },
+  async clearTimerRemote(){ return await sb.req('DELETE', `active_timer?id=eq.${encodeURIComponent(this.userId())}`); },
 
   // Delete single records
   async deleteProject(id) { return await sb.req('DELETE', `projects?id=eq.${id}`); },
@@ -1795,7 +2157,11 @@ const sb = {
   async deletePayment(id) { return await sb.req('DELETE', `payments?id=eq.${id}`); },
   async deleteBoardTask(id){ return await sb.req('DELETE', `board_tasks?id=eq.${id}`); },
   async deleteReport(id)  { return await sb.req('DELETE', `billing_reports?id=eq.${id}`); },
-  async deleteScheduleOverride(date) { return await sb.req('DELETE', `schedule_overrides?date=eq.${date}`); },
+  async deleteScheduleOverride(date) {
+    const login = this.userLogin();
+    const q = login ? `schedule_overrides?date=eq.${date}&user_login=eq.${encodeURIComponent(login)}` : `schedule_overrides?date=eq.${date}`;
+    return await sb.req('DELETE', q);
+  },
   async deleteScheduleBlock(id) { return await sb.req('DELETE', `schedule_blocks?id=eq.${id}`); },
 
   async syncSchedule() {
@@ -5181,36 +5547,47 @@ function renderSettings() {
   id text primary key, name text not null,
   client text, rate numeric default 0,
   color text default '#059669', status text default 'active',
-  description text, created_at timestamptz default now()
+  description text, created_at timestamptz default now(),
+  user_login text
 );
 create table board_tasks (
   id text primary key, project_id text references projects(id) on delete cascade,
   title text not null, description text,
   status text not null default 'todo', position integer not null default 0,
   priority text default 'medium',
-  created_at timestamptz default now(), updated_at timestamptz default now()
+  created_at timestamptz default now(), updated_at timestamptz default now(),
+  user_login text
 );
 create table time_entries (
   id text primary key, project_id text references projects(id) on delete cascade,
   task text not null, date date not null, hours numeric not null,
   start_time text, end_time text, notes text,
   task_id text references board_tasks(id) on delete set null,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  user_login text
 );
 create table payments (
   id text primary key, project_id text references projects(id) on delete set null,
   amount numeric not null, date date not null,
   period_from date, period_to date, note text,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  user_login text
+);
+create table app_users (
+  login text primary key,
+  pw_hash text not null,
+  updated_at timestamptz default now()
 );
 alter table projects enable row level security;
 alter table board_tasks enable row level security;
 alter table time_entries enable row level security;
 alter table payments enable row level security;
+alter table app_users enable row level security;
 create policy "open" on projects for all using (true) with check (true);
 create policy "open" on board_tasks for all using (true) with check (true);
 create policy "open" on time_entries for all using (true) with check (true);
-create policy "open" on payments for all using (true) with check (true);</pre>
+create policy "open" on payments for all using (true) with check (true);
+create policy "open" on app_users for all using (true) with check (true);</pre>
         <button onclick="copySQL()" class="btn btn-ghost btn-sm" style="margin-top:8px">Копировать SQL</button>
       </div>` : ''}
 
@@ -5220,6 +5597,18 @@ create policy "open" on payments for all using (true) with check (true);</pre>
         <button class="btn btn-ghost btn-sm" onclick="sbTest()">Проверить соединение</button>
         ${!s.supabase.enabled ? `<button class="btn btn-primary" onclick="sbConnect()" style="flex:1">🔗 Подключить и мигрировать данные</button>` : ''}
       </div>
+    </div>
+
+    <div class="section-title">Безопасность</div>
+    <div class="card mb16">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Аккаунт: <strong style="color:var(--text)">${escHtml(auth.getLogin()||'—')}</strong></div>
+      ${webauthn.hasCredential(auth.getLogin()) ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span class="text-sm" style="color:var(--green)">✓ ${webauthn.label()} включён на этом устройстве</span>
+          <button class="btn btn-ghost btn-sm" onclick="authDisableBiometric()">Отключить</button>
+        </div>` : `
+        <button class="btn btn-ghost btn-sm" onclick="authEnableBiometric()">Включить ${webauthn.label()}</button>
+        <div class="text-xs text-muted mt8">Быстрый вход по Face ID / Touch ID на этом устройстве</div>`}
     </div>
 
     <div class="section-title">Управление проектами</div>
@@ -5323,6 +5712,7 @@ async function sbConnect() {
   if (ok) {
     state.settings.supabase.enabled = true;
     save();
+    await auth.syncHashToServerIfNeeded();
     showToast('✓ Supabase подключён! Все данные загружены в облако.', 'success');
     renderPage();
   } else {
@@ -5351,36 +5741,47 @@ function copySQL() {
   id text primary key, name text not null,
   client text, rate numeric default 0,
   color text default '#059669', status text default 'active',
-  description text, created_at timestamptz default now()
+  description text, created_at timestamptz default now(),
+  user_login text
 );
 create table board_tasks (
   id text primary key, project_id text references projects(id) on delete cascade,
   title text not null, description text,
   status text not null default 'todo', position integer not null default 0,
   priority text default 'medium',
-  created_at timestamptz default now(), updated_at timestamptz default now()
+  created_at timestamptz default now(), updated_at timestamptz default now(),
+  user_login text
 );
 create table time_entries (
   id text primary key, project_id text references projects(id) on delete cascade,
   task text not null, date date not null, hours numeric not null,
   start_time text, end_time text, notes text,
   task_id text references board_tasks(id) on delete set null,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  user_login text
 );
 create table payments (
   id text primary key, project_id text references projects(id) on delete set null,
   amount numeric not null, date date not null,
   period_from date, period_to date, note text,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  user_login text
+);
+create table app_users (
+  login text primary key,
+  pw_hash text not null,
+  updated_at timestamptz default now()
 );
 alter table projects enable row level security;
 alter table board_tasks enable row level security;
 alter table time_entries enable row level security;
 alter table payments enable row level security;
+alter table app_users enable row level security;
 create policy "open" on projects for all using (true) with check (true);
 create policy "open" on board_tasks for all using (true) with check (true);
 create policy "open" on time_entries for all using (true) with check (true);
-create policy "open" on payments for all using (true) with check (true);`;
+create policy "open" on payments for all using (true) with check (true);
+create policy "open" on app_users for all using (true) with check (true);`;
   navigator.clipboard.writeText(sql).then(() => showToast('SQL скопирован')).catch(() => showToast('Не удалось скопировать', 'error'));
 }
 
@@ -5664,16 +6065,18 @@ function applyDockerConfig() {
   return true;
 }
 
-// Boot sequence — локальный пароль, без Supabase Auth
+// Boot sequence — логин + пароль, Face ID
 load();
+auth.migrateLegacyLocal();
 applyDockerConfig();
-authBootScreen();
-
-if (auth.isLoggedIn()) {
-  authSuccess();
-} else {
-  document.getElementById('auth-screen').style.display = 'flex';
-}
+(async () => {
+  await authBootScreen();
+  if (auth.isLoggedIn()) {
+    authSuccess();
+  } else {
+    document.getElementById('auth-screen').style.display = 'flex';
+  }
+})();
 
 // Service worker — registered in timerBg.init()
 timerBg.init().catch(() => {});
