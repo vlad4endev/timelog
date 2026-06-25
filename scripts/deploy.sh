@@ -68,6 +68,7 @@ elif [[ "$MODE" != "prod" ]]; then
 fi
 
 echo "→ Building and starting ($MODE)..."
+"${COMPOSE[@]}" down --remove-orphans 2>/dev/null || true
 "${COMPOSE[@]}" up -d --build --wait
 
 if docker compose ps postgres --status running -q 2>/dev/null | grep -q .; then
