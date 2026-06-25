@@ -1,5 +1,28 @@
-# TLS overlay: use with --profile tls
-# docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.tls.yml --profile tls up -d
+# TLS overlay: docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.tls.yml --profile tls up -d
 services:
   web:
     ports: []
+
+  caddy:
+    profiles: ["tls"]
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Set PUBLIC_HOST in .env for TLS}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - timelog
+
+volumes:
+  caddy_data:
+  caddy_config:
