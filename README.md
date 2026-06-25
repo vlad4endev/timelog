@@ -99,7 +99,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 ```bash
 npm install
-npm run icons          # icon-192.png, icon-512.png
+# icon-192.png и icon-512.png уже в репозитории (PWA)
 npx http-server . -p 8080
 # Данные в localStorage
 ```
@@ -107,7 +107,6 @@ npx http-server . -p 8080
 ## Статический деплой (Netlify / GitHub Pages)
 
 ```bash
-npm run icons
 # Загрузить папку на Netlify Drop или подключить репозиторий
 ```
 

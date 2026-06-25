@@ -18,7 +18,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npm run icons
       - run: cp .env.example .env && ./scripts/setup.sh
       - run: test -f icon-192.png && test -f icon-512.png
       - run: grep -q '^ANON_KEY=eyJ' .env
