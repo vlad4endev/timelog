@@ -3,11 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#1a1a2e">
+<meta name="theme-color" content="#f7f8fa">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="TimeLog">
 <link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <script src="config.js"></script>
@@ -15,66 +18,76 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0f0f1a;
-  --bg2:#161625;
-  --bg3:#1e1e32;
-  --card:#1e1e32;
-  --card2:#252540;
-  --border:#2e2e50;
-  --border2:#3a3a60;
-  --accent:#6c63ff;
-  --accent2:#8b85ff;
-  --accent3:#4a43cc;
-  --green:#22c55e;
-  --green2:#16a34a;
-  --red:#ef4444;
-  --amber:#f59e0b;
-  --teal:#14b8a6;
-  --pink:#ec4899;
-  --text:#e8e8f0;
-  --text2:#9898b8;
-  --text3:#606080;
+  --bg:#f4f6f8;
+  --bg2:#ffffff;
+  --bg3:#eef1f4;
+  --card:#ffffff;
+  --card2:#f8fafb;
+  --border:#e5e9ed;
+  --border2:#d1d8de;
+  --accent:#059669;
+  --accent2:#047857;
+  --accent3:#065f46;
+  --accent-light:rgba(5,150,105,.08);
+  --accent-border:rgba(5,150,105,.22);
+  --green:#16a34a;
+  --green2:#15803d;
+  --red:#dc2626;
+  --amber:#d97706;
+  --teal:#0d9488;
+  --pink:#db2777;
+  --text:#111827;
+  --text2:#6b7280;
+  --text3:#9ca3af;
   --radius:12px;
   --radius2:8px;
-  --shadow:0 4px 24px rgba(0,0,0,0.4);
+  --shadow:0 1px 3px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.06);
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;font-size:15px;line-height:1.5}
-a{color:var(--accent2);text-decoration:none}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
 button{cursor:pointer;border:none;outline:none;font-family:inherit}
 input,select,textarea{font-family:inherit;outline:none}
 
 /* Layout */
 .app{display:flex;min-height:100vh}
-.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;transition:transform .3s}
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;transition:transform .3s;box-shadow:1px 0 0 rgba(15,23,42,.04)}
 .main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column}
-.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;backdrop-filter:blur(8px);background:rgba(255,255,255,.92)}
 .content{padding:24px;flex:1}
 
 /* Sidebar */
 .sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 2px 8px rgba(5,150,105,.25)}
 .logo-text{font-size:16px;font-weight:700;color:var(--text)}
 .logo-sub{font-size:11px;color:var(--text2);margin-top:1px}
 .nav{flex:1;padding:12px 0;overflow-y:auto}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;color:var(--text2);font-size:14px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;user-select:none}
 .nav-item:hover{background:var(--bg3);color:var(--text)}
-.nav-item.active{background:var(--bg3);color:var(--accent2);border-left-color:var(--accent);font-weight:500}
+.nav-item.active{background:var(--accent-light);color:var(--accent2);border-left-color:var(--accent);font-weight:600}
 .nav-icon{width:18px;height:18px;flex-shrink:0}
 .sidebar-footer{padding:14px 18px;border-top:1px solid var(--border)}
-.timer-widget{background:var(--bg3);border-radius:var(--radius2);padding:12px;border:1px solid var(--border)}
-.timer-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.timer-display{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent2);letter-spacing:0.05em}
+.timer-widget{background:var(--card2);border-radius:var(--radius2);padding:12px;border:1px solid var(--border)}
+.timer-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;font-weight:600}
+.timer-display{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);letter-spacing:0.05em}
+.timer-earned{font-size:13px;font-weight:700;color:var(--green);margin-top:4px;font-variant-numeric:tabular-nums;min-height:18px}
+.timer-earned:empty{display:none}
 .timer-project{font-size:12px;color:var(--text2);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .timer-btns{display:flex;gap:6px;margin-top:8px}
-.btn-timer{flex:1;padding:6px;border-radius:6px;font-size:12px;font-weight:500;transition:all .15s}
-.btn-start{background:var(--green);color:#fff}
-.btn-start:hover{background:var(--green2)}
+.btn-timer{flex:1;padding:7px 8px;border-radius:6px;font-size:12px;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.btn-start{background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;box-shadow:0 2px 8px rgba(5,150,105,.3)}
+.btn-start:hover{background:linear-gradient(135deg,var(--green2),var(--accent2));transform:translateY(-1px);box-shadow:0 4px 12px rgba(5,150,105,.35)}
+.btn-start-animated:not(:disabled){animation:startPulse 2.4s ease-in-out infinite}
+.btn-start-main{width:100%;padding:14px;background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;box-shadow:0 4px 14px rgba(5,150,105,.28)}
+.btn-start-main:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(5,150,105,.38)}
+.btn-start-main:disabled{opacity:.45;cursor:default;box-shadow:none;animation:none!important}
+@keyframes startPulse{0%,100%{box-shadow:0 2px 8px rgba(5,150,105,.3),0 0 0 0 rgba(5,150,105,.35)}50%{box-shadow:0 4px 14px rgba(5,150,105,.35),0 0 0 8px rgba(5,150,105,0)}}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 .btn-stop{background:var(--red);color:#fff}
 .btn-stop:hover{background:#dc2626}
 
 /* Cards */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
-.card-sm{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.card-sm{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
 
 /* Grid */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -82,44 +95,44 @@ input,select,textarea{font-family:inherit;outline:none}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 
 /* Stats */
-.stat-card{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
 .stat-val{font-size:26px;font-weight:700;line-height:1.2}
 .stat-label{font-size:12px;color:var(--text2);margin-top:4px}
 .stat-sub{font-size:12px;margin-top:4px}
 
 /* Buttons */
 .btn{padding:8px 16px;border-radius:var(--radius2);font-size:14px;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
-.btn-primary{background:var(--accent);color:#fff}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 1px 2px rgba(5,150,105,.2)}
 .btn-primary:hover{background:var(--accent2)}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}
-.btn-ghost:hover{background:var(--bg3);color:var(--text)}
+.btn-ghost:hover{background:var(--bg3);color:var(--text);border-color:var(--border)}
 .btn-sm{padding:5px 12px;font-size:13px}
-.btn-danger{background:#3f1515;color:var(--red);border:1px solid #5c2020}
-.btn-danger:hover{background:#5c2020}
-.btn-success{background:#0d2e1a;color:var(--green);border:1px solid #1a4d2a}
-.btn-success:hover{background:#1a4d2a}
-.btn-icon{padding:6px;border-radius:6px;background:transparent;color:var(--text2);border:1px solid var(--border)}
-.btn-icon:hover{background:var(--bg3);color:var(--text)}
+.btn-danger{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+.btn-danger:hover{background:#fee2e2}
+.btn-success{background:#ecfdf5;color:var(--green);border:1px solid #bbf7d0}
+.btn-success:hover{background:#d1fae5}
+.btn-icon{padding:6px;border-radius:6px;background:var(--card);color:var(--text2);border:1px solid var(--border)}
+.btn-icon:hover{background:var(--bg3);color:var(--text);border-color:var(--border2)}
 
 /* Forms */
 .form-group{margin-bottom:16px}
 .form-label{font-size:13px;color:var(--text2);margin-bottom:6px;display:block}
-.form-input,.form-select,.form-textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:9px 12px;color:var(--text);font-size:14px;transition:border .15s}
-.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.15)}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:9px 12px;color:var(--text);font-size:14px;transition:border .15s,box-shadow .15s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(5,150,105,.12)}
 .form-textarea{resize:vertical;min-height:80px}
 .form-select option{background:var(--bg2)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
 /* Badge */
 .badge{padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
-.badge-purple{background:#2a234d;color:#9f96ff}
-.badge-green{background:#0d2e1a;color:#4ade80}
-.badge-red{background:#3f1515;color:#f87171}
-.badge-amber{background:#2e1f05;color:#fbbf24}
-.badge-teal{background:#042a28;color:#2dd4bf}
-.badge-blue{background:#0c1f3f;color:#60a5fa}
-.badge-pink{background:#3d0f28;color:#f472b6}
-.badge-gray{background:#1e1e30;color:var(--text2)}
+.badge-emerald{background:#ecfdf5;color:#047857}
+.badge-green{background:#ecfdf5;color:#15803d}
+.badge-red{background:#fef2f2;color:#b91c1c}
+.badge-amber{background:#fffbeb;color:#b45309}
+.badge-teal{background:#f0fdfa;color:#0f766e}
+.badge-stone{background:#f5f5f4;color:#57534e}
+.badge-pink{background:#fdf2f8;color:#be185d}
+.badge-gray{background:#f3f4f6;color:var(--text2)}
 
 /* Table */
 .table-wrap{overflow-x:auto;border-radius:var(--radius2);border:1px solid var(--border)}
@@ -131,9 +144,9 @@ tr:hover td{background:var(--bg3)}
 .col-check{width:40px}
 
 /* Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(4px)}
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(6px)}
 .modal-overlay.open{opacity:1;pointer-events:all}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow);transform:translateY(20px);transition:transform .2s}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow);transform:translateY(20px);transition:transform .2s}
 .modal-overlay.open .modal{transform:none}
 .modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .modal-title{font-size:17px;font-weight:600}
@@ -155,7 +168,7 @@ tr:hover td{background:var(--bg3)}
 .entry-info{flex:1;min-width:0}
 .entry-task{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .entry-meta{font-size:12px;color:var(--text2);margin-top:2px}
-.entry-time{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--accent2);min-width:60px;text-align:right}
+.entry-time{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--accent);min-width:60px;text-align:right}
 .entry-actions{display:flex;gap:4px;flex-shrink:0}
 
 /* Color picker */
@@ -170,36 +183,48 @@ tr:hover td{background:var(--bg3)}
 
 /* Toast */
 .toast-container{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
-.toast{padding:10px 16px;background:var(--card2);border:1px solid var(--border2);border-radius:var(--radius2);font-size:14px;box-shadow:var(--shadow);animation:slideIn .2s ease;display:flex;align-items:center;gap:8px}
+.toast{padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);font-size:14px;box-shadow:var(--shadow);animation:slideIn .2s ease;display:flex;align-items:center;gap:8px}
 @keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:none;opacity:1}}
 .toast-success{border-left:3px solid var(--green)}
 .toast-error{border-left:3px solid var(--red)}
 
 /* Empty state */
 .empty{text-align:center;padding:48px 20px;color:var(--text2)}
-.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-icon{width:48px;height:48px;margin:0 auto 12px;color:var(--text3);opacity:.7;display:flex;align-items:center;justify-content:center}
 .empty h3{font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px}
 
 /* AI toggle */
 #ai-toggle div{margin-left:2px}
 /* Settings section */
-.settings-block{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.settings-block{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.money-input-wrap{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:var(--radius2);background:var(--bg2);overflow:hidden;transition:border .15s,box-shadow .15s}
+.money-input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(5,150,105,.12)}
+.money-input-prefix{padding:9px 0 9px 12px;font-size:14px;font-weight:600;color:var(--text2);white-space:nowrap;user-select:none}
+.money-input-wrap .form-input{border:none;border-radius:0;box-shadow:none!important;padding-left:4px;flex:1;min-width:0}
+.money-input-wrap .form-input:focus{box-shadow:none!important}
+.rate-preview{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.rate-preview-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:10px 12px;text-align:center}
+.rate-preview-item .val{font-size:15px;font-weight:700;color:var(--accent2)}
+.rate-preview-item .lbl{font-size:11px;color:var(--text2);margin-top:2px}
+.rate-presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.rate-preset{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:.15s}
+.rate-preset:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
 /* Auth screen */
-.auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-screen{position:fixed;inset:0;background:linear-gradient(160deg,#f4f6f8 0%,#ecfdf5 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
 .auth-box{width:100%;max-width:400px}
 .auth-logo{text-align:center;margin-bottom:32px}
-.auth-logo-icon{width:56px;height:56px;background:var(--accent);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:14px}
+.auth-logo-icon{width:56px;height:56px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:14px;display:inline-flex;align-items:center;justify-content:center;color:#fff;margin-bottom:14px;box-shadow:0 8px 24px rgba(5,150,105,.25)}
 .auth-logo-name{font-size:22px;font-weight:700}
 .auth-logo-sub{font-size:13px;color:var(--text2);margin-top:4px}
-.auth-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 28px 24px}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 28px 24px;box-shadow:var(--shadow)}
 .auth-tabs{display:flex;margin-bottom:24px;border-bottom:1px solid var(--border)}
 .auth-tab{flex:1;padding:10px;text-align:center;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s}
-.auth-tab.on{color:var(--accent2);border-bottom-color:var(--accent2)}
+.auth-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
 .auth-field{margin-bottom:16px}
 .auth-field label{display:block;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:11px 14px;color:var(--text);font-size:15px;transition:border .15s}
-.auth-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.15);outline:none}
-.auth-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;transition:background .15s;margin-top:6px}
+.auth-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:11px 14px;color:var(--text);font-size:15px;transition:border .15s}
+.auth-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(5,150,105,.12);outline:none}
+.auth-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;transition:background .15s,transform .15s;margin-top:6px;box-shadow:0 2px 8px rgba(5,150,105,.2)}
 .auth-btn:hover:not(:disabled){background:var(--accent2)}
 .auth-btn:disabled{opacity:.6;cursor:default}
 .auth-msg{padding:10px 14px;border-radius:var(--radius2);font-size:13px;margin-bottom:14px;display:none}
@@ -208,24 +233,47 @@ tr:hover td{background:var(--bg3)}
 .auth-link{text-align:center;margin-top:16px;font-size:13px;color:var(--text2);cursor:default}
 .auth-link span{color:var(--accent2);cursor:pointer}
 .auth-link span:hover{text-decoration:underline}
-.auth-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.auth-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
 .auth-email-lbl{font-size:13px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .auth-logout{padding:4px 10px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text2);font-size:12px;cursor:pointer;transition:.15s}
 .auth-logout:hover{border-color:var(--red);color:var(--red)}
 .hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
 .btn-pause{background:var(--amber);color:#fff}
 .btn-pause:hover{background:#d97706}
-.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.25);z-index:99}
 
 /* Tab bar */
 .tabs{display:flex;gap:2px;background:var(--bg3);border-radius:var(--radius2);padding:3px;margin-bottom:20px}
 .tab{flex:1;padding:7px;text-align:center;font-size:13px;font-weight:500;color:var(--text2);border-radius:6px;cursor:pointer;transition:all .15s}
-.tab.active{background:var(--card2);color:var(--text)}
+.tab.active{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(15,23,42,.06)}
 
 /* Report */
-.report-header{background:linear-gradient(135deg,var(--accent3),var(--accent));border-radius:var(--radius);padding:24px;margin-bottom:20px;color:#fff}
+.report-header{background:linear-gradient(135deg,var(--accent3),var(--accent));border-radius:var(--radius);padding:24px;margin-bottom:20px;color:#fff;box-shadow:0 8px 24px rgba(5,150,105,.2)}
 .report-title{font-size:22px;font-weight:700;margin-bottom:4px}
 .report-period{font-size:14px;opacity:.8}
+
+/* Analytics */
+.analytics-section{margin-bottom:20px}
+.analytics-hbar{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.analytics-hbar-label{width:140px;flex-shrink:0;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.analytics-hbar-track{flex:1;height:28px;background:var(--bg3);border-radius:6px;overflow:hidden;position:relative}
+.analytics-hbar-fill{height:100%;border-radius:6px;min-width:2px;transition:width .3s;display:flex;align-items:center;justify-content:flex-end;padding-right:8px}
+.analytics-hbar-val{font-size:12px;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2);white-space:nowrap}
+.analytics-hbar-meta{width:90px;flex-shrink:0;text-align:right;font-size:12px;color:var(--text2)}
+.analytics-daily-chart{display:flex;align-items:flex-end;gap:3px;height:160px;padding:8px 0 4px;overflow-x:auto}
+.analytics-daily-bar-wrap{flex:1;min-width:18px;max-width:48px;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.analytics-daily-bar{width:100%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--accent),var(--accent2));min-height:2px;transition:height .3s}
+.analytics-daily-bar.zero{background:var(--bg3);min-height:2px}
+.analytics-daily-label{font-size:10px;color:var(--text3);white-space:nowrap}
+.analytics-daily-val{font-size:10px;font-weight:600;color:var(--accent2);white-space:nowrap}
+.analytics-stage-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.analytics-stage-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;cursor:pointer;transition:border .15s,box-shadow .15s}
+.analytics-stage-card:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.analytics-stage-num{font-size:32px;font-weight:700;line-height:1.1}
+.analytics-stage-lbl{font-size:12px;color:var(--text2);margin-top:6px}
+.analytics-task-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.analytics-task-row:last-child{border-bottom:none}
+.analytics-task-row:hover{background:var(--bg3)}
 
 /* Paid status */
 .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
@@ -237,7 +285,7 @@ tr:hover td{background:var(--bg3)}
 .flex{display:flex}.gap4{gap:4px}.gap8{gap:8px}.gap12{gap:12px}.gap16{gap:16px}
 .flex-1{flex:1}.items-center{align-items:center}.justify-between{justify-content:space-between}
 .text-sm{font-size:13px}.text-xs{font-size:12px}.text-muted{color:var(--text2)}
-.text-accent{color:var(--accent2)}.text-green{color:var(--green)}.text-red{color:var(--red)}
+.text-accent{color:var(--accent)}.text-green{color:var(--green)}.text-red{color:var(--red)}
 .text-amber{color:var(--amber)}.fw-6{font-weight:600}.fw-7{font-weight:700}
 .mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
 .mb8{margin-bottom:8px}.mb12{margin-bottom:12px}.mb16{margin-bottom:16px}
@@ -252,12 +300,40 @@ tr:hover td{background:var(--bg3)}
   .main{margin-left:0}
   .hamburger{display:flex}
   .grid3,.grid4{grid-template-columns:1fr 1fr}
+  .analytics-stage-grid{grid-template-columns:1fr}
+  .analytics-hbar-label{width:100px}
+  .analytics-hbar-meta{width:70px}
   .grid2{grid-template-columns:1fr}
   .content{padding:16px}
   .form-row{grid-template-columns:1fr}
 }
 @media(max-width:480px){
   .grid3,.grid4{grid-template-columns:1fr}
+}
+
+/* Kanban board */
+.board-view-toggle{display:inline-flex;background:var(--bg3);border-radius:var(--radius2);padding:3px;gap:2px}
+.board-view-btn{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;color:var(--text2);background:transparent;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.board-view-btn.active{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(15,23,42,.06)}
+.board-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start}
+.board-column{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);min-height:200px;display:flex;flex-direction:column}
+.board-column-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg3);border-radius:var(--radius) var(--radius) 0 0}
+.board-column-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.board-column-count{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--card);color:var(--text2)}
+.board-column-body{padding:10px;flex:1;min-height:80px;transition:background .15s}
+.board-column-body.drag-over{background:var(--accent-light);border-radius:0 0 var(--radius) var(--radius)}
+.board-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:12px;margin-bottom:8px;cursor:grab;transition:box-shadow .15s,border-color .15s,transform .1s;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.board-card:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.board-card.dragging{opacity:.5;transform:scale(.98);cursor:grabbing}
+.board-card.active-timer{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-border)}
+.board-card-title{font-size:14px;font-weight:600;line-height:1.35;margin-bottom:6px;word-break:break-word}
+.board-card-meta{font-size:12px;color:var(--text2);display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.board-card-actions{display:flex;gap:4px;flex-wrap:wrap}
+.board-card-actions .btn-timer-card{padding:4px 8px;font-size:11px;border-radius:5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;background:var(--accent-light);color:var(--accent2);border:1px solid var(--accent-border)}
+.board-card-actions .btn-timer-card:hover{background:rgba(5,150,105,.14)}
+.priority-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+@media(max-width:900px){
+  .board-columns{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -267,7 +343,7 @@ tr:hover td{background:var(--bg3)}
 <div id="auth-screen" class="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
-      <div class="auth-logo-icon">⏱</div>
+      <div class="auth-logo-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
       <div class="auth-logo-name">TimeLog</div>
       <div class="auth-logo-sub">Учёт рабочего времени для разработчиков</div>
     </div>
@@ -287,9 +363,9 @@ tr:hover td{background:var(--bg3)}
           </div>
         </div>
         <button class="auth-btn" id="auth-unlock-btn" onclick="authUnlock()">Войти</button>
-        <div style="margin-top:20px;padding:12px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.2);border-radius:var(--radius2)">
+        <div style="margin-top:20px;padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)">
           <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Первый раз здесь или забыли пароль?</div>
-          <button onclick="authShowSetup()" style="width:100%;padding:9px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius2);color:var(--accent2);font-size:13px;font-weight:500;cursor:pointer">
+          <button onclick="authShowSetup()" style="width:100%;padding:9px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius2);color:var(--accent);font-size:13px;font-weight:500;cursor:pointer">
             Установить / сбросить пароль
           </button>
         </div>
@@ -325,34 +401,38 @@ tr:hover td{background:var(--bg3)}
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon">⏱</div>
+    <div class="logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
     <div>
       <div class="logo-text">TimeLog</div>
       <div class="logo-sub">Трекер рабочего времени</div>
     </div>
   </div>
   <nav class="nav">
-    <div class="nav-item active" onclick="showPage('dashboard')">
+    <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Дашборд
     </div>
-    <div class="nav-item" onclick="showPage('projects')">
+    <div class="nav-item" data-page="analytics" onclick="showPage('analytics')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Аналитика
+    </div>
+    <div class="nav-item" data-page="projects" onclick="showPage('projects')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3zM3 10h11v4H3zM3 17h8v4H3z"/></svg>
       Проекты
     </div>
-    <div class="nav-item" onclick="showPage('timelog')">
+    <div class="nav-item" data-page="timelog" onclick="showPage('timelog')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       Записи времени
     </div>
-    <div class="nav-item" onclick="showPage('reports')">
+    <div class="nav-item" data-page="reports" onclick="showPage('reports')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Отчёты
     </div>
-    <div class="nav-item" onclick="showPage('payments')">
+    <div class="nav-item" data-page="payments" onclick="showPage('payments')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
       Оплата
     </div>
-    <div class="nav-item" onclick="showPage('settings')">
+    <div class="nav-item" data-page="settings" onclick="showPage('settings')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       Настройки
     </div>
@@ -361,11 +441,20 @@ tr:hover td{background:var(--bg3)}
     <div class="timer-widget">
       <div class="timer-label">Активный таймер</div>
       <div class="timer-display" id="sidebar-timer">00:00:00</div>
+      <div class="timer-earned" id="sidebar-timer-earned"></div>
       <div class="timer-project" id="sidebar-timer-project">Нет активной задачи</div>
       <div class="timer-btns">
-        <button class="btn-timer btn-start" id="sidebar-start-btn" onclick="openQuickTimer()">▶ Старт</button>
-        <button class="btn-timer btn-pause hidden" id="sidebar-pause-btn" onclick="togglePauseTimer()">⏸</button>
-        <button class="btn-timer btn-stop hidden" id="sidebar-stop-btn" onclick="stopTimer()">■ Стоп</button>
+        <button class="btn-timer btn-start btn-start-animated" id="sidebar-start-btn" onclick="openQuickTimer()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Старт
+        </button>
+        <button class="btn-timer btn-pause hidden" id="sidebar-pause-btn" onclick="togglePauseTimer()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button class="btn-timer btn-stop hidden" id="sidebar-stop-btn" onclick="stopTimer()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+          Стоп
+        </button>
       </div>
     </div>
   </div>
@@ -481,22 +570,25 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Ставка в час (₽)</label>
-          <input type="number" class="form-input" id="project-rate" placeholder="0" min="0">
+          <label class="form-label" id="project-rate-label">Ставка в час</label>
+          <div class="money-input-wrap">
+            <span class="money-input-prefix" id="project-rate-prefix">₽</span>
+            <input type="number" class="form-input" id="project-rate" placeholder="0" min="0" step="any">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Цвет</label>
           <div class="color-swatches" id="project-color-picker">
-            <div class="swatch selected" style="background:#6c63ff" data-color="#6c63ff" onclick="selectColor('#6c63ff',this)"></div>
+            <div class="swatch selected" style="background:#059669" data-color="#059669" onclick="selectColor('#059669',this)"></div>
             <div class="swatch" style="background:#22c55e" data-color="#22c55e" onclick="selectColor('#22c55e',this)"></div>
             <div class="swatch" style="background:#14b8a6" data-color="#14b8a6" onclick="selectColor('#14b8a6',this)"></div>
             <div class="swatch" style="background:#f59e0b" data-color="#f59e0b" onclick="selectColor('#f59e0b',this)"></div>
             <div class="swatch" style="background:#ef4444" data-color="#ef4444" onclick="selectColor('#ef4444',this)"></div>
             <div class="swatch" style="background:#ec4899" data-color="#ec4899" onclick="selectColor('#ec4899',this)"></div>
-            <div class="swatch" style="background:#3b82f6" data-color="#3b82f6" onclick="selectColor('#3b82f6',this)"></div>
+            <div class="swatch" style="background:#78716c" data-color="#78716c" onclick="selectColor('#78716c',this)"></div>
             <div class="swatch" style="background:#f97316" data-color="#f97316" onclick="selectColor('#f97316',this)"></div>
           </div>
-          <input type="hidden" id="project-color" value="#6c63ff">
+          <input type="hidden" id="project-color" value="#059669">
         </div>
       </div>
       <div class="form-group">
@@ -541,7 +633,61 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-quick-timer')">Отмена</button>
-      <button class="btn btn-primary" onclick="startTimerFromModal()">▶ Запустить</button>
+      <button class="btn btn-primary btn-start-animated" onclick="startTimerFromModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Запустить
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-board-task">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="board-task-modal-title">Новая задача</div>
+      <button class="btn-icon" onclick="closeModal('modal-board-task')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="board-task-edit-id">
+      <div class="form-group">
+        <label class="form-label">Проект *</label>
+        <select class="form-select" id="board-task-project" required>
+          <option value="">Выберите проект</option>
+        </select>
+        <div class="text-xs text-muted mt4">Задача всегда привязана к одному проекту</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Название задачи *</label>
+        <input type="text" class="form-input" id="board-task-title" placeholder="Что нужно сделать?">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Описание</label>
+        <textarea class="form-textarea" id="board-task-desc" placeholder="Детали, ссылки, контекст..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Статус</label>
+          <select class="form-select" id="board-task-status">
+            <option value="todo">К выполнению</option>
+            <option value="in_progress">В работе</option>
+            <option value="done">Готово</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Приоритет</label>
+          <select class="form-select" id="board-task-priority">
+            <option value="low">Низкий</option>
+            <option value="medium">Средний</option>
+            <option value="high">Высокий</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-board-task')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveBoardTask()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -594,7 +740,7 @@ tr:hover td{background:var(--bg3)}
 <div class="modal-overlay" id="modal-ai-result">
   <div class="modal" style="max-width:540px">
     <div class="modal-header">
-      <div class="modal-title">✨ AI улучшил описание задачи</div>
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg> AI улучшил описание задачи</div>
       <button class="btn-icon" onclick="closeModal('modal-ai-result')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -605,13 +751,16 @@ tr:hover td{background:var(--bg3)}
         <div id="ai-original-text" style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);font-size:14px;color:var(--text2);line-height:1.5"></div>
       </div>
       <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="color:var(--accent2)">✨ Стало (AI версия)</label>
-        <div id="ai-improved-text" style="padding:10px 12px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:var(--radius2);font-size:14px;color:var(--text);line-height:1.5"></div>
+        <label class="form-label" style="color:var(--accent)">Стало (AI версия)</label>
+        <div id="ai-improved-text" style="padding:10px 12px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2);font-size:14px;color:var(--text);line-height:1.5"></div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-ai-result')">Оставить оригинал</button>
-      <button class="btn btn-primary" id="ai-apply-btn">✨ Применить AI версию</button>
+      <button class="btn btn-primary btn-start-animated" id="ai-apply-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+        Применить AI версию
+      </button>
     </div>
   </div>
 </div>
@@ -763,7 +912,8 @@ let state = {
   projects: [],
   entries: [],
   payments: [],
-  timer: { running: false, startTime: null, projectId: null, task: '', paused: false, pausedMs: 0, pauseStart: null },
+  boardTasks: [],
+  timer: { running: false, startTime: null, projectId: null, task: '', taskId: null, paused: false, pausedMs: 0, pauseStart: null },
   settings: {
     defaultRate: 0,
     currency: 'RUB',
@@ -775,13 +925,13 @@ let state = {
     supabase: { url: '', anonKey: '', enabled: false }
   },
   currentPage: 'dashboard',
-  selectedColor: '#6c63ff'
+  selectedColor: '#059669'
 };
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────
 function save() {
   try {
-    const d = { projects: state.projects, entries: state.entries, payments: state.payments, timer: state.timer, settings: state.settings };
+    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, timer: state.timer, settings: state.settings };
     localStorage.setItem('timelog_v1', JSON.stringify(d));
   } catch(e) {}
 }
@@ -793,6 +943,7 @@ function load() {
       state.projects = d.projects || [];
       state.entries  = d.entries  || [];
       state.payments = d.payments || [];
+      state.boardTasks = d.boardTasks || [];
       state.timer    = normalizeTimer(d.timer);
       if (d.settings) {
         state.settings = Object.assign({}, state.settings, d.settings);
@@ -832,34 +983,42 @@ const sb = {
 
   // Map local → DB column names
   projectToRow(p) {
-    return { id: p.id, name: p.name, client: p.client||null, rate: p.rate||0, color: p.color||'#6c63ff', status: p.status||'active', description: p.desc||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
+    return { id: p.id, name: p.name, client: p.client||null, rate: p.rate||0, color: p.color||'#059669', status: p.status||'active', description: p.desc||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
   },
   entryToRow(e) {
-    return { id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, created_at: new Date(e.createdAt||Date.now()).toISOString() };
+    return { id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, task_id: e.taskId||null, created_at: new Date(e.createdAt||Date.now()).toISOString() };
   },
   paymentToRow(p) {
     return { id: p.id, project_id: p.projectId||null, amount: p.amount, date: p.date, period_from: p.from||null, period_to: p.to||null, note: p.note||null, created_at: new Date(p.createdAt||Date.now()).toISOString() };
   },
+  boardTaskToRow(t) {
+    return { id: t.id, project_id: t.projectId, title: t.title, description: t.desc||null, status: t.status||'todo', position: t.position||0, priority: t.priority||'medium', created_at: new Date(t.createdAt||Date.now()).toISOString(), updated_at: new Date(t.updatedAt||Date.now()).toISOString() };
+  },
   rowToProject(r) {
-    return { id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#6c63ff', status: r.status||'active', desc: r.description||'', createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#059669', status: r.status||'active', desc: r.description||'', createdAt: new Date(r.created_at).getTime() };
   },
   rowToEntry(r) {
-    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, createdAt: new Date(r.created_at).getTime() };
   },
   rowToPayment(r) {
     return { id: r.id, projectId: r.project_id||null, amount: r.amount, date: r.date, from: r.period_from||'', to: r.period_to||'', note: r.note||'', createdAt: new Date(r.created_at).getTime() };
   },
+  rowToBoardTask(r) {
+    return { id: r.id, projectId: r.project_id, title: r.title, desc: r.description||'', status: r.status||'todo', position: r.position||0, priority: r.priority||'medium', createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
+  },
 
   // Pull everything from Supabase into state
   async pull() {
-    const [projects, entries, payments] = await Promise.all([
+    const [projects, entries, payments, boardTasks] = await Promise.all([
       sb.req('GET', 'projects?order=created_at.asc'),
       sb.req('GET', 'time_entries?order=created_at.desc'),
-      sb.req('GET', 'payments?order=created_at.desc')
+      sb.req('GET', 'payments?order=created_at.desc'),
+      sb.req('GET', 'board_tasks?order=position.asc')
     ]);
     if (projects !== null) state.projects = projects.map(sb.rowToProject);
     if (entries  !== null) state.entries  = entries.map(sb.rowToEntry);
     if (payments !== null) state.payments = payments.map(sb.rowToPayment);
+    if (boardTasks !== null) state.boardTasks = boardTasks.map(sb.rowToBoardTask);
     save(); // mirror to localStorage
   },
 
@@ -867,18 +1026,21 @@ const sb = {
   async upsertProject(p)  { return await sb.req('POST', 'projects',     sb.projectToRow(p)); },
   async upsertEntry(e)    { return await sb.req('POST', 'time_entries', sb.entryToRow(e)); },
   async upsertPayment(p)  { return await sb.req('POST', 'payments',     sb.paymentToRow(p)); },
+  async upsertBoardTask(t){ return await sb.req('POST', 'board_tasks',  sb.boardTaskToRow(t)); },
 
   // Delete single records
   async deleteProject(id) { return await sb.req('DELETE', `projects?id=eq.${id}`); },
   async deleteEntry(id)   { return await sb.req('DELETE', `time_entries?id=eq.${id}`); },
   async deletePayment(id) { return await sb.req('DELETE', `payments?id=eq.${id}`); },
+  async deleteBoardTask(id){ return await sb.req('DELETE', `board_tasks?id=eq.${id}`); },
 
   // Push all local data to Supabase (migration)
   async pushAll() {
     const results = await Promise.all([
       ...state.projects.map(p => sb.upsertProject(p)),
       ...state.entries.map(e  => sb.upsertEntry(e)),
-      ...state.payments.map(p => sb.upsertPayment(p))
+      ...state.payments.map(p => sb.upsertPayment(p)),
+      ...state.boardTasks.map(t => sb.upsertBoardTask(t))
     ]);
     return results.every(r => r !== null);
   },
@@ -914,9 +1076,19 @@ function calcEntryAmount(projectId, hours) {
   const p = getProject(projectId);
   return (p?.rate || 0) * hours;
 }
+function calcTimerLiveEarned() {
+  const p = getProject(state.timer.projectId);
+  if (!p?.rate) return 0;
+  return p.rate * getTimerElapsedHours();
+}
+function fmtTimerEarnedUI() {
+  const amount = calcTimerLiveEarned();
+  if (amount <= 0) return '';
+  return `+ ${fmtMoneyLive(amount)}`;
+}
 function normalizeTimer(timer) {
   return Object.assign({
-    running: false, startTime: null, projectId: null, task: '',
+    running: false, startTime: null, projectId: null, task: '', taskId: null,
     paused: false, pausedMs: 0, pauseStart: null
   }, timer || {});
 }
@@ -937,8 +1109,17 @@ function resetTimerState() {
 
 // ─── TIMER ───────────────────────────────────────────────────────────────
 let timerInterval = null;
-function startTimer(projectId, task) {
-  state.timer = normalizeTimer({ running: true, startTime: Date.now(), projectId, task });
+function startTimer(projectId, task, taskId) {
+  if (taskId) {
+    const bt = getBoardTask(taskId);
+    if (bt && bt.status === 'todo') {
+      bt.status = 'in_progress';
+      bt.updatedAt = Date.now();
+      save();
+      if (sb.isEnabled()) sb.upsertBoardTask(bt);
+    }
+  }
+  state.timer = normalizeTimer({ running: true, startTime: Date.now(), projectId, task, taskId: taskId || null });
   save();
   startTimerTick();
   updateTimerUI();
@@ -1019,6 +1200,7 @@ function confirmStopTimer() {
   const startMs = endMs - getTimerElapsedMs();
   const entry = {
     id: uid(), projectId: state.timer.projectId, task: state.timer.task,
+    taskId: state.timer.taskId || null,
     date: new Date().toISOString().slice(0, 10),
     hours: billH,
     start: new Date(startMs).toTimeString().slice(0, 5),
@@ -1040,6 +1222,7 @@ function confirmStopTimer() {
 }
 function updateTimerUI() {
   const disp = document.getElementById('sidebar-timer');
+  const earned = document.getElementById('sidebar-timer-earned');
   const proj = document.getElementById('sidebar-timer-project');
   const startBtn = document.getElementById('sidebar-start-btn');
   const pauseBtn = document.getElementById('sidebar-pause-btn');
@@ -1050,21 +1233,29 @@ function updateTimerUI() {
   const ts = `${pad(h)}:${pad(m)}:${pad(s)}`;
   const isActive = state.timer.running;
   const isPaused = isActive && state.timer.paused;
+  const earnedText = isActive ? fmtTimerEarnedUI() : '';
 
   if (disp) {
     if (isActive) {
       disp.textContent = ts;
       disp.style.color = isPaused ? 'var(--amber)' : 'var(--accent2)';
-      if (proj) proj.textContent = (isPaused ? '⏸ Пауза · ' : '') + (state.timer.task || 'Идёт запись...');
+      if (earned) {
+        earned.textContent = earnedText;
+        earned.style.color = isPaused ? 'var(--amber)' : 'var(--green)';
+      }
+      if (proj) proj.textContent = (isPaused ? 'Пауза · ' : '') + (state.timer.task || 'Идёт запись...');
       if (startBtn) startBtn.classList.add('hidden');
       if (pauseBtn) {
         pauseBtn.classList.remove('hidden');
-        pauseBtn.textContent = isPaused ? '▶' : '⏸';
+        pauseBtn.innerHTML = isPaused
+          ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+          : '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
       }
       if (stopBtn) stopBtn.classList.remove('hidden');
     } else {
       disp.textContent = '00:00:00';
       disp.style.color = 'var(--accent2)';
+      if (earned) earned.textContent = '';
       if (proj) proj.textContent = 'Нет активной задачи';
       if (startBtn) startBtn.classList.remove('hidden');
       if (pauseBtn) pauseBtn.classList.add('hidden');
@@ -1072,12 +1263,17 @@ function updateTimerUI() {
     }
   }
 
-  ['dash-timer-display', 'dash-timer-billable'].forEach(id => {
+  ['dash-timer-display', 'dash-timer-earned', 'dash-timer-billable'].forEach(id => {
     const el = document.getElementById(id);
     if (!el || !isActive) return;
     if (id === 'dash-timer-display') {
       el.textContent = ts;
       el.style.color = isPaused ? 'var(--amber)' : '#fff';
+    }
+    if (id === 'dash-timer-earned') {
+      el.textContent = earnedText;
+      el.style.color = isPaused ? '#fbbf24' : '#4ade80';
+      el.style.display = earnedText ? 'block' : 'none';
     }
     if (id === 'dash-timer-billable') {
       const billH = roundBillableHours(getTimerElapsedHours());
@@ -1097,22 +1293,23 @@ function openQuickTimer() {
 }
 
 // ─── PAGES ───────────────────────────────────────────────────────────────
-const pageTitles = { dashboard: 'Дашборд', projects: 'Проекты', timelog: 'Записи времени', reports: 'Отчёты', payments: 'Оплата', settings: 'Настройки' };
+const pageTitles = { dashboard: 'Дашборд', analytics: 'Аналитика', projects: 'Проекты', board: 'Kanban', timelog: 'Записи времени', reports: 'Отчёты', payments: 'Оплата', settings: 'Настройки' };
 function showPage(page) {
   state.currentPage = page;
-  document.querySelectorAll('.nav-item').forEach((el,i) => {
-    const pages = ['dashboard','projects','timelog','reports','payments','settings'];
-    el.classList.toggle('active', pages[i] === page);
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
   });
-  document.getElementById('topbar-title').textContent = pageTitles[page];
+  document.getElementById('topbar-title').textContent = pageTitles[page] || page;
   closeSidebar();
   renderPage();
 }
 function renderPage() {
   const el = document.getElementById('main-content');
-  const pages = { dashboard: renderDashboard, projects: renderProjects, timelog: renderTimelog, reports: renderReports, payments: renderPayments, settings: renderSettings };
+  const pages = { dashboard: renderDashboard, analytics: renderAnalytics, projects: renderProjects, board: renderBoard, timelog: renderTimelog, reports: renderReports, payments: renderPayments, settings: renderSettings };
   el.innerHTML = (pages[state.currentPage] || renderDashboard)();
   bindPageEvents();
+  if (state.currentPage === 'settings') updateRatePreview();
+  if (state.timer.running) updateTimerUI();
 }
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────
@@ -1141,7 +1338,7 @@ function renderDashboard() {
   // Running state panel
   const timerPanel = isRunning ? `
     <div id="dash-timer-running" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px">
-      <div style="background:var(--accent3);padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="background:linear-gradient(135deg,var(--accent3),var(--accent));padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:10px;height:10px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.3);animation:pulse 1.5s infinite"></div>
           <div>
@@ -1151,6 +1348,7 @@ function renderDashboard() {
         </div>
         <div style="text-align:right">
           <div id="dash-timer-display" style="font-size:32px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.03em">00:00:00</div>
+          <div id="dash-timer-earned" style="font-size:16px;font-weight:700;color:#4ade80;margin-top:4px;font-variant-numeric:tabular-nums"></div>
           <div id="dash-timer-billable" style="font-size:13px;color:rgba(255,255,255,.85);margin-top:4px;font-weight:600"></div>
           <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px">${runningProject ? escHtml(runningProject.name) : ''}</div>
         </div>
@@ -1159,8 +1357,9 @@ function renderDashboard() {
         <div style="flex:1;font-size:13px;color:var(--text2);min-width:140px">
           Начато в ${new Date(state.timer.startTime).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})} · ${dateStr}
         </div>
-        <button onclick="togglePauseTimer()" style="padding:9px 16px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius2);font-size:14px;font-weight:600;cursor:pointer">
-          ${state.timer.paused ? '▶ Продолжить' : '⏸ Пауза'}
+        <button onclick="togglePauseTimer()" style="padding:9px 16px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius2);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">${state.timer.paused ? '<polygon points="5 3 19 12 5 21 5 3"/>' : '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'}</svg>
+          ${state.timer.paused ? 'Продолжить' : 'Пауза'}
         </button>
         <button onclick="stopTimer()" style="padding:9px 20px;background:var(--red);color:#fff;border:none;border-radius:var(--radius2);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
@@ -1174,7 +1373,7 @@ function renderDashboard() {
           <div style="font-size:16px;font-weight:700">Начать запись времени</div>
           <div style="font-size:13px;color:var(--text2);margin-top:2px">${dateStr} · ${timeStr}</div>
         </div>
-        ${activeProjects.length===0 ? `<div style="font-size:12px;color:var(--amber)">⚠ Нет активных проектов — <span style="cursor:pointer;color:var(--accent2)" onclick="showPage('projects')">создать</span></div>` : ''}
+        ${activeProjects.length===0 ? `<div style="font-size:12px;color:var(--amber);display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Нет активных проектов — <span style="cursor:pointer;color:var(--accent)" onclick="showPage('projects')">создать</span></div>` : ''}
       </div>
 
       <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
@@ -1182,9 +1381,17 @@ function renderDashboard() {
           <div style="font-size:11px;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Проект</div>
           <select id="dash-project" class="form-select" onchange="dashProjectChanged()" style="font-size:14px">
             <option value="">— Выберите проект</option>
-            ${activeProjects.map(p=>`<option value="${p.id}" style="color:${p.color||'#6c63ff'}">${escHtml(p.name)}${p.client?' · '+escHtml(p.client):''}</option>`).join('')}
+            ${activeProjects.map(p=>`<option value="${p.id}" style="color:${p.color||'#059669'}">${escHtml(p.name)}${p.client?' · '+escHtml(p.client):''}</option>`).join('')}
           </select>
         </div>
+      </div>
+
+      <div id="dash-board-task-wrap" style="display:none;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Задача из Kanban</div>
+        <select id="dash-board-task" class="form-select" onchange="dashBoardTaskSelected()" style="font-size:14px">
+          <option value="">— Новая задача (ввести текст ниже)</option>
+        </select>
+        <input type="hidden" id="dash-task-id" value="">
       </div>
 
       <div style="margin-bottom:12px">
@@ -1192,20 +1399,20 @@ function renderDashboard() {
         <div style="display:flex;gap:8px;align-items:flex-start">
           <textarea id="dash-task" class="form-textarea" placeholder="Опишите задачу своими словами..." style="min-height:70px;font-size:14px;flex:1;resize:none" oninput="dashTaskChanged()"></textarea>
           ${aiAvail ? `
-          <button id="dash-ai-btn" onclick="dashAIPolish()" title="✨ Улучшить описание через AI"
-            style="width:42px;height:42px;border-radius:var(--radius2);background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.3);color:var(--accent2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"
-            onmouseenter="this.style.background='rgba(108,99,255,.25)'" onmouseleave="this.style.background='rgba(108,99,255,.12)'"
+          <button id="dash-ai-btn" onclick="dashAIPolish()" title="Улучшить описание через AI"
+            style="width:42px;height:42px;border-radius:var(--radius2);background:var(--accent-light);border:1px solid var(--accent-border);color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"
+            onmouseenter="this.style.background='rgba(5,150,105,.16)'" onmouseleave="this.style.background='var(--accent-light)'"
             disabled>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
             </svg>
           </button>` : ''}
         </div>
-        ${aiAvail ? `<div id="dash-ai-hint" style="font-size:11px;color:var(--text2);margin-top:4px;opacity:0.6">✨ Напишите задачу → нажмите звёздочку → AI сформулирует профессионально</div>` : `<div style="font-size:11px;color:var(--text2);margin-top:4px;opacity:0.6">💡 Включите OpenRouter в настройках для AI-формулировки</div>`}
+        ${aiAvail ? `<div id="dash-ai-hint" style="font-size:11px;color:var(--text2);margin-top:4px;opacity:0.7">Напишите задачу → нажмите звёздочку → AI сформулирует профессионально</div>` : `<div style="font-size:11px;color:var(--text2);margin-top:4px;opacity:0.7;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Включите OpenRouter в настройках для AI-формулировки</div>`}
       </div>
 
-      <div id="dash-ai-preview" style="display:none;margin-bottom:12px;padding:12px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.25);border-radius:var(--radius2)">
-        <div style="font-size:11px;color:var(--accent2);margin-bottom:6px;font-weight:600">✨ AI сформулировал</div>
+      <div id="dash-ai-preview" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)">
+        <div style="font-size:11px;color:var(--accent);margin-bottom:6px;font-weight:600;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg> AI сформулировал</div>
         <div id="dash-ai-text" style="font-size:14px;color:var(--text);line-height:1.5"></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button onclick="dashApplyAI()" style="padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer">Применить</button>
@@ -1213,9 +1420,7 @@ function renderDashboard() {
         </div>
       </div>
 
-      <button id="dash-start-btn" onclick="dashStartTimer()"
-        style="width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;opacity:.5;transition:all .15s"
-        disabled>
+      <button id="dash-start-btn" class="btn-start-main btn-start-animated" onclick="dashStartTimer()" disabled>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Запустить таймер
       </button>
@@ -1260,11 +1465,49 @@ function renderDashboard() {
 
 // ─── DASHBOARD TIMER LOGIC ────────────────────────────────────────────────
 function dashProjectChanged() {
+  const projectId = document.getElementById('dash-project')?.value || '';
+  const wrap = document.getElementById('dash-board-task-wrap');
+  const select = document.getElementById('dash-board-task');
+  const taskIdEl = document.getElementById('dash-task-id');
+  const taskEl = document.getElementById('dash-task');
+  if (taskIdEl) taskIdEl.value = '';
+  if (select) {
+    select.innerHTML = '<option value="">— Новая задача (ввести текст ниже)</option>';
+    if (projectId) {
+      const tasks = getProjectBoardTasks(projectId).filter(t => t.status !== 'done');
+      tasks.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.title + (t.status === 'in_progress' ? ' (в работе)' : '');
+        select.appendChild(opt);
+      });
+    }
+    select.value = '';
+  }
+  if (wrap) wrap.style.display = projectId && select && select.options.length > 1 ? 'block' : 'none';
+  if (taskEl && select?.value) taskEl.value = '';
+  checkDashReady();
+}
+function dashBoardTaskSelected() {
+  const taskId = document.getElementById('dash-board-task')?.value || '';
+  const taskIdEl = document.getElementById('dash-task-id');
+  const taskEl = document.getElementById('dash-task');
+  if (taskIdEl) taskIdEl.value = taskId;
+  if (taskId) {
+    const t = getBoardTask(taskId);
+    if (t && taskEl) taskEl.value = t.title;
+  }
   checkDashReady();
 }
 function dashTaskChanged() {
   const task = document.getElementById('dash-task')?.value.trim();
   const aiBtn = document.getElementById('dash-ai-btn');
+  const select = document.getElementById('dash-board-task');
+  const taskIdEl = document.getElementById('dash-task-id');
+  if (select?.value && task !== getBoardTask(select.value)?.title) {
+    select.value = '';
+    if (taskIdEl) taskIdEl.value = '';
+  }
   if (aiBtn) aiBtn.disabled = !task;
   checkDashReady();
 }
@@ -1275,8 +1518,7 @@ function checkDashReady() {
   if (!btn) return;
   const ready = proj && task;
   btn.disabled = !ready;
-  btn.style.opacity = ready ? '1' : '.5';
-  btn.style.cursor = ready ? 'pointer' : 'default';
+  btn.classList.toggle('btn-start-animated', ready);
 }
 async function dashAIPolish() {
   const task = document.getElementById('dash-task')?.value.trim();
@@ -1329,16 +1571,21 @@ function dashDiscardAI() {
 function dashStartTimer() {
   const projectId = document.getElementById('dash-project')?.value;
   const task = document.getElementById('dash-task')?.value.trim();
+  const taskId = document.getElementById('dash-task-id')?.value || null;
   if (!projectId) { showToast('Выберите проект', 'error'); return; }
   if (!task) { showToast('Введите задачу', 'error'); return; }
-  startTimer(projectId, task);
+  if (taskId) {
+    const bt = getBoardTask(taskId);
+    if (!bt || bt.projectId !== projectId) { showToast('Задача не принадлежит выбранному проекту', 'error'); return; }
+  }
+  startTimer(projectId, task, taskId);
   renderPage();
-  showToast('▶ Таймер запущен', 'success');
+  showToast('Таймер запущен', 'success');
 }
 
 function entryItem(e) {
   const p = getProject(e.projectId);
-  const color = p?.color || '#6c63ff';
+  const color = p?.color || '#059669';
   const aiAvail = state.settings.openrouter.enabled && state.settings.openrouter.apiKey;
   const amount = calcEntryAmount(e.projectId, e.hours);
   return `<div class="entry-item">
@@ -1352,7 +1599,7 @@ function entryItem(e) {
       ${amount > 0 ? `<div class="text-xs text-green" style="margin-top:2px">${fmtMoney(amount)}</div>` : ''}
     </div>
     <div class="entry-actions">
-      ${aiAvail ? `<button class="btn-icon" onclick="aiPolishEntry('${e.id}')" title="✨ Улучшить через AI" style="color:#8b85ff">
+      ${aiAvail ? `<button class="btn-icon" onclick="aiPolishEntry('${e.id}')" title="Улучшить через AI" style="color:var(--accent)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
       </button>` : ''}
       <button class="btn-icon" onclick="editEntry('${e.id}')" title="Редактировать">
@@ -1368,7 +1615,7 @@ function entryItem(e) {
 function projectCard(p) {
   const hrs = sum(state.entries.filter(e=>e.projectId===p.id).map(e=>e.hours));
   const earned = hrs * (p.rate || 0);
-  return `<div class="card-sm mb8" style="border-left:3px solid ${p.color||'#6c63ff'}">
+  return `<div class="card-sm mb8" style="border-left:3px solid ${p.color||'#059669'}">
     <div class="flex items-center justify-between mb4">
       <div style="font-weight:600;font-size:14px;color:var(--text)">${escHtml(p.name)}</div>
       <div style="font-size:13px;color:var(--accent2);font-weight:600">${fmtHours(hrs)}</div>
@@ -1390,21 +1637,23 @@ function renderProjects() {
       Новый проект
     </button>
   </div>
-  ${state.projects.length === 0 ? `<div class="empty"><div class="empty-icon">📁</div><h3>Нет проектов</h3><p>Создайте первый проект чтобы начать учёт времени</p></div>` :
+  ${state.projects.length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v4H3zM3 10h11v4H3zM3 17h8v4H3z"/></svg></div><h3>Нет проектов</h3><p>Создайте первый проект чтобы начать учёт времени</p></div>` :
     `<div class="grid2">${state.projects.map(p => renderProjectFull(p)).join('')}</div>`}
   `;
 }
 
 function renderProjectFull(p) {
   const entries = state.entries.filter(e => e.projectId === p.id);
+  const projectTasks = getProjectBoardTasks(p.id);
   const hrs = sum(entries.map(e=>e.hours));
   const earned = hrs * (p.rate || 0);
   const statusMap = { active: ['badge-green','Активный'], paused: ['badge-amber','Пауза'], done: ['badge-gray','Завершён'] };
   const [badgeClass, statusLabel] = statusMap[p.status] || statusMap.active;
   const paidAmount = sum(state.payments.filter(pay=>pay.projectId===p.id).map(pay=>pay.amount));
   const unpaid = Math.max(0, earned - paidAmount);
+  const tasksInProgress = projectTasks.filter(t => t.status === 'in_progress').length;
 
-  return `<div class="card" style="border-top:3px solid ${p.color||'#6c63ff'}">
+  return `<div class="card" style="border-top:3px solid ${p.color||'#059669'}">
     <div class="flex items-center justify-between mb8">
       <div style="font-size:16px;font-weight:700">${escHtml(p.name)}</div>
       <span class="badge ${badgeClass}">${statusLabel}</span>
@@ -1418,9 +1667,12 @@ function renderProjectFull(p) {
       <div><div class="text-xs text-muted">Заработано</div><div style="font-size:16px;font-weight:600;color:var(--green)">${p.rate ? fmtMoney(earned) : '—'}</div></div>
       <div><div class="text-xs text-muted">Не оплачено</div><div style="font-size:16px;font-weight:600;color:var(--amber)">${p.rate ? fmtMoney(unpaid) : '—'}</div></div>
     </div>
-    <div class="text-xs text-muted mb8">${entries.length} записей</div>
+    <div class="text-xs text-muted mb8">${entries.length} записей · ${projectTasks.length} задач${tasksInProgress ? ` · ${tasksInProgress} в работе` : ''}</div>
     <div class="flex gap8">
       <button class="btn btn-ghost btn-sm flex-1" onclick="editProject('${p.id}')">Редактировать</button>
+      <button class="btn btn-ghost btn-sm" onclick="showBoardForProject('${p.id}')" title="Задачи Kanban">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="filterByProject('${p.id}')" title="Записи">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       </button>
@@ -1429,6 +1681,366 @@ function renderProjectFull(p) {
       </button>
     </div>
   </div>`;
+}
+
+// ─── KANBAN BOARD ─────────────────────────────────────────────────────────
+const BOARD_COLUMNS = [
+  { id: 'todo', label: 'К выполнению', badge: 'badge-gray' },
+  { id: 'in_progress', label: 'В работе', badge: 'badge-amber' },
+  { id: 'done', label: 'Готово', badge: 'badge-green' }
+];
+const BOARD_STATUS_LABELS = { todo: 'К выполнению', in_progress: 'В работе', done: 'Готово' };
+const BOARD_PRIORITY_LABELS = { low: 'Низкий', medium: 'Средний', high: 'Высокий' };
+const BOARD_PRIORITY_COLORS = { low: 'var(--text3)', medium: 'var(--amber)', high: 'var(--red)' };
+
+let boardViewMode = 'kanban';
+let boardFilterProject = '';
+let boardFilterStatus = '';
+let boardDragTaskId = null;
+
+function getBoardTask(id) { return state.boardTasks.find(t => t.id === id); }
+function getProjectBoardTasks(projectId, status) {
+  let tasks = state.boardTasks.filter(t => t.projectId === projectId);
+  if (status) tasks = tasks.filter(t => t.status === status);
+  return tasks.sort((a, b) => (a.position - b.position) || (b.updatedAt - a.updatedAt));
+}
+function getTaskHours(taskId) {
+  return sum(state.entries.filter(e => e.taskId === taskId).map(e => e.hours));
+}
+function ensureBoardProject() {
+  if (boardFilterProject && getProject(boardFilterProject)) return boardFilterProject;
+  const active = state.projects.filter(p => p.status !== 'done');
+  if (active.length) boardFilterProject = active[0].id;
+  return boardFilterProject;
+}
+function getBoardTasksFiltered() {
+  const projectId = ensureBoardProject();
+  if (!projectId) return [];
+  let tasks = getProjectBoardTasks(projectId);
+  if (boardFilterStatus) tasks = tasks.filter(t => t.status === boardFilterStatus);
+  return tasks;
+}
+function getNextBoardPosition(status, projectId) {
+  const inCol = state.boardTasks.filter(t => t.status === status && t.projectId === projectId);
+  return inCol.length ? Math.max(...inCol.map(t => t.position || 0)) + 1 : 0;
+}
+function showBoardForProject(projectId) {
+  boardFilterProject = projectId;
+  boardFilterStatus = '';
+  showPage('board');
+}
+
+function renderBoardCard(t, showProject) {
+  const p = getProject(t.projectId);
+  const hours = getTaskHours(t.id);
+  const isActive = state.timer.running && state.timer.taskId === t.id;
+  const priColor = BOARD_PRIORITY_COLORS[t.priority] || BOARD_PRIORITY_COLORS.medium;
+  const borderColor = p?.color || '#059669';
+  return `<div class="board-card${isActive ? ' active-timer' : ''}" draggable="true"
+    data-task-id="${t.id}" data-status="${t.status}"
+    style="border-left:3px solid ${borderColor}"
+    ondragstart="boardDragStart(event,'${t.id}')" ondragend="boardDragEnd(event)">
+    <div class="board-card-title">${escHtml(t.title)}</div>
+    <div class="board-card-meta">
+      ${showProject && p ? `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:${borderColor}"></span>${escHtml(p.name)}</span>` : ''}
+      <span><span class="priority-dot" style="background:${priColor}"></span> ${BOARD_PRIORITY_LABELS[t.priority]||'Средний'}</span>
+      ${hours > 0 ? `<span style="color:var(--accent2);font-weight:600">${fmtHours(hours)}</span>` : ''}
+      ${isActive ? '<span class="badge badge-emerald">● Таймер</span>' : ''}
+    </div>
+    ${t.desc ? `<div class="text-xs text-muted mb8" style="line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escHtml(t.desc)}</div>` : ''}
+    <div class="board-card-actions">
+      ${!isActive ? `<button class="btn-timer-card" onclick="startBoardTimer('${t.id}')">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Старт
+      </button>` : `<button class="btn-timer-card" onclick="stopTimer()" style="background:#fef2f2;color:var(--red);border-color:#fecaca">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        Стоп
+      </button>`}
+      <button class="btn-icon btn-sm" onclick="editBoardTask('${t.id}')" title="Редактировать">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="btn-icon btn-sm" onclick="deleteBoardTask('${t.id}')" title="Удалить" style="color:var(--red)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+function renderBoardKanban(tasks) {
+  return `<div class="board-columns">
+    ${BOARD_COLUMNS.map(col => {
+      const colTasks = tasks.filter(t => t.status === col.id).sort((a, b) => (a.position - b.position) || (b.updatedAt - a.updatedAt));
+      const colHours = sum(colTasks.map(t => getTaskHours(t.id)));
+      return `<div class="board-column">
+        <div class="board-column-head">
+          <div class="flex items-center gap8">
+            <span class="board-column-title">${col.label}</span>
+            <span class="badge ${col.badge}">${colTasks.length}</span>
+          </div>
+          ${colHours > 0 ? `<span class="text-xs text-muted">${fmtHours(colHours)}</span>` : ''}
+        </div>
+        <div class="board-column-body" data-status="${col.id}"
+          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="boardDrop(event,'${col.id}')">
+          ${colTasks.length ? colTasks.map(t => renderBoardCard(t, false)).join('') : `<div class="text-xs text-muted" style="padding:20px 8px;text-align:center">Перетащите задачу сюда</div>`}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderBoardTable(tasks) {
+  if (!tasks.length) return `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg></div><h3>Нет задач</h3><p>Создайте задачу или измените фильтры</p></div>`;
+  const totalH = sum(tasks.map(t => getTaskHours(t.id)));
+  return `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Задача</th><th>Статус</th><th>Приоритет</th><th>Время</th><th>Обновлено</th><th></th>
+    </tr></thead>
+    <tbody>${tasks.map(t => {
+      const hours = getTaskHours(t.id);
+      const isActive = state.timer.running && state.timer.taskId === t.id;
+      const statusBadge = t.status === 'done' ? 'badge-green' : t.status === 'in_progress' ? 'badge-amber' : 'badge-gray';
+      return `<tr${isActive ? ' style="background:var(--accent-light)"' : ''}>
+        <td>
+          <div style="font-weight:600">${escHtml(t.title)}</div>
+          ${t.desc ? `<div class="text-xs text-muted mt4">${escHtml(t.desc)}</div>` : ''}
+          ${isActive ? '<span class="badge badge-emerald mt4">● Таймер активен</span>' : ''}
+        </td>
+        <td><span class="badge ${statusBadge}">${BOARD_STATUS_LABELS[t.status]||t.status}</span></td>
+        <td><span style="color:${BOARD_PRIORITY_COLORS[t.priority]||'var(--text2)'}">${BOARD_PRIORITY_LABELS[t.priority]||'—'}</span></td>
+        <td style="font-weight:600;color:var(--accent2);white-space:nowrap">${hours > 0 ? fmtHours(hours) : '—'}</td>
+        <td class="text-sm text-muted" style="white-space:nowrap">${fmtDate(new Date(t.updatedAt).toISOString().slice(0,10))}</td>
+        <td><div class="flex gap4">
+          ${!isActive ? `<button class="btn btn-success btn-sm" onclick="startBoardTimer('${t.id}')" title="Запустить таймер">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>` : `<button class="btn btn-danger btn-sm" onclick="stopTimer()" title="Остановить">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+          </button>`}
+          <button class="btn-icon" onclick="editBoardTask('${t.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="btn-icon" onclick="deleteBoardTask('${t.id}')" style="color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody>
+    <tfoot><tr>
+      <td colspan="3" style="font-weight:600;text-align:right">Итого:</td>
+      <td style="font-weight:700;color:var(--accent2)">${fmtHours(totalH)}</td>
+      <td colspan="2"></td>
+    </tr></tfoot>
+  </table></div>`;
+}
+
+function renderBoard() {
+  ensureBoardProject();
+  const project = getProject(boardFilterProject);
+  const projectTasks = boardFilterProject ? getProjectBoardTasks(boardFilterProject) : [];
+  const tasks = getBoardTasksFiltered();
+  const totalH = sum(projectTasks.map(t => getTaskHours(t.id)));
+  const inProgress = projectTasks.filter(t => t.status === 'in_progress').length;
+  const done = projectTasks.filter(t => t.status === 'done').length;
+
+  return `
+  <div class="page-header">
+    <div>
+      <div class="page-title">${project ? `<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:${project.color||'#059669'}"></span>${escHtml(project.name)}</span>` : 'Kanban'}</div>
+      <div class="page-sub">${project ? (project.client ? escHtml(project.client) + ' · ' : '') : ''}${projectTasks.length} задач · ${fmtHours(totalH)} залогировано · ${inProgress} в работе · ${done} готово</div>
+    </div>
+    <div class="flex items-center gap8">
+      <div class="board-view-toggle">
+        <button class="board-view-btn${boardViewMode==='kanban'?' active':''}" onclick="setBoardView('kanban')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+          Доска
+        </button>
+        <button class="board-view-btn${boardViewMode==='table'?' active':''}" onclick="setBoardView('table')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Таблица
+        </button>
+      </div>
+      <button class="btn btn-primary" onclick="openBoardTaskModal()" ${!project ? 'disabled' : ''}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Новая задача
+      </button>
+    </div>
+  </div>
+
+  <div class="card mb16" style="padding:14px 16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:180px">
+        <div class="text-xs text-muted mb4">Проект *</div>
+        <select class="form-select" id="board-filter-project" onchange="applyBoardFilter()" style="padding:7px 10px" required>
+          <option value="" disabled ${!boardFilterProject?'selected':''}>— Выберите проект —</option>
+          ${state.projects.map(p=>`<option value="${p.id}" ${boardFilterProject===p.id?'selected':''}>${escHtml(p.name)}${p.client?' · '+escHtml(p.client):''}</option>`).join('')}
+        </select>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div class="text-xs text-muted mb4">Статус</div>
+        <select class="form-select" id="board-filter-status" onchange="applyBoardFilter()" style="padding:7px 10px">
+          <option value="">Все статусы</option>
+          ${BOARD_COLUMNS.map(c=>`<option value="${c.id}" ${boardFilterStatus===c.id?'selected':''}>${c.label}</option>`).join('')}
+        </select>
+      </div>
+      ${boardFilterStatus ? `<button class="btn btn-ghost btn-sm" onclick="clearBoardStatusFilter()">Сбросить статус</button>` : ''}
+    </div>
+  </div>
+
+  ${state.projects.length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v4H3zM3 10h11v4H3zM3 17h8v4H3z"/></svg></div><h3>Сначала создайте проект</h3><p>Каждая задача Kanban привязана к конкретному проекту</p><button class="btn btn-primary mt12" onclick="showPage('projects')">Перейти к проектам</button></div>` :
+    (!project ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h18v4H3zM3 10h11v4H3zM3 17h8v4H3z"/></svg></div><h3>Выберите проект</h3><p>Задачи отображаются в контексте выбранного проекта</p></div>` :
+      (projectTasks.length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg></div><h3>Нет задач в проекте «${escHtml(project.name)}»</h3><p>Создайте задачу — она будет привязана к этому проекту</p><button class="btn btn-primary mt12" onclick="openBoardTaskModal()">+ Новая задача</button></div>` :
+        (tasks.length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><h3>Нет задач с таким статусом</h3><p>Измените фильтр статуса или создайте новую задачу</p><button class="btn btn-ghost mt12" onclick="clearBoardStatusFilter()">Показать все статусы</button></div>` :
+          (boardViewMode === 'kanban' ? renderBoardKanban(tasks) : renderBoardTable(tasks))
+        )
+      )
+    )
+  }
+  `;
+}
+
+function setBoardView(mode) { boardViewMode = mode; renderPage(); }
+function applyBoardFilter() {
+  boardFilterProject = document.getElementById('board-filter-project')?.value || '';
+  boardFilterStatus = document.getElementById('board-filter-status')?.value || '';
+  renderPage();
+}
+function clearBoardStatusFilter() { boardFilterStatus = ''; renderPage(); }
+
+function openBoardTaskModal(taskId) {
+  if (!taskId && !ensureBoardProject()) {
+    showToast('Сначала выберите проект', 'error');
+    return;
+  }
+  populateBoardTaskSelects();
+  const projectLocked = !!boardFilterProject && !taskId;
+  document.getElementById('board-task-edit-id').value = taskId || '';
+  const projectEl = document.getElementById('board-task-project');
+  if (projectEl) projectEl.disabled = projectLocked;
+  if (taskId) {
+    const t = getBoardTask(taskId);
+    if (!t) return;
+    document.getElementById('board-task-modal-title').textContent = 'Редактировать задачу';
+    projectEl.value = t.projectId;
+    document.getElementById('board-task-title').value = t.title;
+    document.getElementById('board-task-desc').value = t.desc || '';
+    document.getElementById('board-task-status').value = t.status;
+    document.getElementById('board-task-priority').value = t.priority || 'medium';
+  } else {
+    document.getElementById('board-task-modal-title').textContent = 'Новая задача';
+    projectEl.value = boardFilterProject;
+    document.getElementById('board-task-title').value = '';
+    document.getElementById('board-task-desc').value = '';
+    document.getElementById('board-task-status').value = 'todo';
+    document.getElementById('board-task-priority').value = 'medium';
+  }
+  openModal('modal-board-task');
+}
+
+function populateBoardTaskSelects() {
+  const el = document.getElementById('board-task-project');
+  if (!el) return;
+  const val = el.value;
+  el.innerHTML = '<option value="">Выберите проект</option>' +
+    state.projects.filter(p => p.status !== 'done').map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+  el.value = val;
+}
+
+function saveBoardTask() {
+  const title = document.getElementById('board-task-title').value.trim();
+  let projectId = document.getElementById('board-task-project').value;
+  const editId = document.getElementById('board-task-edit-id').value;
+  if (!editId && boardFilterProject) projectId = boardFilterProject;
+  if (!projectId || !getProject(projectId)) { showToast('Выберите проект', 'error'); return; }
+  if (!title) { showToast('Введите название задачи', 'error'); return; }
+  const status = document.getElementById('board-task-status').value;
+  const task = {
+    id: editId || uid(),
+    projectId,
+    title,
+    desc: document.getElementById('board-task-desc').value.trim(),
+    status,
+    position: editId ? (getBoardTask(editId)?.position ?? 0) : getNextBoardPosition(status, projectId),
+    priority: document.getElementById('board-task-priority').value,
+    createdAt: editId ? (getBoardTask(editId)?.createdAt || Date.now()) : Date.now(),
+    updatedAt: Date.now()
+  };
+  if (editId) {
+    const idx = state.boardTasks.findIndex(t => t.id === editId);
+    if (idx >= 0) state.boardTasks[idx] = task;
+  } else {
+    state.boardTasks.push(task);
+  }
+  save();
+  if (sb.isEnabled()) sb.upsertBoardTask(task);
+  const projectEl = document.getElementById('board-task-project');
+  if (projectEl) projectEl.disabled = false;
+  closeModal('modal-board-task');
+  showToast(editId ? 'Задача обновлена' : 'Задача создана', 'success');
+  renderPage();
+}
+
+function editBoardTask(id) { openBoardTaskModal(id); }
+
+function deleteBoardTask(id) {
+  const t = getBoardTask(id);
+  if (!t) return;
+  const linked = state.entries.filter(e => e.taskId === id).length;
+  const msg = linked ? `Удалить задачу «${t.title}»? ${linked} записей времени останутся, но потеряют привязку.` : `Удалить задачу «${t.title}»?`;
+  if (!confirm(msg)) return;
+  state.boardTasks = state.boardTasks.filter(x => x.id !== id);
+  const affectedEntries = state.entries.filter(e => e.taskId === id);
+  state.entries.forEach(e => { if (e.taskId === id) e.taskId = null; });
+  if (state.timer.taskId === id) state.timer.taskId = null;
+  save();
+  if (sb.isEnabled()) {
+    sb.deleteBoardTask(id);
+    affectedEntries.forEach(e => sb.upsertEntry(state.entries.find(x => x.id === e.id) || e));
+  }
+  renderPage();
+  showToast('Задача удалена');
+}
+
+function startBoardTimer(taskId) {
+  const t = getBoardTask(taskId);
+  if (!t) return;
+  if (state.timer.running) {
+    if (state.timer.taskId === taskId) { stopTimer(); return; }
+    if (!confirm('Остановить текущий таймер и начать новую задачу?')) return;
+    if (state.timer.paused) resumeTimer();
+    confirmStopTimer();
+  }
+  startTimer(t.projectId, t.title, t.id);
+  showToast('▶ Таймер запущен: ' + t.title, 'success');
+  renderPage();
+}
+
+function boardDragStart(e, taskId) {
+  boardDragTaskId = taskId;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', taskId);
+}
+function boardDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  boardDragTaskId = null;
+  document.querySelectorAll('.board-column-body').forEach(el => el.classList.remove('drag-over'));
+}
+function boardDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function boardDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+}
+function boardDrop(e, newStatus) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const taskId = e.dataTransfer.getData('text/plain') || boardDragTaskId;
+  if (!taskId) return;
+  const t = getBoardTask(taskId);
+  if (!t || t.status === newStatus) return;
+  t.status = newStatus;
+  t.position = getNextBoardPosition(newStatus, t.projectId);
+  t.updatedAt = Date.now();
+  save();
+  if (sb.isEnabled()) sb.upsertBoardTask(t);
+  renderPage();
 }
 
 // ─── TIMELOG ──────────────────────────────────────────────────────────────
@@ -1473,7 +2085,7 @@ function renderTimelog() {
       <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Сбросить</button>
     </div>
   </div>
-  ${days.length === 0 ? `<div class="empty"><div class="empty-icon">🕐</div><h3>Нет записей</h3><p>Добавьте запись или измените фильтры</p></div>` :
+  ${days.length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div><h3>Нет записей</h3><p>Добавьте запись или измените фильтры</p></div>` :
     days.map(date => {
       const dayEntries = grouped[date];
       const dayH = sum(dayEntries.map(e=>e.hours));
@@ -1496,6 +2108,252 @@ function applyFilter() {
 }
 function clearFilters() { filterProject=''; filterDateFrom=''; filterDateTo=''; renderPage(); }
 function filterByProject(id) { filterProject=id; showPage('timelog'); }
+
+// ─── ANALYTICS ────────────────────────────────────────────────────────────
+let analyticsFrom = '', analyticsTo = '', analyticsProject = '';
+
+function getDateRange(from, to) {
+  const dates = [];
+  const d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  while (d <= end) {
+    dates.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+function getAnalyticsEntries() {
+  let entries = state.entries.filter(e => e.date >= analyticsFrom && e.date <= analyticsTo);
+  if (analyticsProject) entries = entries.filter(e => e.projectId === analyticsProject);
+  return entries;
+}
+
+function renderAnalyticsProjectBars(byProject) {
+  const sorted = Object.entries(byProject).sort((a, b) => b[1].hours - a[1].hours);
+  if (!sorted.length) return emptyState('Нет данных', 'За выбранный период нет записей времени');
+  const maxH = sorted[0][1].hours || 1;
+  return sorted.map(([pid, data]) => {
+    const p = getProject(pid);
+    const earned = data.hours * (p?.rate || 0);
+    const pct = Math.round((data.hours / maxH) * 100);
+    const color = p?.color || '#059669';
+    return `<div class="analytics-hbar">
+      <div class="analytics-hbar-label" title="${escHtml(p?.name || 'Удалённый проект')}">${escHtml(p?.name || 'Удалённый проект')}</div>
+      <div class="analytics-hbar-track">
+        <div class="analytics-hbar-fill" style="width:${pct}%;background:${color}">
+          ${pct > 25 ? `<span class="analytics-hbar-val">${fmtHours(data.hours)}</span>` : ''}
+        </div>
+      </div>
+      <div class="analytics-hbar-meta">${pct <= 25 ? fmtHours(data.hours) : ''}${earned > 0 ? `<div class="text-green fw-6">${fmtMoney(earned)}</div>` : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderAnalyticsDailyChart(entries) {
+  const dates = getDateRange(analyticsFrom, analyticsTo);
+  if (!dates.length) return emptyState('Нет периода', 'Выберите даты');
+  const byDate = {};
+  dates.forEach(d => { byDate[d] = 0; });
+  entries.forEach(e => {
+    byDate[e.date] = (byDate[e.date] || 0) + calcEntryAmount(e.projectId, e.hours);
+  });
+  const values = dates.map(d => byDate[d]);
+  const maxVal = Math.max(...values, 1);
+  const showEvery = dates.length > 14 ? Math.ceil(dates.length / 10) : 1;
+  return `<div class="analytics-daily-chart">
+    ${dates.map((d, i) => {
+      const val = byDate[d];
+      const h = val > 0 ? Math.max(4, Math.round((val / maxVal) * 100)) : 2;
+      const dt = new Date(d + 'T00:00:00');
+      const label = dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+      const showLabel = i === 0 || i === dates.length - 1 || i % showEvery === 0;
+      return `<div class="analytics-daily-bar-wrap" title="${fmtDate(d)}: ${fmtMoney(val)}">
+        ${val > 0 ? `<div class="analytics-daily-val">${val >= 1000 ? Math.round(val / 1000) + 'к' : Math.round(val)}</div>` : '<div class="analytics-daily-val">&nbsp;</div>'}
+        <div class="analytics-daily-bar${val === 0 ? ' zero' : ''}" style="height:${h}%"></div>
+        ${showLabel ? `<div class="analytics-daily-label">${label}</div>` : '<div class="analytics-daily-label">&nbsp;</div>'}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderAnalyticsTaskStages() {
+  let tasks = state.boardTasks;
+  if (analyticsProject) tasks = tasks.filter(t => t.projectId === analyticsProject);
+  const counts = { todo: 0, in_progress: 0, done: 0 };
+  tasks.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++; });
+  const activeTasks = tasks
+    .filter(t => t.status !== 'done')
+    .sort((a, b) => {
+      const order = { in_progress: 0, todo: 1 };
+      return (order[a.status] ?? 2) - (order[b.status] ?? 2) || (b.updatedAt - a.updatedAt);
+    });
+
+  const stageCards = BOARD_COLUMNS.map(col => {
+    const num = counts[col.id] || 0;
+    const color = col.id === 'todo' ? 'var(--text2)' : col.id === 'in_progress' ? 'var(--amber)' : 'var(--green)';
+    return `<div class="analytics-stage-card" onclick="openAnalyticsBoard('${col.id}')">
+      <div class="analytics-stage-num" style="color:${color}">${num}</div>
+      <div class="analytics-stage-lbl">${col.label}</div>
+    </div>`;
+  }).join('');
+
+  const taskList = activeTasks.length === 0
+    ? emptyState('Нет активных задач', 'Все задачи завершены или ещё не созданы')
+    : activeTasks.map(t => {
+      const p = getProject(t.projectId);
+      const col = BOARD_COLUMNS.find(c => c.id === t.status);
+      const hrs = getTaskHours(t.id);
+      return `<div class="analytics-task-row">
+        <div style="width:8px;height:8px;border-radius:50%;background:${p?.color || '#059669'};flex-shrink:0"></div>
+        <div class="flex-1 truncate">
+          <div class="fw-6">${escHtml(t.title)}</div>
+          <div class="text-xs text-muted">${escHtml(p?.name || 'Проект')} · ${fmtHours(hrs)} залогировано</div>
+        </div>
+        <span class="badge ${col?.badge || 'badge-gray'}">${col?.label || t.status}</span>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showBoardForProject('${t.projectId}')">Доска</button>
+      </div>`;
+    }).join('');
+
+  return `<div class="analytics-stage-grid mb16">${stageCards}</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text2)">Задачи в работе и ожидающие (${activeTasks.length})</div>
+      ${taskList}
+    </div>`;
+}
+
+function openAnalyticsBoard(status) {
+  if (analyticsProject) boardFilterProject = analyticsProject;
+  else ensureBoardProject();
+  boardFilterStatus = status;
+  showPage('board');
+}
+
+function renderAnalytics() {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 7) + '-01';
+  if (!analyticsFrom) analyticsFrom = monthStart;
+  if (!analyticsTo) analyticsTo = today;
+
+  const entries = getAnalyticsEntries();
+  const totalH = sum(entries.map(e => e.hours));
+  const totalEarned = sum(entries.map(e => calcEntryAmount(e.projectId, e.hours)));
+  const daysWithWork = new Set(entries.map(e => e.date)).size;
+  const avgDaily = daysWithWork > 0 ? totalEarned / daysWithWork : 0;
+
+  const byProject = {};
+  entries.forEach(e => {
+    if (!byProject[e.projectId]) byProject[e.projectId] = { hours: 0, earned: 0 };
+    byProject[e.projectId].hours += e.hours;
+    byProject[e.projectId].earned += calcEntryAmount(e.projectId, e.hours);
+  });
+
+  let tasks = state.boardTasks;
+  if (analyticsProject) tasks = tasks.filter(t => t.projectId === analyticsProject);
+  const inWorkCount = tasks.filter(t => t.status === 'in_progress').length;
+  const pendingCount = tasks.filter(t => t.status === 'todo').length;
+
+  return `
+  <div class="page-header">
+    <div>
+      <div class="page-title">Аналитика</div>
+      <div class="page-sub">${fmtDate(analyticsFrom)} — ${fmtDate(analyticsTo)}</div>
+    </div>
+  </div>
+
+  <div class="card mb16" style="padding:14px 16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:120px">
+        <div class="text-xs text-muted mb4">С даты</div>
+        <input type="date" class="form-input" id="an-from" value="${analyticsFrom}" onchange="updateAnalytics()" style="padding:7px 10px">
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div class="text-xs text-muted mb4">По дату</div>
+        <input type="date" class="form-input" id="an-to" value="${analyticsTo}" onchange="updateAnalytics()" style="padding:7px 10px">
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div class="text-xs text-muted mb4">Проект</div>
+        <select class="form-select" id="an-project" onchange="updateAnalytics()" style="padding:7px 10px">
+          <option value="">Все проекты</option>
+          ${state.projects.map(p => `<option value="${p.id}" ${analyticsProject === p.id ? 'selected' : ''}>${escHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="setAnalyticsPeriod('week')">Неделя</button>
+        <button class="btn btn-ghost btn-sm" onclick="setAnalyticsPeriod('month')">Месяц</button>
+        <button class="btn btn-ghost btn-sm" onclick="setAnalyticsPeriod('quarter')">Квартал</button>
+        <button class="btn btn-ghost btn-sm" onclick="setAnalyticsPeriod('year')">Год</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid4 mb16">
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--accent2)">${fmtHours(totalH)}</div>
+      <div class="stat-label">Время за период</div>
+      <div class="stat-sub text-muted">${Object.keys(byProject).length} проект(ов)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--green)">${fmtMoney(totalEarned)}</div>
+      <div class="stat-label">Заработано</div>
+      <div class="stat-sub text-muted">${entries.length} записей</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--teal)">${fmtMoney(avgDaily)}</div>
+      <div class="stat-label">Средний день</div>
+      <div class="stat-sub text-muted">${daysWithWork} раб. дн.</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--amber)">${inWorkCount + pendingCount}</div>
+      <div class="stat-label">Задач активных</div>
+      <div class="stat-sub text-muted">${inWorkCount} в работе · ${pendingCount} ожидают</div>
+    </div>
+  </div>
+
+  <div class="grid2 analytics-section">
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Время по проектам</div>
+      ${renderAnalyticsProjectBars(byProject)}
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Заработок по дням</div>
+      ${renderAnalyticsDailyChart(entries)}
+      <div class="text-xs text-muted mt8" style="text-align:center">Сумма в ${state.settings?.currency || 'RUB'} за каждый день</div>
+    </div>
+  </div>
+
+  <div class="section-title">Задачи Kanban</div>
+  ${renderAnalyticsTaskStages()}
+  `;
+}
+
+function updateAnalytics() {
+  analyticsFrom = document.getElementById('an-from')?.value || analyticsFrom;
+  analyticsTo = document.getElementById('an-to')?.value || analyticsTo;
+  analyticsProject = document.getElementById('an-project')?.value || '';
+  renderPage();
+}
+
+function setAnalyticsPeriod(period) {
+  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  if (period === 'week') {
+    const w = getWeekDates();
+    analyticsFrom = w.start;
+    analyticsTo = w.end;
+  } else if (period === 'month') {
+    analyticsFrom = today.slice(0, 7) + '-01';
+    analyticsTo = today;
+  } else if (period === 'quarter') {
+    const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+    analyticsFrom = qStart.toISOString().slice(0, 10);
+    analyticsTo = today;
+  } else if (period === 'year') {
+    analyticsFrom = now.getFullYear() + '-01-01';
+    analyticsTo = today;
+  }
+  renderPage();
+}
 
 // ─── REPORTS ──────────────────────────────────────────────────────────────
 let reportFrom = '', reportTo = '', reportProject = '';
@@ -1558,7 +2416,7 @@ function renderReports() {
   </div>
 
   <div class="report-header">
-    <div class="report-title">📊 Отчёт по рабочему времени</div>
+    <div class="report-title" style="display:flex;align-items:center;gap:8px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Отчёт по рабочему времени</div>
     <div class="report-period">${fmtDate(reportFrom)} — ${fmtDate(reportTo)}</div>
     <div style="display:flex;gap:32px;margin-top:16px;flex-wrap:wrap">
       <div><div style="font-size:12px;opacity:.7;margin-bottom:4px">Всего часов</div><div style="font-size:24px;font-weight:700">${fmtHours(totalH)}</div></div>
@@ -1568,7 +2426,7 @@ function renderReports() {
     </div>
   </div>
 
-  ${Object.entries(byProject).length === 0 ? `<div class="empty"><div class="empty-icon">📋</div><h3>Нет данных</h3><p>Нет записей за выбранный период</p></div>` :
+  ${Object.entries(byProject).length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><h3>Нет данных</h3><p>Нет записей за выбранный период</p></div>` :
     Object.entries(byProject).sort((a,b)=>b[1].hours-a[1].hours).map(([pid, data]) => {
       const p = getProject(pid);
       const earned = data.hours * (p?.rate || 0);
@@ -1576,7 +2434,7 @@ function renderReports() {
       return `<div class="card mb12">
         <div class="flex items-center justify-between mb12">
           <div class="flex items-center gap8">
-            <div style="width:12px;height:12px;border-radius:50%;background:${p?.color||'#6c63ff'}"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:${p?.color||'#059669'}"></div>
             <div style="font-size:16px;font-weight:700">${escHtml(p?.name || 'Удалённый проект')}</div>
             ${p?.client?`<div class="text-sm text-muted">· ${escHtml(p.client)}</div>`:''}
           </div>
@@ -1632,9 +2490,9 @@ function printReport() {
   h1{font-size:22px;margin-bottom:4px}h2{font-size:17px;margin:20px 0 8px;border-bottom:2px solid #eee;padding-bottom:6px}
   table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#f5f5f5;text-align:left;padding:8px 10px;font-size:12px}
   td{padding:8px 10px;border-bottom:1px solid #eee}.summary{display:flex;gap:32px;margin:16px 0;padding:16px;background:#f9f9f9;border-radius:8px}
-  .sv{font-size:22px;font-weight:700;color:#4338ca}.sl{font-size:12px;color:#666;margin-bottom:4px}.meta{color:#666;font-size:13px}
+  .sv{font-size:22px;font-weight:700;color:#059669}.sl{font-size:12px;color:#666;margin-bottom:4px}.meta{color:#666;font-size:13px}
   @media print{.no-print{display:none}}</style></head><body>
-  <h1>📊 Отчёт по рабочему времени</h1>
+  <h1>Отчёт по рабочему времени</h1>
   <div class="meta">Период: ${fmtDate(reportFrom)} — ${fmtDate(reportTo)} · Сформирован: ${fmtDate(today)}</div>
   <div class="summary">
     <div><div class="sl">Всего часов</div><div class="sv">${fmtHours(totalH)}</div></div>
@@ -1697,7 +2555,7 @@ function renderPayments() {
       return `<div style="margin-bottom:16px">
         <div class="flex items-center justify-between mb4">
           <div class="flex items-center gap8">
-            <div style="width:8px;height:8px;border-radius:50%;background:${p.color||'#6c63ff'}"></div>
+            <div style="width:8px;height:8px;border-radius:50%;background:${p.color||'#059669'}"></div>
             <span style="font-size:14px;font-weight:500">${escHtml(p.name)}</span>
           </div>
           <div class="flex gap8 items-center">
@@ -1712,14 +2570,14 @@ function renderPayments() {
   </div>
 
   <div class="section-title">История платежей</div>
-  ${state.payments.length === 0 ? `<div class="empty"><div class="empty-icon">💳</div><h3>Нет платежей</h3><p>Добавьте запись об оплате</p></div>` :
+  ${state.payments.length === 0 ? `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><h3>Нет платежей</h3><p>Добавьте запись об оплате</p></div>` :
     `<div class="table-wrap"><table>
       <thead><tr><th>Дата</th><th>Проект</th><th>Период</th><th>Сумма</th><th>Заметка</th><th></th></tr></thead>
       <tbody>${[...state.payments].sort((a,b)=>b.date.localeCompare(a.date)).map(pay=>{
         const p = getProject(pay.projectId);
         return `<tr>
           <td style="white-space:nowrap">${fmtDate(pay.date)}</td>
-          <td>${p?`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${p.color||'#6c63ff'}"></span>${escHtml(p.name)}</span>`:'Все проекты'}</td>
+          <td>${p?`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${p.color||'#059669'}"></span>${escHtml(p.name)}</span>`:'Все проекты'}</td>
           <td class="text-sm text-muted">${pay.from&&pay.to?fmtDate(pay.from)+' – '+fmtDate(pay.to):''}</td>
           <td style="font-weight:600;color:var(--green)">${fmtMoney(pay.amount)}</td>
           <td class="text-sm text-muted">${escHtml(pay.note||'')}</td>
@@ -1841,6 +2699,7 @@ function saveEntry() {
   }
   const entry = {
     id: editId || uid(), projectId, task, date, hours,
+    taskId: editId ? (state.entries.find(e=>e.id===editId)?.taskId || null) : null,
     start: document.getElementById('entry-start').value,
     end: document.getElementById('entry-end').value,
     notes,
@@ -1875,7 +2734,7 @@ function openAddProjectModal() {
   document.getElementById('project-rate').value = state.settings.defaultRate || '';
   document.getElementById('project-desc').value = '';
   document.getElementById('project-status').value = 'active';
-  selectColor('#6c63ff', document.querySelector('.swatch[data-color="#6c63ff"]'));
+  selectColor('#059669', document.querySelector('.swatch[data-color="#059669"]'));
   openModal('modal-add-project');
 }
 
@@ -1889,7 +2748,7 @@ function editProject(id) {
   document.getElementById('project-rate').value = p.rate||'';
   document.getElementById('project-desc').value = p.desc||'';
   document.getElementById('project-status').value = p.status||'active';
-  selectColor(p.color||'#6c63ff', document.querySelector(`.swatch[data-color="${p.color||'#6c63ff'}"]`));
+  selectColor(p.color||'#059669', document.querySelector(`.swatch[data-color="${p.color||'#059669'}"]`));
   openModal('modal-add-project');
 }
 
@@ -1917,9 +2776,12 @@ function saveProject() {
 
 function deleteProject(id) {
   const entries = state.entries.filter(e=>e.projectId===id);
-  if (!confirm(`Удалить проект? Вместе с ним будут удалены ${entries.length} записей.`)) return;
+  const tasks = state.boardTasks.filter(t=>t.projectId===id);
+  if (!confirm(`Удалить проект? Вместе с ним будут удалены ${entries.length} записей и ${tasks.length} задач.`)) return;
   state.projects = state.projects.filter(p=>p.id!==id);
   state.entries  = state.entries.filter(e=>e.projectId!==id);
+  state.boardTasks = state.boardTasks.filter(t=>t.projectId!==id);
+  if (state.timer.projectId === id) resetTimerState();
   save();
   if (sb.isEnabled()) sb.deleteProject(id); // cascade deletes entries in DB
   renderPage(); showToast('Проект удалён');
@@ -1996,6 +2858,12 @@ function bindPageEvents() {}
 function renderSettings() {
   const s = state.settings;
   const or = s.openrouter;
+  const sym = currencySymbol();
+  const rate = s.defaultRate || 0;
+  const projectsNoRate = state.projects.filter(p => !p.rate).length;
+  const ratePresets = s.currency === 'USD' ? [25, 50, 75, 100, 150]
+    : s.currency === 'EUR' ? [25, 50, 75, 100, 120]
+    : [1500, 2000, 2500, 3000, 5000];
   const models = [
     ['anthropic/claude-3.5-haiku','Claude 3.5 Haiku (быстрый, дешёвый)'],
     ['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet (баланс)'],
@@ -2013,9 +2881,15 @@ function renderSettings() {
     <div class="card mb16">
       <div class="form-row">
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">Ставка по умолчанию (₽/час)</label>
-          <input type="number" class="form-input" id="s-rate" value="${s.defaultRate||''}" placeholder="0" min="0"
-            oninput="state.settings.defaultRate=parseFloat(this.value)||0;save()">
+          <label class="form-label">${rateLabel()}</label>
+          <div class="money-input-wrap">
+            <span class="money-input-prefix">${sym}</span>
+            <input type="number" class="form-input" id="s-rate" value="${rate || ''}" placeholder="3000" min="0" step="any"
+              oninput="updateDefaultRate(this.value)">
+          </div>
+          <div class="rate-presets">
+            ${ratePresets.map(v => `<button type="button" class="rate-preset" onclick="setDefaultRatePreset(${v})">${fmtMoney(v)}</button>`).join('')}
+          </div>
           <div class="text-xs text-muted mt4">Подставляется при создании нового проекта</div>
         </div>
         <div class="form-group" style="margin-bottom:0">
@@ -2027,6 +2901,11 @@ function renderSettings() {
           </select>
         </div>
       </div>
+      <div id="s-rate-preview" class="rate-preview">${rate ? '' : '<div class="text-xs text-muted" style="grid-column:1/-1">Укажите ставку — здесь появится расчёт за 15 мин, 30 мин и 1 час</div>'}</div>
+      ${projectsNoRate ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2)">
+        <div class="text-sm">${projectsNoRate} ${projectsNoRate===1?'проект без ставки':'проект(ов) без ставки'}</div>
+        <button class="btn btn-ghost btn-sm" onclick="applyDefaultRateToProjects()">Применить ставку</button>
+      </div>` : ''}
       <div class="divider"></div>
       <div class="text-sm fw-6 mb8">Округление часов для выставления счёта</div>
       <div class="form-row">
@@ -2058,7 +2937,7 @@ function renderSettings() {
       </div>
     </div>
 
-    <div class="section-title">✨ Интеграция — OpenRouter AI</div>
+    <div class="section-title">Интеграция — OpenRouter AI</div>
     <div class="card mb16">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px">
         <div>
@@ -2101,8 +2980,8 @@ function renderSettings() {
         <div class="text-xs text-muted mt4">AI получит этот промпт + оригинальный текст задачи и вернёт улучшенную версию</div>
       </div>
 
-      ${or.enabled && or.apiKey ? `<div class="mt12" style="padding:10px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.25);border-radius:var(--radius2)">
-        <div class="text-sm" style="color:var(--accent2)">✨ AI активен — кнопка «улучшить» появится на каждой записи времени</div>
+      ${or.enabled && or.apiKey ? `<div class="mt12" style="padding:10px 14px;background:rgba(5,150,105,.08);border:1px solid rgba(5,150,105,.25);border-radius:var(--radius2)">
+        <div class="text-sm" style="color:var(--accent)">AI активен — кнопка «улучшить» появится на каждой записи времени</div>
       </div>` : ''}
     </div>
 
@@ -2146,13 +3025,21 @@ function renderSettings() {
         <pre style="font-size:11px;color:var(--accent2);line-height:1.6;overflow-x:auto;white-space:pre-wrap">create table projects (
   id text primary key, name text not null,
   client text, rate numeric default 0,
-  color text default '#6c63ff', status text default 'active',
+  color text default '#059669', status text default 'active',
   description text, created_at timestamptz default now()
+);
+create table board_tasks (
+  id text primary key, project_id text references projects(id) on delete cascade,
+  title text not null, description text,
+  status text not null default 'todo', position integer not null default 0,
+  priority text default 'medium',
+  created_at timestamptz default now(), updated_at timestamptz default now()
 );
 create table time_entries (
   id text primary key, project_id text references projects(id) on delete cascade,
   task text not null, date date not null, hours numeric not null,
   start_time text, end_time text, notes text,
+  task_id text references board_tasks(id) on delete set null,
   created_at timestamptz default now()
 );
 create table payments (
@@ -2162,9 +3049,11 @@ create table payments (
   created_at timestamptz default now()
 );
 alter table projects enable row level security;
+alter table board_tasks enable row level security;
 alter table time_entries enable row level security;
 alter table payments enable row level security;
 create policy "open" on projects for all using (true) with check (true);
+create policy "open" on board_tasks for all using (true) with check (true);
 create policy "open" on time_entries for all using (true) with check (true);
 create policy "open" on payments for all using (true) with check (true);</pre>
         <button onclick="copySQL()" class="btn btn-ghost btn-sm" style="margin-top:8px">Копировать SQL</button>
@@ -2178,7 +3067,7 @@ create policy "open" on payments for all using (true) with check (true);</pre>
       </div>
     </div>
 
-    <div class="section-title">📁 Управление проектами</div>
+    <div class="section-title">Управление проектами</div>
     <div class="card mb16">
       ${state.projects.length === 0 ? `<div class="text-muted text-sm">Нет проектов. Создайте проект в разделе «Проекты».</div>` :
         state.projects.map(p => {
@@ -2186,10 +3075,10 @@ create policy "open" on payments for all using (true) with check (true);</pre>
           const statusMap = { active: ['var(--green)', 'Активный'], paused: ['var(--amber)', 'Пауза'], done: ['var(--text2)', 'Завершён'] };
           const [stColor, stLabel] = statusMap[p.status] || statusMap.active;
           return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
-            <div style="width:10px;height:10px;border-radius:50%;background:${p.color||'#6c63ff'};flex-shrink:0"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:${p.color||'#059669'};flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
               <div style="font-size:14px;font-weight:500">${escHtml(p.name)}</div>
-              <div class="text-xs text-muted">${p.client?escHtml(p.client)+' · ':''} ${fmtHours(hrs)} · <span style="color:${stColor}">${stLabel}</span></div>
+              <div class="text-xs text-muted">${p.client?escHtml(p.client)+' · ':''}${p.rate ? fmtMoney(p.rate)+'/ч · ' : ''}${fmtHours(hrs)} · <span style="color:${stColor}">${stLabel}</span></div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0">
               <button class="btn btn-ghost btn-sm" onclick="setProjectStatus('${p.id}','active')" ${p.status==='active'?'style="border-color:var(--green);color:var(--green)"':''}>Активный</button>
@@ -2215,7 +3104,7 @@ create policy "open" on payments for all using (true) with check (true);</pre>
         </label>
         <button class="btn btn-danger btn-sm" onclick="clearAllData()">Очистить все данные</button>
       </div>
-      <div class="text-xs text-muted mt8">Проектов: ${state.projects.length} · Записей: ${state.entries.length} · Платежей: ${state.payments.length}</div>
+      <div class="text-xs text-muted mt8">Проектов: ${state.projects.length} · Задач: ${state.boardTasks.length} · Записей: ${state.entries.length} · Платежей: ${state.payments.length}</div>
     </div>
 
   </div>`;
@@ -2306,13 +3195,21 @@ function copySQL() {
   const sql = `create table projects (
   id text primary key, name text not null,
   client text, rate numeric default 0,
-  color text default '#6c63ff', status text default 'active',
+  color text default '#059669', status text default 'active',
   description text, created_at timestamptz default now()
+);
+create table board_tasks (
+  id text primary key, project_id text references projects(id) on delete cascade,
+  title text not null, description text,
+  status text not null default 'todo', position integer not null default 0,
+  priority text default 'medium',
+  created_at timestamptz default now(), updated_at timestamptz default now()
 );
 create table time_entries (
   id text primary key, project_id text references projects(id) on delete cascade,
   task text not null, date date not null, hours numeric not null,
   start_time text, end_time text, notes text,
+  task_id text references board_tasks(id) on delete set null,
   created_at timestamptz default now()
 );
 create table payments (
@@ -2322,9 +3219,11 @@ create table payments (
   created_at timestamptz default now()
 );
 alter table projects enable row level security;
+alter table board_tasks enable row level security;
 alter table time_entries enable row level security;
 alter table payments enable row level security;
 create policy "open" on projects for all using (true) with check (true);
+create policy "open" on board_tasks for all using (true) with check (true);
 create policy "open" on time_entries for all using (true) with check (true);
 create policy "open" on payments for all using (true) with check (true);`;
   navigator.clipboard.writeText(sql).then(() => showToast('SQL скопирован')).catch(() => showToast('Не удалось скопировать', 'error'));
@@ -2374,7 +3273,7 @@ async function aiPolishEntry(id) {
   const or = state.settings.openrouter;
   if (!or.enabled || !or.apiKey) { showToast('Настройте OpenRouter в настройках','error'); return; }
   const project = getProject(entry.projectId);
-  showToast('✨ AI улучшает описание...', 'success');
+  showToast('AI улучшает описание...', 'success');
   try {
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -2406,14 +3305,14 @@ function openAIResultModal(entryId, original, improved) {
   document.getElementById('ai-improved-text').textContent = improved;
   document.getElementById('ai-apply-btn').onclick = () => {
     const entry = state.entries.find(e=>e.id===entryId);
-    if (entry) { entry.task = improved; save(); renderPage(); showToast('✨ Описание обновлено'); }
+    if (entry) { entry.task = improved; save(); renderPage(); showToast('Описание обновлено'); }
     closeModal('modal-ai-result');
   };
   openModal('modal-ai-result');
 }
 
 function exportData() {
-  const d = { projects: state.projects, entries: state.entries, payments: state.payments, settings: state.settings, exportedAt: new Date().toISOString() };
+  const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, settings: state.settings, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `timelog-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
@@ -2424,10 +3323,11 @@ function importData(e) {
   r.onload = ev => {
     try {
       const d = JSON.parse(ev.target.result);
-      if (!confirm(`Импортировать данные? Это заменит текущие данные.\nПроектов: ${d.projects?.length||0}, Записей: ${d.entries?.length||0}`)) return;
+      if (!confirm(`Импортировать данные? Это заменит текущие данные.\nПроектов: ${d.projects?.length||0}, Записей: ${d.entries?.length||0}, Задач: ${d.boardTasks?.length||0}`)) return;
       state.projects = d.projects || state.projects;
       state.entries = d.entries || state.entries;
       state.payments = d.payments || state.payments;
+      state.boardTasks = d.boardTasks || state.boardTasks;
       save(); renderPage(); showToast('Данные импортированы');
     } catch { showToast('Ошибка формата файла', 'error'); }
   };
@@ -2436,7 +3336,7 @@ function importData(e) {
 function clearAllData() {
   if (!confirm('Удалить ВСЕ данные? Это действие нельзя отменить.')) return;
   if (!confirm('Вы уверены? Все проекты, записи и платежи будут удалены.')) return;
-  state.projects = []; state.entries = []; state.payments = [];
+  state.projects = []; state.entries = []; state.payments = []; state.boardTasks = [];
   save(); renderPage(); showToast('Все данные удалены');
 }
 
@@ -2463,6 +3363,10 @@ function fmtDuration(h) {
 function fmtMoney(n) {
   const cur = state.settings?.currency || 'RUB';
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: cur, minimumFractionDigits: 0 }).format(Math.round(n));
+}
+function fmtMoneyLive(n) {
+  const cur = state.settings?.currency || 'RUB';
+  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: cur, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 function fmtDate(d) { if(!d) return ''; const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}); }
 function fmtDateLong(d) { if(!d) return ''; const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'}); }
