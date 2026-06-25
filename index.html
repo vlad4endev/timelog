@@ -49,7 +49,7 @@
   --safe-bottom:env(safe-area-inset-bottom,0px);
   --safe-left:env(safe-area-inset-left,0px);
   --safe-right:env(safe-area-inset-right,0px);
-  --bottom-nav-h:62px;
+  --bottom-nav-h:56px;
   --touch-min:44px;
 }
 html{-webkit-text-size-adjust:100%;touch-action:manipulation}
@@ -59,11 +59,15 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
 input,select,textarea{font-family:inherit;outline:none}
 
 /* Layout */
-.app{display:flex;min-height:100vh}
-.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;transition:transform .3s;box-shadow:1px 0 0 rgba(15,23,42,.04)}
-.main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column}
+.app{display:flex;min-height:100vh;min-height:100dvh;width:100%;max-width:100vw;overflow-x:hidden}
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;height:100dvh;z-index:100;transition:transform .3s;box-shadow:1px 0 0 rgba(15,23,42,.04)}
+.main{margin-left:220px;flex:1;min-width:0;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;width:100%;max-width:100%}
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;backdrop-filter:blur(8px);background:rgba(255,255,255,.92)}
-.content{padding:24px;flex:1}
+.topbar-left,.topbar-center,.topbar-right{display:flex;align-items:center}
+.topbar-center{flex:1;min-width:0}
+.topbar-right{gap:8px;flex-shrink:0}
+.content{padding:24px;flex:1;min-width:0;max-width:100%;overflow-x:hidden}
+#main-content{min-width:0;max-width:100%}
 
 /* Sidebar */
 .sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
@@ -87,9 +91,13 @@ input,select,textarea{font-family:inherit;outline:none}
 .btn-start{background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;box-shadow:0 2px 8px rgba(5,150,105,.3)}
 .btn-start:hover{background:linear-gradient(135deg,var(--green2),var(--accent2));transform:translateY(-1px);box-shadow:0 4px 12px rgba(5,150,105,.35)}
 .btn-start-animated:not(:disabled){animation:startPulse 2.4s ease-in-out infinite}
-.btn-start-main{width:100%;padding:14px;background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;box-shadow:0 4px 14px rgba(5,150,105,.28)}
-.btn-start-main:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(5,150,105,.38)}
-.btn-start-main:disabled{opacity:.45;cursor:default;box-shadow:none;animation:none!important}
+.btn-start-main{width:100%;max-width:100%;box-sizing:border-box;padding:14px;background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;box-shadow:0 4px 14px rgba(5,150,105,.28)}
+.btn-start-main:not(:disabled):hover,.btn-start-main[aria-disabled="false"]:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(5,150,105,.38)}
+.btn-start-main:disabled,.btn-start-main[aria-disabled="true"]{opacity:.45;cursor:default;box-shadow:none;animation:none!important}
+@media(max-width:768px){
+  .btn-start-main:not(:disabled),.btn-start-main[aria-disabled="false"]{animation:none!important;box-shadow:0 2px 8px rgba(5,150,105,.22)}
+  .btn-start-animated:not(:disabled),.btn-start-animated[aria-disabled="false"]{animation:none!important}
+}
 @keyframes startPulse{0%,100%{box-shadow:0 2px 8px rgba(5,150,105,.3),0 0 0 0 rgba(5,150,105,.35)}50%{box-shadow:0 4px 14px rgba(5,150,105,.35),0 0 0 8px rgba(5,150,105,0)}}
 @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 .btn-stop{background:var(--red);color:#fff}
@@ -344,6 +352,39 @@ tr:hover td{background:var(--bg3)}
 .plan-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin-top:8px}
 .plan-legend-item{display:flex;align-items:center;gap:6px}
 .plan-legend-dot{width:10px;height:10px;border-radius:2px}
+.plan-view-switch{display:flex;gap:4px;background:var(--bg3);border-radius:var(--radius2);padding:3px;margin-bottom:16px;width:fit-content;max-width:100%;flex-wrap:wrap}
+.plan-view-btn{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border:none;background:transparent;transition:.15s;white-space:nowrap}
+.plan-view-btn.active{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(15,23,42,.06);font-weight:600}
+.plan-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.plan-month-head{text-align:center;font-size:11px;font-weight:600;color:var(--text2);padding:8px 4px;text-transform:uppercase;letter-spacing:.04em}
+.plan-month-cell{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);min-height:88px;padding:6px;cursor:pointer;transition:border .15s,box-shadow .15s;display:flex;flex-direction:column;gap:2px}
+.plan-month-cell:hover{border-color:var(--accent-border);box-shadow:var(--shadow)}
+.plan-month-cell.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-light)}
+.plan-month-cell.other-month{opacity:.4;background:var(--bg3)}
+.plan-month-cell.off-day{background:var(--bg3)}
+.plan-month-cell.selected{border-color:var(--accent2);background:var(--accent-light)}
+.plan-month-cell-num{font-size:13px;font-weight:700;line-height:1}
+.plan-month-cell-plan{font-size:10px;color:var(--text3)}
+.plan-month-cell-actual{font-size:11px;font-weight:600;color:var(--accent2)}
+.plan-month-cell-delta{font-size:10px;font-weight:600}
+.plan-month-cell-badge{margin-top:auto}
+.plan-month-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.plan-day-view-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.plan-day-view-title{font-size:18px;font-weight:700}
+.plan-day-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.plan-day-stat{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius2);padding:12px;text-align:center}
+.plan-day-stat-val{font-size:20px;font-weight:700}
+.plan-day-stat-lbl{font-size:11px;color:var(--text2);margin-top:4px}
+.plan-day-timeline-wrap{margin-bottom:16px}
+.plan-day-timeline-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px;padding:0 2px}
+.plan-day-timeline{position:relative;height:480px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden}
+.plan-day-timeline-hourline{position:absolute;left:0;right:0;border-top:1px solid var(--border);pointer-events:none}
+.plan-day-timeline-hourlbl{position:absolute;left:6px;font-size:10px;color:var(--text3);transform:translateY(-50%);background:var(--bg3);padding:0 4px;z-index:1}
+.plan-day-timeline-block{position:absolute;left:48px;right:8px;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:500;color:#fff;overflow:hidden;cursor:pointer;z-index:2;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.plan-day-timeline-block.planned{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.plan-day-timeline-block.actual{background:rgba(217,119,6,.9)}
+.plan-day-timeline-now{position:absolute;left:44px;right:0;height:2px;background:var(--red);z-index:3;pointer-events:none}
+.plan-day-timeline-now::before{content:'';position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--red)}
 @media(max-width:900px){
   .plan-day-grid{grid-template-columns:repeat(4,1fr)}
   .plan-template-grid{grid-template-columns:repeat(4,1fr)}
@@ -351,6 +392,9 @@ tr:hover td{background:var(--bg3)}
 @media(max-width:600px){
   .plan-day-grid{grid-template-columns:repeat(2,1fr)}
   .plan-template-grid{grid-template-columns:repeat(2,1fr)}
+  .plan-month-cell{min-height:72px;padding:5px 4px}
+  .plan-day-stats{grid-template-columns:1fr}
+  .plan-day-timeline{height:360px}
 }
 
 /* Paid status */
@@ -366,7 +410,7 @@ tr:hover td{background:var(--bg3)}
 .text-accent{color:var(--accent)}.text-green{color:var(--green)}.text-red{color:var(--red)}
 .text-amber{color:var(--amber)}.fw-6{font-weight:600}.fw-7{font-weight:700}
 .mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
-.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}.mb16{margin-bottom:16px}
+.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}.mb16{margin-bottom:16px}.mb20{margin-bottom:20px}
 .mr8{margin-right:8px}.truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hidden{display:none!important}
 .divider{height:1px;background:var(--border);margin:16px 0}
@@ -374,15 +418,16 @@ tr:hover td{background:var(--bg3)}
 /* Filter bar (shared) */
 .filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .filter-bar-item{flex:1;min-width:140px}
+.filter-bar-item-full{flex:1 1 100%;min-width:100%}
 .filter-bar-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 
 /* Mobile bottom navigation */
-.mobile-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(255,255,255,.94);border-top:1px solid var(--border);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:6px var(--safe-right) calc(6px + var(--safe-bottom)) var(--safe-left);justify-content:space-around;align-items:flex-end;gap:2px}
-.bottom-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px;min-height:var(--touch-min);background:transparent;border:none;color:var(--text3);font-size:10px;font-weight:500;cursor:pointer;transition:color .15s;border-radius:10px;max-width:72px}
-.bottom-nav-item svg{width:22px;height:22px;stroke-width:1.75}
+.mobile-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(255,255,255,.96);border-top:1px solid var(--border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:4px 8px calc(4px + var(--safe-bottom));grid-template-columns:1fr 1fr 52px 1fr 1fr;align-items:end;gap:0}
+.bottom-nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px 6px;min-height:48px;background:transparent;border:none;color:var(--text3);font-size:10px;font-weight:500;cursor:pointer;transition:color .15s;border-radius:10px;min-width:0}
+.bottom-nav-item svg{width:24px;height:24px;stroke-width:1.75}
 .bottom-nav-item.active{color:var(--accent2);font-weight:600}
-.bottom-nav-item:active{opacity:.7}
-.bottom-nav-fab{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;border:none;box-shadow:0 4px 16px rgba(5,150,105,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:-20px;flex-shrink:0;transition:transform .15s,box-shadow .15s}
+.bottom-nav-item:active{opacity:.7;transform:scale(.95)}
+.bottom-nav-fab{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;border:none;box-shadow:0 4px 14px rgba(5,150,105,.35);display:flex;align-items:center;justify-content:center;cursor:pointer;margin:-18px auto 0;grid-column:3;transition:transform .15s,box-shadow .15s}
 .bottom-nav-fab:active{transform:scale(.94)}
 .bottom-nav-fab.running{background:var(--red);box-shadow:0 4px 16px rgba(220,38,38,.35);animation:timerPulse 2s ease-in-out infinite}
 @keyframes timerPulse{0%,100%{box-shadow:0 4px 16px rgba(220,38,38,.35)}50%{box-shadow:0 4px 20px rgba(220,38,38,.55),0 0 0 6px rgba(220,38,38,.12)}}
@@ -456,10 +501,13 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 .dash-timer-running-right{text-align:right;flex-shrink:0}
 .dash-timer-running-actions{padding:14px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .dash-timer-running-meta{flex:1;font-size:13px;color:var(--text2);min-width:140px}
-.dash-timer-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.dash-timer-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;max-width:100%;overflow:hidden;box-sizing:border-box}
 .dash-timer-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-.dash-timer-task-row{display:flex;gap:8px;align-items:flex-start}
-.dash-timer-task-row .form-textarea{flex:1}
+.dash-field{margin-bottom:12px;min-width:0;max-width:100%}
+.dash-field-label{font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.dash-timer-task-row{display:flex;gap:8px;align-items:flex-start;min-width:0;max-width:100%}
+.dash-timer-task-row .form-textarea{flex:1;min-width:0;max-width:100%}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
 
 /* Report / payment mobile helpers */
 .report-detail-header,.report-card-inner{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -468,23 +516,62 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 .payment-status-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;flex-wrap:wrap}
 .payment-status-amounts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .page-header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.page-sub{word-break:break-word;line-height:1.45}
+.card-pad{padding:14px 16px}
+.day-group-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.report-pending-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.schedule-day-summary{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.schedule-day-summary-col{text-align:center;flex:1}
+.schedule-day-summary-col:first-child{text-align:left}
+.schedule-day-summary-col:last-child{text-align:right}
+.settings-wrap{max-width:720px}
+.settings-toggle-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.settings-input-row{display:flex;gap:8px}
+.settings-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius2);margin-bottom:16px;flex-wrap:wrap}
+.settings-banner-connected{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25)}
+.settings-banner-text{flex:1;font-size:13px;min-width:0}
+.settings-banner-actions{display:flex;gap:6px;flex-wrap:wrap}
+.settings-project-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.settings-project-info{flex:1;min-width:0}
+.settings-project-btns{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
+.settings-apply-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);flex-wrap:wrap}
+.dash-warning{font-size:12px;color:var(--amber);display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;line-height:1.45}
+.dash-timer-btn{padding:9px 16px;border:none;border-radius:var(--radius2);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;max-width:100%}
+.dash-timer-btn-pause{background:var(--amber);color:#fff}
+.dash-timer-btn-stop{background:var(--red);color:#fff;padding:9px 20px}
+.dash-ai-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.table-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.preview-overlay{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px)}
+.preview-overlay-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:640px;max-height:85vh;overflow:auto;padding:20px;box-shadow:var(--shadow)}
+.filter-card{padding:14px 16px}
 
 @media(max-width:768px){
   .sidebar{transform:translateX(-100%);width:min(280px,85vw);padding-top:var(--safe-top)}
   .sidebar.open{transform:none;box-shadow:4px 0 24px rgba(15,23,42,.12)}
   .sidebar-backdrop.open{display:block}
   .main{margin-left:0}
-  .hamburger{display:flex;min-width:var(--touch-min);min-height:var(--touch-min)}
-  .mobile-bottom-nav{display:flex}
-  .content{padding:16px 16px calc(16px + var(--bottom-nav-h) + var(--safe-bottom))}
-  body.timer-active-mobile .content{padding-bottom:calc(16px + var(--bottom-nav-h) + 52px + var(--safe-bottom))}
-  body.timer-active-mobile .pwa-install-banner{bottom:calc(var(--bottom-nav-h) + 52px + var(--safe-bottom) + 8px)}
-  .topbar{padding:10px 16px;padding-top:calc(10px + var(--safe-top));gap:8px}
+  .hamburger{display:none!important}
+  .mobile-bottom-nav{display:grid}
+  .content{padding:12px 12px calc(12px + var(--bottom-nav-h) + var(--safe-bottom) + 4px)}
+  body.timer-active-mobile .content{padding-bottom:calc(12px + var(--bottom-nav-h) + 48px + var(--safe-bottom))}
+  body.timer-active-mobile .pwa-install-banner{bottom:calc(var(--bottom-nav-h) + 48px + var(--safe-bottom) + 8px)}
+  .topbar{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    padding:10px 12px;
+    padding-top:calc(10px + var(--safe-top));
+    gap:8px;
+  }
+  .topbar-left{grid-column:1;display:flex;align-items:center;justify-content:flex-start}
+  .topbar-center{grid-column:2;text-align:center;justify-self:center;min-width:0}
+  .topbar-right{grid-column:3;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+  #topbar-title{font-size:16px!important;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
   .topbar-add-btn{display:none}
   .topbar-user .auth-email-lbl{display:none}
-  .topbar-user .auth-logout{padding:8px 10px;min-height:36px}
-  #topbar-title{font-size:15px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50vw}
-  .grid3,.grid4{grid-template-columns:1fr 1fr}
+  .topbar-user .auth-logout{padding:8px 10px;min-height:36px;font-size:12px}
+  .grid3,.grid4:not(.stats-grid){grid-template-columns:1fr 1fr}
+  .stats-grid{grid-template-columns:1fr 1fr;gap:10px}
   .analytics-stage-grid{grid-template-columns:repeat(3,1fr);gap:8px}
   .analytics-stage-card{padding:12px 8px}
   .analytics-stage-num{font-size:24px}
@@ -544,7 +631,13 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .dash-timer-running-right #dash-timer-display{font-size:28px!important}
   .dash-timer-running-actions{flex-direction:column;align-items:stretch}
   .dash-timer-running-actions button{width:100%;justify-content:center;min-height:var(--touch-min)}
-  .dash-timer-panel-head{flex-direction:column}
+  .dash-timer-panel{padding:16px}
+  .dash-timer-panel-head{flex-direction:column;gap:8px}
+  .dash-field-label{font-size:12px}
+  .dash-timer-task-row{flex-direction:column}
+  .dash-timer-task-row #dash-ai-btn{align-self:flex-end;width:44px;height:44px}
+  .card,.stat-card,.dash-timer-panel{max-width:100%;box-sizing:border-box}
+  .form-input,.form-select,.form-textarea{max-width:100%;box-sizing:border-box}
   .filter-bar-item{min-width:100%;flex:1 1 100%}
   .filter-bar-actions{width:100%}
   .filter-bar-actions .btn{flex:1}
@@ -555,15 +648,80 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .money-input-wrap .form-input{font-size:16px}
   .form-input,.form-select,.form-textarea,.auth-input{font-size:16px}
   .settings-wrap{max-width:100%!important}
+  .page-sub{font-size:13px}
+  .page-title{line-height:1.3}
+  .section-title{font-size:12px;margin-top:20px}
+  .filter-card{padding:12px 14px}
+  .filter-bar-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .filter-bar-actions .btn{width:100%;justify-content:center}
+  .day-group-header{flex-wrap:wrap}
+  .report-pending-footer{flex-direction:column;align-items:stretch}
+  .report-pending-footer .btn{width:100%;justify-content:center}
+  .schedule-day-summary{flex-direction:column;align-items:stretch;gap:16px}
+  .schedule-day-summary-col,.schedule-day-summary-col:first-child,.schedule-day-summary-col:last-child{text-align:left}
+  .settings-toggle-row{flex-direction:column;align-items:stretch}
+  .settings-input-row{flex-direction:column}
+  .settings-input-row .btn{width:100%;justify-content:center}
+  .settings-banner{flex-direction:column;align-items:stretch}
+  .settings-banner-actions{width:100%}
+  .settings-banner-actions .btn{flex:1;justify-content:center}
+  .settings-project-row{flex-direction:column;align-items:stretch;gap:10px;padding:14px 0}
+  .settings-project-btns{width:100%;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .settings-project-btns .btn{width:100%;justify-content:center;padding:8px 4px;font-size:12px}
+  .settings-apply-banner{flex-direction:column;align-items:stretch}
+  .settings-apply-banner .btn{width:100%;justify-content:center}
+  .dash-warning{width:100%}
+  .dash-ai-actions .btn{flex:1;justify-content:center;min-height:var(--touch-min)}
+  .dash-timer-running-meta{min-width:0;width:100%}
+  .plan-week-nav{flex-wrap:wrap;justify-content:center;gap:8px}
+  .plan-week-label{order:-1;width:100%;margin-bottom:4px}
+  .plan-compare-chart{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .plan-compare-bar-wrap{min-width:36px;flex-shrink:0}
+  .plan-stat-row{flex-direction:column;align-items:flex-start;gap:4px;padding:12px 0}
+  .plan-template-day input{font-size:16px}
+  .plan-day-card{min-height:100px;padding:10px 8px}
+  .plan-day-num{font-size:18px}
+  .board-card-actions .btn-timer-card,.board-card-actions .btn{min-height:32px;padding:6px 10px}
+  .board-column{min-height:120px}
+  .board-column-head{padding:10px 12px}
+  .responsive-table .table-actions{width:100%;justify-content:flex-start;margin-top:4px}
+  .responsive-table tbody td.table-actions-cell{flex-direction:column;align-items:stretch}
+  .responsive-table tbody td.table-actions-cell::before{display:none}
+  .table-actions .btn{flex:1;justify-content:center}
+  .project-card-btns{justify-content:space-around;padding:12px 16px}
+  .project-card-btns .btn-icon{min-width:44px;min-height:44px}
+  .project-card-sub{word-break:break-word}
+  .project-card-stats{gap:12px;padding:12px 16px}
+  .projects-list{gap:10px}
+  .modal[style*="max-width"]{max-width:100%!important}
+  .preview-overlay{align-items:flex-end;padding:0}
+  .preview-overlay-card{max-width:100%;max-height:92dvh;border-radius:16px 16px 0 0;padding:20px 20px calc(20px + var(--safe-bottom))}
+  .card .flex.gap10{flex-wrap:wrap}
+  .card .flex.gap10 .btn{flex:1;min-width:calc(50% - 5px);justify-content:center}
+  .rate-preset{min-height:36px;padding:6px 12px}
+  .color-swatches{gap:10px}
+  .swatch{width:36px;height:36px}
+  .auth-pass-toggle{min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+  #topbar-title{max-width:52vw}
 }
 @media(max-width:480px){
-  .grid3,.grid4{grid-template-columns:1fr}
+  .grid3,.grid4:not(.stats-grid){grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:1fr 1fr;gap:8px}
   .analytics-stage-grid{grid-template-columns:1fr}
-  .content{padding:12px 12px calc(12px + var(--bottom-nav-h) + var(--safe-bottom))}
-  .stat-val{font-size:20px}
+  .stat-card{padding:12px 14px}
+  .stat-val{font-size:18px}
+  .stat-label{font-size:11px}
   .page-title{font-size:18px}
-  .bottom-nav-item{font-size:9px}
-  .bottom-nav-item svg{width:20px;height:20px}
+  #topbar-title{max-width:46vw;font-size:15px!important}
+  .bottom-nav-item{font-size:9px;padding-bottom:4px}
+  .bottom-nav-item svg{width:22px;height:22px}
+  .bottom-nav-fab{width:44px;height:44px;margin-top:-16px}
+  .settings-project-btns{grid-template-columns:1fr}
+  .filter-bar-actions{grid-template-columns:1fr}
+  .plan-day-grid{grid-template-columns:1fr}
+  .plan-template-grid{grid-template-columns:1fr}
+  .board-view-toggle{flex-direction:column}
+  .analytics-task-row .badge{width:100%;text-align:center;justify-content:center}
 }
 @media(display-mode:standalone){
   .pwa-install-banner{display:none!important}
@@ -577,7 +735,11 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .responsive-table tbody td::before{content:attr(data-label);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;flex-shrink:0}
   .responsive-table tbody td:last-child{justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);margin-top:4px}
   .responsive-table tbody td:last-child::before{display:none}
+  .responsive-table tbody td.table-actions-cell{justify-content:stretch}
+  .responsive-table tbody td.table-actions-cell::before{display:none}
   .responsive-table tfoot{display:none}
+  .table-wrap{overflow-x:visible;border:none}
+  .responsive-table{width:100%}
 }
 
 /* Project cards */
@@ -641,7 +803,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
           <div style="position:relative">
             <input class="auth-input" type="password" id="auth-pass" placeholder="Введите пароль"
               autocomplete="current-password" onkeydown="if(event.key==='Enter')authUnlock()">
-            <button onclick="authTogglePass('auth-pass')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer;padding:4px">
+            <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-pass')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
@@ -665,7 +827,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
           <div style="position:relative">
             <input class="auth-input" type="password" id="auth-new-pass" placeholder="Минимум 4 символа"
               autocomplete="new-password" onkeydown="if(event.key==='Enter')authSetup()">
-            <button onclick="authTogglePass('auth-new-pass')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer;padding:4px">
+            <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-new-pass')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
@@ -757,13 +919,15 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 <!-- Main -->
 <div class="main">
   <div class="topbar">
-    <div class="flex items-center gap8">
-      <button class="hamburger" onclick="toggleSidebar()">
+    <div class="topbar-left">
+      <button class="hamburger" onclick="toggleSidebar()" aria-label="Меню">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
+    </div>
+    <div class="topbar-center">
       <div id="topbar-title" style="font-weight:600;font-size:16px">Дашборд</div>
     </div>
-    <div class="flex items-center gap8">
+    <div class="topbar-right">
       <button class="btn btn-primary btn-sm topbar-add-btn" onclick="openAddEntryModal()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Добавить время
@@ -852,8 +1016,8 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
     <span>Аналитика</span>
   </button>
   <button class="bottom-nav-item" data-page="menu" onclick="toggleSidebar()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    <span>Меню</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    <span>Ещё</span>
   </button>
 </nav>
 
@@ -1943,10 +2107,14 @@ function startTimer(projectId, task, taskId) {
   persistTimerBackground();
   startTimerTick();
   updateTimerUI();
-  if (isMobileView()) {
-    showPage('dashboard');
-    openMobileTimerScreen();
-  }
+}
+function finishTimerStartUI() {
+  showPage('dashboard');
+  requestAnimationFrame(() => {
+    updateTimerUI();
+    if (isMobileView()) openMobileTimerScreen();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 }
 function startTimerFromModal() {
   const projectId = document.getElementById('timer-project').value;
@@ -1955,6 +2123,7 @@ function startTimerFromModal() {
   if (!task) { showToast('Введите задачу', 'error'); return; }
   closeModal('modal-quick-timer');
   startTimer(projectId, task);
+  finishTimerStartUI();
   showToast('Таймер запущен', 'success');
 }
 function startTimerTick() {
@@ -2230,11 +2399,11 @@ function renderDashboard() {
         <div class="dash-timer-running-meta">
           Начато в ${new Date(state.timer.startTime).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})} · ${dateStr}
         </div>
-        <button onclick="togglePauseTimer()" style="padding:9px 16px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius2);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+        <button onclick="togglePauseTimer()" class="dash-timer-btn dash-timer-btn-pause">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">${state.timer.paused ? '<polygon points="5 3 19 12 5 21 5 3"/>' : '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'}</svg>
           ${state.timer.paused ? 'Продолжить' : 'Пауза'}
         </button>
-        <button onclick="stopTimer()" style="padding:9px 20px;background:var(--red);color:#fff;border:none;border-radius:var(--radius2);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px">
+        <button onclick="stopTimer()" class="dash-timer-btn dash-timer-btn-stop">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
           Остановить и сохранить
         </button>
@@ -2246,31 +2415,29 @@ function renderDashboard() {
           <div style="font-size:16px;font-weight:700">Начать запись времени</div>
           <div style="font-size:13px;color:var(--text2);margin-top:2px">${dateStr} · ${timeStr}</div>
         </div>
-        ${activeProjects.length===0 ? `<div style="font-size:12px;color:var(--amber);display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Нет активных проектов — <span style="cursor:pointer;color:var(--accent)" onclick="showPage('projects')">создать</span></div>` : ''}
+        ${activeProjects.length===0 ? `<div class="dash-warning"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Нет активных проектов — <span style="cursor:pointer;color:var(--accent)" onclick="showPage('projects')">создать</span></div>` : ''}
       </div>
 
-      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-        <div style="flex:1;min-width:160px">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Проект</div>
-          <select id="dash-project" class="form-select" onchange="dashProjectChanged()" style="font-size:14px">
-            <option value="">— Выберите проект</option>
-            ${activeProjects.map(p=>`<option value="${p.id}" style="color:${p.color||'#059669'}">${escHtml(p.name)}${p.client?' · '+escHtml(p.client):''}</option>`).join('')}
-          </select>
-        </div>
+      <div class="dash-field">
+        <div class="dash-field-label">Проект</div>
+        <select id="dash-project" class="form-select">
+          <option value="">— Выберите проект</option>
+          ${activeProjects.map(p=>`<option value="${p.id}" style="color:${p.color||'#059669'}">${escHtml(p.name)}${p.client?' · '+escHtml(p.client):''}</option>`).join('')}
+        </select>
       </div>
 
-      <div id="dash-board-task-wrap" style="display:none;margin-bottom:12px">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Задача из Kanban</div>
-        <select id="dash-board-task" class="form-select" onchange="dashBoardTaskSelected()" style="font-size:14px">
+      <div id="dash-board-task-wrap" class="dash-field" style="display:none">
+        <div class="dash-field-label">Задача из Kanban</div>
+        <select id="dash-board-task" class="form-select">
           <option value="">— Новая задача (ввести текст ниже)</option>
         </select>
         <input type="hidden" id="dash-task-id" value="">
       </div>
 
-      <div style="margin-bottom:12px">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Что буду делать</div>
+      <div class="dash-field">
+        <div class="dash-field-label">Что буду делать</div>
         <div class="dash-timer-task-row">
-          <textarea id="dash-task" class="form-textarea" placeholder="Опишите задачу своими словами..." style="min-height:70px;font-size:14px;resize:none" oninput="dashTaskChanged()"></textarea>
+          <textarea id="dash-task" class="form-textarea" placeholder="Опишите задачу своими словами..." style="min-height:70px;resize:none"></textarea>
           ${aiAvail ? `
           <button id="dash-ai-btn" onclick="dashAIPolish()" title="Улучшить описание через AI"
             style="width:42px;height:42px;border-radius:var(--radius2);background:var(--accent-light);border:1px solid var(--accent-border);color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"
@@ -2287,13 +2454,13 @@ function renderDashboard() {
       <div id="dash-ai-preview" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)">
         <div style="font-size:11px;color:var(--accent);margin-bottom:6px;font-weight:600;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg> AI сформулировал</div>
         <div id="dash-ai-text" style="font-size:14px;color:var(--text);line-height:1.5"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button onclick="dashApplyAI()" style="padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer">Применить</button>
-          <button onclick="dashDiscardAI()" style="padding:6px 14px;background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;font-size:13px;cursor:pointer">Оставить своё</button>
+        <div class="dash-ai-actions">
+          <button onclick="dashApplyAI()" class="btn btn-primary btn-sm">Применить</button>
+          <button onclick="dashDiscardAI()" class="btn btn-ghost btn-sm">Оставить своё</button>
         </div>
       </div>
 
-      <button id="dash-start-btn" class="btn-start-main btn-start-animated" onclick="dashStartTimer()" disabled>
+      <button id="dash-start-btn" type="button" class="btn-start-main" onclick="dashStartTimer()" aria-disabled="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Запустить таймер
       </button>
@@ -2308,7 +2475,7 @@ function renderDashboard() {
 
   ${timerPanel}
 
-  <div class="grid4 mb20">
+  <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-label">Сегодня</div>
       <div class="stat-val text-accent">${fmtHours(todayH)}</div>
@@ -2389,8 +2556,8 @@ function checkDashReady() {
   const task = document.getElementById('dash-task')?.value.trim();
   const btn = document.getElementById('dash-start-btn');
   if (!btn) return;
-  const ready = proj && task;
-  btn.disabled = !ready;
+  const ready = !!(proj && task);
+  btn.setAttribute('aria-disabled', ready ? 'false' : 'true');
   btn.classList.toggle('btn-start-animated', ready);
 }
 async function dashAIPolish() {
@@ -2452,7 +2619,7 @@ function dashStartTimer() {
     if (!bt || bt.projectId !== projectId) { showToast('Задача не принадлежит выбранному проекту', 'error'); return; }
   }
   startTimer(projectId, task, taskId);
-  renderPage();
+  finishTimerStartUI();
   showToast('Таймер запущен', 'success');
 }
 
@@ -2690,7 +2857,7 @@ function renderBoardKanban(tasks) {
 function renderBoardTable(tasks) {
   if (!tasks.length) return `<div class="empty"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg></div><h3>Нет задач</h3><p>Создайте задачу или измените фильтры</p></div>`;
   const totalH = sum(tasks.map(t => getTaskHours(t.id)));
-  return `<div class="table-wrap"><table>
+  return `<div class="table-wrap"><table class="responsive-table">
     <thead><tr>
       <th>Задача</th><th>Статус</th><th>Приоритет</th><th>Время</th><th>Обновлено</th><th></th>
     </tr></thead>
@@ -2700,16 +2867,16 @@ function renderBoardTable(tasks) {
       const isActive = state.timer.running && state.timer.taskId === t.id;
       const statusBadge = t.status === 'done' ? 'badge-green' : t.status === 'in_progress' ? 'badge-amber' : 'badge-gray';
       return `<tr${isActive ? ' style="background:var(--accent-light)"' : ''}>
-        <td>
+        <td data-label="Задача">
           <div style="font-weight:600">${escHtml(t.title)}</div>
           ${t.desc ? `<div class="text-xs text-muted mt4">${escHtml(t.desc)}</div>` : ''}
           ${isActive ? '<span class="badge badge-emerald mt4">● Таймер активен</span>' : ''}
         </td>
-        <td><span class="badge ${statusBadge}">${BOARD_STATUS_LABELS[t.status]||t.status}</span></td>
-        <td><span style="color:${BOARD_PRIORITY_COLORS[t.priority]||'var(--text2)'}">${BOARD_PRIORITY_LABELS[t.priority]||'—'}</span></td>
-        <td style="font-weight:600;color:var(--accent2);white-space:nowrap">${hours > 0 ? fmtHours(hours) + (earned > 0 ? `<div class="text-xs text-green">${fmtMoney(earned)}</div>` : '') : '—'}</td>
-        <td class="text-sm text-muted" style="white-space:nowrap">${fmtDate(new Date(t.updatedAt).toISOString().slice(0,10))}</td>
-        <td><div class="flex gap4">
+        <td data-label="Статус"><span class="badge ${statusBadge}">${BOARD_STATUS_LABELS[t.status]||t.status}</span></td>
+        <td data-label="Приоритет"><span style="color:${BOARD_PRIORITY_COLORS[t.priority]||'var(--text2)'}">${BOARD_PRIORITY_LABELS[t.priority]||'—'}</span></td>
+        <td data-label="Время" style="font-weight:600;color:var(--accent2);white-space:nowrap">${hours > 0 ? fmtHours(hours) + (earned > 0 ? `<div class="text-xs text-green">${fmtMoney(earned)}</div>` : '') : '—'}</td>
+        <td data-label="Обновлено" class="text-sm text-muted" style="white-space:nowrap">${fmtDate(new Date(t.updatedAt).toISOString().slice(0,10))}</td>
+        <td class="table-actions-cell"><div class="table-actions">
           ${!isActive ? `<button class="btn btn-success btn-sm" onclick="startBoardTimer('${t.id}')" title="Запустить таймер">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           </button>` : `<button class="btn btn-danger btn-sm" onclick="stopTimer()" title="Остановить">
@@ -2908,8 +3075,8 @@ function startBoardTimer(taskId) {
     confirmStopTimer();
   }
   startTimer(t.projectId, t.title, t.id);
+  finishTimerStartUI();
   showToast('▶ Таймер запущен: ' + t.title, 'success');
-  renderPage();
 }
 
 function boardDragStart(e, taskId) {
@@ -2995,7 +3162,7 @@ function renderTimelog() {
       const dayEntries = grouped[date];
       const dayH = sum(dayEntries.map(e=>e.hours));
       return `<div class="mb16">
-        <div class="flex items-center justify-between mb8">
+        <div class="day-group-header">
           <div style="font-size:13px;font-weight:600;color:var(--text2)">${fmtDateLong(date)}</div>
           <div style="font-size:13px;font-weight:600;color:var(--accent2)">${fmtHours(dayH)}</div>
         </div>
@@ -3267,8 +3434,116 @@ const SCHEDULE_DAY_LABELS = { mon: 'Пн', tue: 'Вт', wed: 'Ср', thu: 'Чт'
 const SCHEDULE_OVERRIDE_LABELS = { off: 'Выходной', vacation: 'Отпуск', sick: 'Больничный', custom: 'Свои часы' };
 const SCHEDULE_OVERRIDE_BADGES = { off: 'plan-override-off', vacation: 'plan-override-vacation', sick: 'plan-override-sick', custom: 'plan-override-custom' };
 let planningWeekOffset = 0;
-let planningTab = 'week';
+let planningMonthOffset = 0;
+let planningViewMode = 'month';
+let planningTab = 'calendar';
 let planningSelectedDate = '';
+
+function toDateStr(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function getPlanningMonthStr() {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + planningMonthOffset, 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
+function getMonthGrid(monthStr) {
+  const [y, m] = monthStr.split('-').map(Number);
+  const first = new Date(y, m - 1, 1);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const label = first.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+  let startPad = first.getDay();
+  startPad = startPad === 0 ? 6 : startPad - 1;
+  const cells = [];
+  for (let i = startPad; i > 0; i--) {
+    cells.push({ date: toDateStr(new Date(y, m - 1, 1 - i)), otherMonth: true });
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push({ date: toDateStr(new Date(y, m - 1, day)), otherMonth: false });
+  }
+  while (cells.length % 7 !== 0) {
+    const last = new Date(cells[cells.length - 1].date + 'T12:00:00');
+    last.setDate(last.getDate() + 1);
+    cells.push({ date: toDateStr(last), otherMonth: true });
+  }
+  while (cells.length < 42) {
+    const last = new Date(cells[cells.length - 1].date + 'T12:00:00');
+    last.setDate(last.getDate() + 1);
+    cells.push({ date: toDateStr(last), otherMonth: true });
+  }
+  return { year: y, month: m, daysInMonth, cells, label, monthStr };
+}
+function getMonthDates(monthStr) {
+  return getMonthGrid(monthStr).cells.filter(c => !c.otherMonth).map(c => c.date);
+}
+function shiftPlanningMonth(delta) {
+  planningMonthOffset += delta;
+  renderPage();
+}
+function setPlanningViewMode(mode) {
+  planningViewMode = mode;
+  if (mode === 'day' && !planningSelectedDate) {
+    planningSelectedDate = new Date().toISOString().slice(0, 10);
+  }
+  renderPage();
+}
+function goToPlanningDay(dateStr) {
+  planningSelectedDate = dateStr;
+  planningViewMode = 'day';
+  const [y, mo] = dateStr.split('-').map(Number);
+  const now = new Date();
+  planningMonthOffset = (y - now.getFullYear()) * 12 + (mo - 1 - now.getMonth());
+  renderPage();
+}
+function shiftPlanningDay(delta) {
+  const base = planningSelectedDate || new Date().toISOString().slice(0, 10);
+  const d = new Date(base + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  goToPlanningDay(toDateStr(d));
+}
+function resetPlanningToToday() {
+  planningWeekOffset = 0;
+  planningMonthOffset = 0;
+  planningSelectedDate = new Date().toISOString().slice(0, 10);
+  planningViewMode = 'month';
+  planningTab = 'calendar';
+  renderPage();
+}
+function clearMonthOverrides(monthStr) {
+  const dates = getMonthDates(monthStr);
+  let count = 0;
+  dates.forEach(d => {
+    if (state.schedule.overrides[d]) {
+      delete state.schedule.overrides[d];
+      if (sb.isEnabled()) sb.deleteScheduleOverride(d);
+      count++;
+    }
+  });
+  save();
+  renderPage();
+  showToast(count ? `Сброшено исключений: ${count}` : 'Нет исключений в этом месяце');
+}
+function markMonthWeekends(monthStr) {
+  const dates = getMonthDates(monthStr);
+  let count = 0;
+  dates.forEach(d => {
+    const key = getDayKeyFromDate(d);
+    if ((key === 'sat' || key === 'sun') && getTemplateHoursForDate(d) === 0) {
+      if (!state.schedule.overrides[d] || state.schedule.overrides[d].type !== 'off') {
+        state.schedule.overrides[d] = { type: 'off', note: 'Выходной' };
+        if (sb.isEnabled()) sb.upsertScheduleOverride(d, state.schedule.overrides[d]);
+        count++;
+      }
+    }
+  });
+  save();
+  renderPage();
+  showToast(count ? `Отмечено выходных: ${count}` : 'Выходные уже отмечены');
+}
+function applyTemplateToMonth(monthStr) {
+  if (!confirm('Сбросить все исключения в этом месяце и использовать базовый график?')) return;
+  clearMonthOverrides(monthStr);
+}
 
 function getDefaultSchedule() {
   return { weekTemplate: { mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0, sun: 0 }, overrides: {}, blocks: [] };
@@ -3363,6 +3638,9 @@ function shiftPlanningWeek(delta) {
 }
 function setPlanningTab(tab) {
   planningTab = tab;
+  if (tab === 'calendar' && !planningSelectedDate) {
+    planningSelectedDate = new Date().toISOString().slice(0, 10);
+  }
   renderPage();
 }
 function applyScheduleTemplatePreset(preset) {
@@ -3413,10 +3691,10 @@ function renderScheduleDayModalContent() {
   const d = fmtScheduleDelta(delta, planned);
   const summary = document.getElementById('schedule-day-summary');
   if (summary) {
-    summary.innerHTML = `<div class="flex justify-between items-center">
-      <div><div class="text-xs text-muted">План</div><div class="fw-7" style="font-size:18px">${fmtHours(planned)}</div></div>
-      <div style="text-align:center"><div class="text-xs text-muted">Факт</div><div class="fw-7" style="font-size:18px;color:var(--accent2)">${fmtHours(actual)}</div></div>
-      <div style="text-align:right"><div class="text-xs text-muted">Разница</div><div class="fw-7 plan-day-delta ${d.cls}" style="font-size:18px">${d.text}</div></div>
+    summary.innerHTML = `<div class="schedule-day-summary">
+      <div class="schedule-day-summary-col"><div class="text-xs text-muted">План</div><div class="fw-7" style="font-size:18px">${fmtHours(planned)}</div></div>
+      <div class="schedule-day-summary-col"><div class="text-xs text-muted">Факт</div><div class="fw-7" style="font-size:18px;color:var(--accent2)">${fmtHours(actual)}</div></div>
+      <div class="schedule-day-summary-col"><div class="text-xs text-muted">Разница</div><div class="fw-7 plan-day-delta ${d.cls}" style="font-size:18px">${d.text}</div></div>
     </div>`;
   }
   const blocksEl = document.getElementById('schedule-day-blocks');
@@ -3527,7 +3805,7 @@ function deleteScheduleBlock() {
   else renderPage();
   showToast('Блок удалён');
 }
-function renderPlanningDayCard(dateStr) {
+function renderPlanningDayCard(dateStr, compact) {
   const today = new Date().toISOString().slice(0, 10);
   const planned = getPlannedHours(dateStr);
   const actual = getActualHours(dateStr);
@@ -3542,7 +3820,8 @@ function renderPlanningDayCard(dateStr) {
   const ovBadge = ov && ov.type !== 'custom'
     ? `<span class="plan-override-badge ${SCHEDULE_OVERRIDE_BADGES[ov.type] || ''}">${SCHEDULE_OVERRIDE_LABELS[ov.type] || ov.type}</span>`
     : '';
-  return `<div class="plan-day-card${dateStr === today ? ' today' : ''}${off ? ' off' : ''}" onclick="openScheduleDayModal('${dateStr}')">
+  if (compact) return renderPlanningMonthCell(dateStr, false);
+  return `<div class="plan-day-card${dateStr === today ? ' today' : ''}${off ? ' off' : ''}" onclick="goToPlanningDay('${dateStr}')">
     <div class="plan-day-name">${dayName}</div>
     <div class="plan-day-num">${dt.getDate()}</div>
     ${ovBadge}
@@ -3551,6 +3830,202 @@ function renderPlanningDayCard(dateStr) {
     <div class="plan-day-delta ${d.cls}">${d.text}</div>
     <div class="plan-day-bar"><div class="plan-day-bar-fill ${barCls}" style="width:${barPct}%"></div></div>
   </div>`;
+}
+function renderPlanningMonthCell(dateStr, otherMonth) {
+  const today = new Date().toISOString().slice(0, 10);
+  const planned = getPlannedHours(dateStr);
+  const actual = getActualHours(dateStr);
+  const delta = getScheduleDelta(dateStr);
+  const d = fmtScheduleDelta(delta, planned);
+  const off = isDayOff(dateStr);
+  const ov = getScheduleOverride(dateStr);
+  const dt = new Date(dateStr + 'T12:00:00');
+  const selected = planningSelectedDate === dateStr && planningViewMode === 'month';
+  const ovBadge = ov
+    ? `<span class="plan-override-badge ${SCHEDULE_OVERRIDE_BADGES[ov.type] || 'plan-override-custom'}" style="font-size:9px;padding:1px 5px">${ov.type === 'custom' ? fmtHours(ov.hours || 0) : (SCHEDULE_OVERRIDE_LABELS[ov.type] || '').slice(0, 3)}</span>`
+    : '';
+  return `<div class="plan-month-cell${dateStr === today ? ' today' : ''}${otherMonth ? ' other-month' : ''}${off ? ' off-day' : ''}${selected ? ' selected' : ''}"
+    onclick="goToPlanningDay('${dateStr}')" title="${fmtDateLong(dateStr)} — план ${fmtHours(planned)}, факт ${fmtHours(actual)}">
+    <div class="plan-month-cell-num">${dt.getDate()}</div>
+    <div class="plan-month-cell-plan">план ${fmtHours(planned)}</div>
+    <div class="plan-month-cell-actual">${fmtHours(actual)}</div>
+    <div class="plan-month-cell-delta plan-day-delta ${d.cls}">${d.text}</div>
+    ${ovBadge ? `<div class="plan-month-cell-badge">${ovBadge}</div>` : ''}
+  </div>`;
+}
+function renderPlanningMonthView() {
+  const monthStr = getPlanningMonthStr();
+  const grid = getMonthGrid(monthStr);
+  const today = new Date().toISOString().slice(0, 10);
+  const monthDates = getMonthDates(monthStr);
+  let totalPlanned = 0, totalActual = 0, workDays = 0, offCount = 0;
+  monthDates.forEach(d => {
+    const p = getPlannedHours(d), a = getActualHours(d);
+    totalPlanned += p; totalActual += a;
+    if (isDayOff(d)) offCount++;
+    else if (p > 0) workDays++;
+  });
+  const totalDelta = Math.round((totalActual - totalPlanned) * 100) / 100;
+  const td = fmtScheduleDelta(totalDelta, totalPlanned);
+  const isCurrentMonth = planningMonthOffset === 0;
+  const headers = SCHEDULE_DAY_KEYS.map(k => `<div class="plan-month-head">${SCHEDULE_DAY_LABELS[k]}</div>`).join('');
+  const cells = grid.cells.map(c => renderPlanningMonthCell(c.date, c.otherMonth)).join('');
+  return `
+  <div class="plan-week-nav">
+    <button class="btn btn-ghost btn-sm" onclick="shiftPlanningMonth(-1)">← Пред.</button>
+    <div class="plan-week-label" style="text-transform:capitalize">${grid.label}${isCurrentMonth ? ' · этот месяц' : ''}</div>
+    <button class="btn btn-ghost btn-sm" onclick="shiftPlanningMonth(1)">След. →</button>
+  </div>
+  <div class="grid4 mb16">
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--text2)">${fmtHours(totalPlanned)}</div>
+      <div class="stat-label">План на месяц</div>
+      <div class="stat-sub text-muted">${workDays} раб. · ${offCount} вых.</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--accent2)">${fmtHours(totalActual)}</div>
+      <div class="stat-label">Факт</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val plan-day-delta ${td.cls}" style="font-size:22px">${td.text}</div>
+      <div class="stat-label">Отклонение</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--teal)">${totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0}%</div>
+      <div class="stat-label">Выполнение</div>
+    </div>
+  </div>
+  <div class="plan-month-toolbar">
+    <button class="btn btn-ghost btn-sm" onclick="applyTemplateToMonth('${monthStr}')">Сбросить к шаблону</button>
+    <button class="btn btn-ghost btn-sm" onclick="markMonthWeekends('${monthStr}')">Отметить выходные</button>
+    <button class="btn btn-ghost btn-sm" onclick="clearMonthOverrides('${monthStr}')">Очистить исключения</button>
+    <button class="btn btn-primary btn-sm" onclick="openScheduleDayModal('${today}')">Настроить сегодня</button>
+  </div>
+  <div class="card" style="padding:12px">
+    <div class="plan-month-grid mb4">${headers}</div>
+    <div class="plan-month-grid">${cells}</div>
+    <div class="plan-legend mt12">
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:var(--accent)"></div> Клик — открыть день</div>
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:var(--bg3);border:1px solid var(--border)"></div> Выходной</div>
+      <div class="plan-legend-item"><span class="plan-override-badge plan-override-vacation">Отп</span> Исключение</div>
+    </div>
+  </div>`;
+}
+function renderPlanningDayTimeline(dateStr) {
+  const startHour = 7, endHour = 22;
+  const totalMin = (endHour - startHour) * 60;
+  const hourLines = [];
+  for (let h = startHour; h <= endHour; h++) {
+    const top = ((h - startHour) * 60 / totalMin) * 100;
+    hourLines.push(`<div class="plan-day-timeline-hourline" style="top:${top}%"></div>
+      <div class="plan-day-timeline-hourlbl" style="top:${top}%">${pad(h)}:00</div>`);
+  }
+  const blocks = getBlocksForDate(dateStr);
+  const blockHtml = blocks.map(b => {
+    const topMin = Math.max(0, parseTimeToMinutes(b.start) - startHour * 60);
+    const h = blockDurationHours(b);
+    const top = (topMin / totalMin) * 100;
+    const height = Math.max(3, (h * 60 / totalMin) * 100);
+    return `<div class="plan-day-timeline-block planned" style="top:${top}%;height:${height}%"
+      onclick="editScheduleBlock('${b.id}')" title="${escHtml(b.title || 'Блок')} ${b.start}–${b.end}">
+      ${escHtml(b.title || 'Работа')} · ${b.start}–${b.end}
+    </div>`;
+  }).join('');
+  const entries = state.entries.filter(e => e.date === dateStr && !e.archived && e.start && e.end);
+  const entryHtml = entries.map(e => {
+    const topMin = Math.max(0, parseTimeToMinutes(e.start) - startHour * 60);
+    const durMin = Math.max(15, parseTimeToMinutes(e.end) - parseTimeToMinutes(e.start));
+    const top = (topMin / totalMin) * 100;
+    const height = Math.max(3, (durMin / totalMin) * 100);
+    const p = getProject(e.projectId);
+    return `<div class="plan-day-timeline-block actual" style="top:${top}%;height:${height}%;right:52px"
+      title="${escHtml(e.task)} ${e.start}–${e.end}">
+      ${escHtml((e.task || '').slice(0, 30))} · ${fmtHours(e.hours)}
+    </div>`;
+  }).join('');
+  const today = new Date().toISOString().slice(0, 10);
+  let nowLine = '';
+  if (dateStr === today) {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes() - startHour * 60;
+    if (nowMin >= 0 && nowMin <= totalMin) {
+      nowLine = `<div class="plan-day-timeline-now" style="top:${(nowMin / totalMin) * 100}%"></div>`;
+    }
+  }
+  return `<div class="plan-day-timeline-wrap">
+    <div class="plan-day-timeline-labels"><span>${pad(startHour)}:00</span><span>План (зелёный) · Факт (оранжевый)</span><span>${pad(endHour)}:00</span></div>
+    <div class="plan-day-timeline">${hourLines.join('')}${blockHtml}${entryHtml}${nowLine}</div>
+  </div>`;
+}
+function renderPlanningDayView() {
+  const dateStr = planningSelectedDate || new Date().toISOString().slice(0, 10);
+  const planned = getPlannedHours(dateStr);
+  const actual = getActualHours(dateStr);
+  const delta = getScheduleDelta(dateStr);
+  const d = fmtScheduleDelta(delta, planned);
+  const ov = getScheduleOverride(dateStr);
+  const blocks = getBlocksForDate(dateStr);
+  const entries = state.entries.filter(e => e.date === dateStr && !e.archived);
+  const ovLabel = ov ? SCHEDULE_OVERRIDE_LABELS[ov.type] || ov.type : 'По графику';
+  return `
+  <div class="plan-day-view-header">
+    <button class="btn btn-ghost btn-sm" onclick="shiftPlanningDay(-1)">← Пред.</button>
+    <div class="plan-day-view-title" style="text-transform:capitalize">${fmtDateLong(dateStr)}</div>
+    <button class="btn btn-ghost btn-sm" onclick="shiftPlanningDay(1)">След. →</button>
+  </div>
+  <div class="plan-day-stats">
+    <div class="plan-day-stat">
+      <div class="plan-day-stat-val">${fmtHours(planned)}</div>
+      <div class="plan-day-stat-lbl">План · ${ovLabel}</div>
+    </div>
+    <div class="plan-day-stat">
+      <div class="plan-day-stat-val" style="color:var(--accent2)">${fmtHours(actual)}</div>
+      <div class="plan-day-stat-lbl">Факт · ${entries.length} записей</div>
+    </div>
+    <div class="plan-day-stat">
+      <div class="plan-day-stat-val plan-day-delta ${d.cls}">${d.text}</div>
+      <div class="plan-day-stat-lbl">Отклонение</div>
+    </div>
+  </div>
+  <div class="flex gap8 mb16" style="flex-wrap:wrap">
+    <button class="btn btn-primary btn-sm" onclick="openScheduleDayModal('${dateStr}')">Настроить день</button>
+    <button class="btn btn-ghost btn-sm" onclick="openScheduleBlockModal()">Добавить блок</button>
+    <button class="btn btn-ghost btn-sm" onclick="setPlanningViewMode('month')">К месяцу</button>
+  </div>
+  <div class="card mb16">
+    <div class="section-title" style="margin-top:0">Расписание по часам</div>
+    ${blocks.length || entries.some(e => e.start) ? renderPlanningDayTimeline(dateStr) :
+      emptyState('Нет блоков', 'Добавьте плановые блоки или залогируйте время с указанием начала и конца')}
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Плановые блоки (${blocks.length})</div>
+      ${blocks.length ? blocks.map(b => `<div class="entry-item" style="margin-bottom:6px" onclick="editScheduleBlock('${b.id}')">
+        <div class="entry-info">
+          <div class="entry-task">${escHtml(b.title || 'Блок')}</div>
+          <div class="entry-meta">${b.start} — ${b.end} · ${fmtHours(blockDurationHours(b))}</div>
+        </div>
+      </div>`).join('') : emptyState('Нет блоков', 'Разбейте день на интервалы')}
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Записи времени (${entries.length})</div>
+      ${entries.length ? entries.map(e => entryItem(e)).join('') : emptyState('Нет записей', 'Время за этот день не залогировано')}
+    </div>
+  </div>`;
+}
+function renderPlanningCalendarView() {
+  const views = [
+    { id: 'month', label: 'Месяц' },
+    { id: 'week', label: 'Неделя' },
+    { id: 'day', label: 'День' }
+  ];
+  const switcher = `<div class="plan-view-switch">${views.map(v =>
+    `<button type="button" class="plan-view-btn${planningViewMode === v.id ? ' active' : ''}" onclick="setPlanningViewMode('${v.id}')">${v.label}</button>`
+  ).join('')}</div>`;
+  const content = planningViewMode === 'month' ? renderPlanningMonthView()
+    : planningViewMode === 'day' ? renderPlanningDayView()
+    : renderPlanningWeekView();
+  return switcher + content;
 }
 function renderPlanningWeekView() {
   const week = getWeekDatesFromOffset(planningWeekOffset);
@@ -3637,7 +4112,7 @@ function renderPlanningTemplateView() {
   </div>
   <div class="card">
     <div class="section-title" style="margin-top:0">Исключения и выходные</div>
-    <p class="text-sm text-muted mb12">Нажмите на день в календаре, чтобы отметить выходной, отпуск, больничный или задать особые часы. Исключения перекрывают базовый график.</p>
+    <p class="text-sm text-muted mb12">Задайте базовый график — он применяется ко всему месяцу. Исключения настраивайте в календаре (клик по дню).</p>
     ${Object.keys(state.schedule.overrides).length === 0 ? emptyState('Нет исключений', 'Откройте день в календаре и настройте его') :
       Object.entries(state.schedule.overrides).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 20).map(([date, ov]) => `
         <div class="entry-item" style="margin-bottom:6px" onclick="openScheduleDayModal('${date}')">
@@ -3651,9 +4126,9 @@ function renderPlanningTemplateView() {
 }
 function renderPlanningStatsView() {
   const week = getWeekDatesFromOffset(planningWeekOffset);
-  const monthStart = new Date().toISOString().slice(0, 7) + '-01';
+  const monthStr = getPlanningMonthStr();
+  const monthDates = getMonthDates(monthStr);
   const today = new Date().toISOString().slice(0, 10);
-  const monthDates = getDateRange(monthStart, today);
   let weekPlanned = 0, weekActual = 0, monthPlanned = 0, monthActual = 0;
   let overDays = 0, underDays = 0, hitDays = 0, offDays = 0;
   week.dates.forEach(d => {
@@ -3691,7 +4166,7 @@ function renderPlanningStatsView() {
       <div class="plan-stat-row"><span>Выполнение</span><span class="fw-6">${weekPlanned > 0 ? Math.round((weekActual / weekPlanned) * 100) : 0}%</span></div>
     </div>
     <div class="card">
-      <div class="section-title" style="margin-top:0">Месяц (с ${fmtDate(monthStart)})</div>
+      <div class="section-title" style="margin-top:0">Месяц (${getMonthGrid(monthStr).label})</div>
       <div class="plan-stat-row"><span>План</span><span class="fw-6">${fmtHours(monthPlanned)}</span></div>
       <div class="plan-stat-row"><span>Факт</span><span class="fw-6" style="color:var(--accent2)">${fmtHours(monthActual)}</span></div>
       <div class="plan-stat-row"><span>Отклонение</span><span class="plan-day-delta ${md.cls} fw-6">${md.text}</span></div>
@@ -3710,7 +4185,7 @@ function renderPlanningStatsView() {
 }
 function renderPlanning() {
   const tabs = [
-    { id: 'week', label: 'Календарь' },
+    { id: 'calendar', label: 'Календарь' },
     { id: 'template', label: 'График' },
     { id: 'stats', label: 'Статистика' }
   ];
@@ -3719,14 +4194,14 @@ function renderPlanning() {
   ).join('')}</div>`;
   const content = planningTab === 'template' ? renderPlanningTemplateView()
     : planningTab === 'stats' ? renderPlanningStatsView()
-    : renderPlanningWeekView();
+    : renderPlanningCalendarView();
   return `
   <div class="page-header">
     <div>
       <div class="page-title">Планирование времени</div>
-      <div class="page-sub">График работы, план vs факт, выходные и отпуск</div>
+      <div class="page-sub">Календарь на месяц, неделю и день — план vs факт</div>
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="planningWeekOffset=0;planningTab='week';renderPage()">Сегодня</button>
+    <button class="btn btn-ghost btn-sm" onclick="resetPlanningToToday()">Сегодня</button>
   </div>
   ${tabBar}
   ${content}`;
@@ -4001,12 +4476,12 @@ function renderReports() {
         <button class="btn btn-ghost btn-sm" onclick="setReportPeriod('month')">Месяц</button>
         <button class="btn btn-ghost btn-sm" onclick="setReportPeriod('all')">Всё</button>
       </div>
-      <div class="filter-bar-item" style="min-width:100%">
+      <div class="filter-bar-item filter-bar-item-full">
         <div class="text-xs text-muted mb4">Название отчёта</div>
         <input type="text" class="form-input" id="rep-title" value="${escHtml(reportTitle || getDefaultReportTitle(reportProject || null))}" placeholder="Например: Перенос проектов с Lovable на облачные сервера" oninput="reportTitle=this.value" style="padding:7px 10px">
       </div>
     </div>
-    <div class="flex items-center justify-between mt12 pt12" style="border-top:1px solid var(--border)">
+    <div class="report-pending-footer">
       <div class="text-sm text-muted">Готово к сбору: <strong style="color:var(--text)">${pendingEntries.length}</strong> записей · ${fmtHoursTelegram(pendingH)}${pendingAmount > 0 ? ' · ' + fmtMoney(pendingAmount) : ''}</div>
       ${pendingEntries.length ? `<button class="btn btn-ghost btn-sm" onclick="previewReportText()">Предпросмотр</button>` : ''}
     </div>
@@ -4038,9 +4513,9 @@ function renderReports() {
     sortedReports.map(r => {
       const isSelected = selectedReportId === r.id;
       return `<div class="card mb12 report-card${isSelected ? ' selected' : ''}" onclick="selectReport('${r.id}')">
-        <div class="flex items-center justify-between">
+        <div class="report-card-inner">
           <div>
-            <div class="flex items-center gap8">
+            <div class="flex items-center gap8" style="flex-wrap:wrap">
               <span style="font-size:15px;font-weight:600">${escHtml(r.title || `${fmtDate(r.from)} — ${fmtDate(r.to)}`)}</span>
               <span class="badge ${r.status === 'paid' ? 'badge-green' : 'badge-amber'}">${r.status === 'paid' ? 'Оплачено' : 'Не оплачен'}</span>
             </div>
@@ -4048,7 +4523,7 @@ function renderReports() {
               ${r.projectId && getProject(r.projectId) ? escHtml(getProject(r.projectId).name) + ' · ' : ''}${r.entryIds?.length || 0} записей · ${fmtHoursTelegram(r.totalHours)}${r.totalAmount > 0 ? ' · ' + fmtMoney(r.totalAmount) : ''}
             </div>
           </div>
-          <div class="flex gap6" onclick="event.stopPropagation()">
+          <div class="report-card-actions" onclick="event.stopPropagation()">
             <button class="btn btn-ghost btn-sm" onclick="copyReportText('${r.id}')">Копировать</button>
             ${r.status === 'unpaid' ? `<button class="btn btn-ghost btn-sm" style="color:var(--green)" onclick="markReportPaid('${r.id}')">Оплачено</button>` : ''}
           </div>
@@ -4171,7 +4646,7 @@ function renderPayments() {
           <td data-label="Период" class="text-sm text-muted">${pay.from&&pay.to?fmtDate(pay.from)+' – '+fmtDate(pay.to):''}</td>
           <td data-label="Сумма" style="font-weight:600;color:var(--green)">${fmtMoney(pay.amount)}</td>
           <td data-label="Заметка" class="text-sm text-muted">${escHtml(pay.note||'')}</td>
-          <td><div class="flex gap4">
+          <td class="table-actions-cell"><div class="table-actions">
             <button class="btn-icon" onclick="editPayment('${pay.id}')">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
@@ -4451,7 +4926,27 @@ function selectColor(color, el) {
   if (el) el.classList.add('selected');
 }
 
-function bindPageEvents() {}
+function bindPageEvents() {
+  const proj = document.getElementById('dash-project');
+  const task = document.getElementById('dash-task');
+  const board = document.getElementById('dash-board-task');
+  if (proj && !proj.dataset.bound) {
+    proj.dataset.bound = '1';
+    proj.addEventListener('change', dashProjectChanged);
+    proj.addEventListener('input', checkDashReady);
+  }
+  if (task && !task.dataset.bound) {
+    task.dataset.bound = '1';
+    task.addEventListener('input', dashTaskChanged);
+    task.addEventListener('change', dashTaskChanged);
+    task.addEventListener('blur', checkDashReady);
+  }
+  if (board && !board.dataset.bound) {
+    board.dataset.bound = '1';
+    board.addEventListener('change', dashBoardTaskSelected);
+  }
+  if (state.currentPage === 'dashboard' && (proj || task)) checkDashReady();
+}
 
 function currencySymbol() {
   const cur = state.settings?.currency || 'RUB';
@@ -4533,7 +5028,7 @@ function renderSettings() {
   ];
 
   return `
-  <div class="settings-wrap" style="max-width:720px">
+  <div class="settings-wrap">
 
     <div class="section-title" style="margin-top:0">💰 Финансы и почасовая оплата</div>
     <div class="card mb16">
@@ -4560,7 +5055,7 @@ function renderSettings() {
         </div>
       </div>
       <div id="s-rate-preview" class="rate-preview">${rate ? '' : '<div class="text-xs text-muted" style="grid-column:1/-1">Укажите ставку — здесь появится расчёт за 15 мин, 30 мин и 1 час</div>'}</div>
-      ${projectsNoRate ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2)">
+      ${projectsNoRate ? `<div class="settings-apply-banner">
         <div class="text-sm">${projectsNoRate} ${projectsNoRate===1?'проект без ставки':'проект(ов) без ставки'}</div>
         <button class="btn btn-ghost btn-sm" onclick="applyDefaultRateToProjects()">Применить ставку</button>
       </div>` : ''}
@@ -4597,7 +5092,7 @@ function renderSettings() {
 
     <div class="section-title">Интеграция — OpenRouter AI</div>
     <div class="card mb16">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px">
+      <div class="settings-toggle-row">
         <div>
           <div style="font-size:15px;font-weight:600;margin-bottom:4px">OpenRouter</div>
           <div class="text-sm text-muted">Один ключ — доступ к Claude, GPT-4, Gemini и другим моделям. AI будет улучшать описания задач для отчётов.</div>
@@ -4616,7 +5111,7 @@ function renderSettings() {
 
       <div class="form-group">
         <label class="form-label">API ключ OpenRouter</label>
-        <div style="display:flex;gap:8px">
+        <div class="settings-input-row">
           <input type="password" class="form-input" id="s-apikey" value="${or.apiKey||''}" placeholder="sk-or-v1-..." style="flex:1"
             oninput="state.settings.openrouter.apiKey=this.value;save()">
           <button class="btn btn-ghost btn-sm" onclick="testOpenRouter()" id="test-ai-btn">Проверить</button>
@@ -4647,11 +5142,13 @@ function renderSettings() {
     <div class="card mb16">
       ${window.TIMELOG_CONFIG?.autoConnect ? `<div style="padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--radius2);margin-bottom:16px;font-size:13px;color:var(--green)">🐳 Docker: PostgreSQL + API подключены автоматически</div>` : ''}
       ${s.supabase.enabled ? `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--radius2);margin-bottom:16px">
+      <div class="settings-banner settings-banner-connected">
         <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
-        <div style="flex:1;font-size:13px;color:var(--green)">Подключено к облачной БД — данные синхронизируются</div>
-        <button class="btn btn-ghost btn-sm" onclick="sbSync()">↻ Синхронизировать</button>
-        <button class="btn btn-danger btn-sm" onclick="sbDisconnect()">Отключить</button>
+        <div class="settings-banner-text" style="color:var(--green)">Подключено к облачной БД — данные синхронизируются</div>
+        <div class="settings-banner-actions">
+          <button class="btn btn-ghost btn-sm" onclick="sbSync()">↻ Синхронизировать</button>
+          <button class="btn btn-danger btn-sm" onclick="sbDisconnect()">Отключить</button>
+        </div>
       </div>` : `
       <div style="margin-bottom:14px">
         <div style="font-size:14px;font-weight:600;margin-bottom:6px">Облачное хранилище</div>
@@ -4719,7 +5216,7 @@ create policy "open" on payments for all using (true) with check (true);</pre>
 
       <div id="sb-test-result" class="text-sm mt4 mb12" style="min-height:18px"></div>
 
-      <div style="display:flex;gap:8px">
+      <div class="settings-input-row">
         <button class="btn btn-ghost btn-sm" onclick="sbTest()">Проверить соединение</button>
         ${!s.supabase.enabled ? `<button class="btn btn-primary" onclick="sbConnect()" style="flex:1">🔗 Подключить и мигрировать данные</button>` : ''}
       </div>
@@ -4732,13 +5229,13 @@ create policy "open" on payments for all using (true) with check (true);</pre>
           const hrs = sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
           const statusMap = { active: ['var(--green)', 'Активный'], paused: ['var(--amber)', 'Пауза'], done: ['var(--text2)', 'Завершён'] };
           const [stColor, stLabel] = statusMap[p.status] || statusMap.active;
-          return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
+          return `<div class="settings-project-row">
             <div style="width:10px;height:10px;border-radius:50%;background:${p.color||'#059669'};flex-shrink:0"></div>
-            <div style="flex:1;min-width:0">
+            <div class="settings-project-info">
               <div style="font-size:14px;font-weight:500">${escHtml(p.name)}</div>
               <div class="text-xs text-muted">${p.client?escHtml(p.client)+' · ':''}${p.rate ? fmtMoney(p.rate)+'/ч · ' : ''}${fmtHours(hrs)} · <span style="color:${stColor}">${stLabel}</span></div>
             </div>
-            <div style="display:flex;gap:6px;flex-shrink:0">
+            <div class="settings-project-btns">
               <button class="btn btn-ghost btn-sm" onclick="setProjectStatus('${p.id}','active')" ${p.status==='active'?'style="border-color:var(--green);color:var(--green)"':''}>Активный</button>
               <button class="btn btn-ghost btn-sm" onclick="setProjectStatus('${p.id}','paused')" ${p.status==='paused'?'style="border-color:var(--amber);color:var(--amber)"':''}>Пауза</button>
               <button class="btn btn-ghost btn-sm" onclick="setProjectStatus('${p.id}','done')" ${p.status==='done'?'style="border-color:var(--text2);color:var(--text2)"':''}>Закрыть</button>
