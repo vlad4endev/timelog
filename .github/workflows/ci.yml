@@ -19,7 +19,7 @@ jobs:
 
       - run: npm ci
       - run: cp .env.example .env && ./scripts/setup.sh
-      - run: test -f icon-192.png && test -f icon-512.png
+      - run: test -f icon-192.png && test -f icon-512.png && test -f native-bridge.js
       - run: grep -q '^ANON_KEY=eyJ' .env
       - run: npm run build:cap
       - run: test -f www/native-bridge.js

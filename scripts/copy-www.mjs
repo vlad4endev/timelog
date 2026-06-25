@@ -9,6 +9,7 @@ const files = [
   'sw.js',
   'manifest.json',
   'config.js',
+  'native-bridge.js',
   'icon-192.png',
   'icon-512.png',
 ];

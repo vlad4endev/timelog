@@ -1642,21 +1642,14 @@ const auth = {
   getApiToken() {
     const login = this.getLogin();
     if (!login) return null;
-    let token = sessionStorage.getItem(this.tokenKey(login));
-    if (!token) {
-      token = localStorage.getItem(this.tokenKey(login));
-      if (token) {
-        sessionStorage.setItem(this.tokenKey(login), token);
-        localStorage.removeItem(this.tokenKey(login));
-      }
-    }
-    return token;
+    const key = this.tokenKey(login);
+    return sessionStorage.getItem(key) || localStorage.getItem(key);
   },
 
   setApiToken(login, token) {
     if (!login || !token) return;
     sessionStorage.setItem(this.tokenKey(login), token);
-    localStorage.removeItem(this.tokenKey(login));
+    localStorage.setItem(this.tokenKey(login), token);
   },
 
   clearApiToken(login) {
@@ -1709,10 +1702,19 @@ const auth = {
 
   async ensureSession(login, password = null) {
     if (!this.useServerAuth()) return true;
+    const l = login || this.getLogin();
+    if (!l) return false;
     if (this.getApiToken()) return true;
     const pass = password || this._sessionPass;
     if (!pass) return false;
-    return await this.fetchApiToken(login, pass);
+    if (await this.fetchApiToken(l, pass)) return true;
+    const h = await this.hash(l, pass);
+    const res = await this.authFetch('/auth/token', { login: l, pwHash: h });
+    if (res?.ok && res.token) {
+      this.setApiToken(l, res.token);
+      return true;
+    }
+    return false;
   },
 
   async hash(login, pass) {
@@ -1781,7 +1783,49 @@ const auth = {
     return l ? (this.hasLocalPassword(l) || !!this._serverHash) : false;
   },
 
+  _lastAuthError: null,
+  _authBusy: false,
+
+  async verifyLocalCredentials(login, pass) {
+    const h = await this.hash(login, pass);
+    const local = localStorage.getItem(this.pwKey(login));
+    if (local && local === h) return true;
+
+    await this.fetchServerHash(login);
+    if (this._serverHash && this._serverHash !== 'exists' && this._serverHash === h) {
+      localStorage.setItem(this.pwKey(login), h);
+      return true;
+    }
+    const legacyH = await this.legacyHash(pass);
+    if (local && local === legacyH) return true;
+    if (this._serverHash && this._serverHash !== 'exists' && this._serverHash === legacyH) {
+      const newH = await this.hash(login, pass);
+      localStorage.setItem(this.pwKey(login), newH);
+      if (sb.isEnabled()) {
+        await sb.req('POST', 'app_users', { login, pw_hash: newH, updated_at: new Date().toISOString() });
+      }
+      this._serverHash = newH;
+      return true;
+    }
+    return false;
+  },
+
+  async promoteLocalToServer(login, pass) {
+    const existsRes = await this.authFetch(`/auth/exists?login=${encodeURIComponent(login)}`);
+    if (existsRes?.exists) {
+      const ok = await this.fetchApiToken(login, pass);
+      if (!ok) this._lastAuthError = 'local_server_mismatch';
+      return ok;
+    }
+    const passErr = this.validatePassword(pass);
+    if (passErr) return false;
+    const reg = await this.registerApi(login, pass);
+    return reg.ok;
+  },
+
   async checkPassword(login, pass) {
+    this._lastAuthError = null;
+
     if (this.useServerAuth()) {
       let res = await this.authFetch('/auth/token', { login, password: pass });
       if (!res?.ok) {
@@ -1790,32 +1834,30 @@ const auth = {
       }
       if (res?.ok) {
         if (res.token) this.setApiToken(login, res.token);
+        this.setLogin(login);
         this._sessionPass = pass;
         this.clearLocalPassword(login);
         this._serverHash = 'exists';
         return true;
       }
+      if (await this.verifyLocalCredentials(login, pass)) {
+        this.setLogin(login);
+        this._sessionPass = pass;
+        if (await this.promoteLocalToServer(login, pass)) {
+          this.clearLocalPassword(login);
+          this._serverHash = 'exists';
+          return true;
+        }
+        if (!this._lastAuthError) this._lastAuthError = 'local_needs_upgrade';
+        return false;
+      }
+      const existsRes = await this.authFetch(`/auth/exists?login=${encodeURIComponent(login)}`);
+      this._lastAuthError = existsRes?.exists ? 'invalid_password' : 'user_not_found';
       return false;
     }
 
-    const h = await this.hash(login, pass);
-    const local = localStorage.getItem(this.pwKey(login));
-    if (local && local === h) return true;
-
-    await this.fetchServerHash(login);
-    if (this._serverHash && this._serverHash === h) {
-      localStorage.setItem(this.pwKey(login), h);
-      return true;
-    }
-    const legacyH = await this.legacyHash(pass);
-    if (local && local === legacyH) return true;
-    if (this._serverHash && this._serverHash === legacyH) {
-      const newH = await this.hash(login, pass);
-      localStorage.setItem(this.pwKey(login), newH);
-      if (sb.isEnabled()) {
-        await sb.req('POST', 'app_users', { login, pw_hash: newH, updated_at: new Date().toISOString() });
-      }
-      this._serverHash = newH;
+    if (await this.verifyLocalCredentials(login, pass)) {
+      this.setLogin(login);
       return true;
     }
     return false;
@@ -2058,6 +2100,7 @@ function authUpdateBiometricUI() {
 }
 
 async function authBootScreen() {
+  authMsg('Загрузка…', '');
   const lastLogin = auth.getLastLogin();
   const loginEl = document.getElementById('auth-login');
   const setupLoginEl = document.getElementById('auth-setup-login');
@@ -2088,24 +2131,49 @@ async function authBootScreen() {
   }, 80);
 }
 
+let appStarted = false;
+
 async function authUnlock() {
   const login = authGetUnlockLogin();
   const err = auth.validateLogin(login);
   if (err) { authMsg(err, 'err'); return; }
   const pass = document.getElementById('auth-pass').value;
   if (!pass) { authMsg('Введите пароль', 'err'); return; }
+  auth.setLogin(login);
+  auth._authBusy = true;
   const btn = document.getElementById('auth-unlock-btn');
   btn.disabled = true; btn.textContent = 'Проверяем...';
-  const ok = await auth.checkPassword(login, pass);
-  btn.disabled = false; btn.textContent = 'Войти';
-  if (ok) {
-    await auth.syncHashToServerIfNeeded(login);
-    auth.login(login);
-    await authAfterSuccess();
-  } else {
-    authMsg('Неверный логин или пароль', 'err');
-    document.getElementById('auth-pass').value = '';
-    document.getElementById('auth-pass').focus();
+  try {
+    const ok = await auth.checkPassword(login, pass);
+    if (ok) {
+      auth.login(login);
+      await auth.syncHashToServerIfNeeded(login);
+      if (auth.useServerAuth() && !auth.getApiToken()) {
+        authMsg('Вход выполнен, но сессия сервера не создана. Проверьте пароль (мин. 8 символов).', 'err');
+        auth.logout();
+        return;
+      }
+      await authAfterSuccess();
+    } else {
+      const reason = auth._lastAuthError;
+      if (reason === 'local_needs_upgrade') {
+        authMsg(`Локальный пароль найден, но для сервера нужен пароль от ${auth.MIN_PASSWORD_LENGTH} символов. Создайте новый аккаунт через «Установить пароль».`, 'err');
+      } else if (reason === 'local_server_mismatch') {
+        authMsg('Локальный пароль не совпадает с серверным. Введите пароль от серверного аккаунта.', 'err');
+      } else if (reason === 'user_not_found') {
+        authMsg('Аккаунт не найден на сервере. Проверьте логин или создайте новый аккаунт.', 'err');
+      } else if (reason === 'invalid_password') {
+        authMsg('Неверный пароль', 'err');
+      } else {
+        authMsg('Неверный логин или пароль', 'err');
+      }
+      document.getElementById('auth-pass').value = '';
+      document.getElementById('auth-pass').focus();
+    }
+  } finally {
+    auth._authBusy = false;
+    btn.disabled = false;
+    btn.textContent = 'Войти';
   }
 }
 
@@ -2152,8 +2220,11 @@ async function authSetup() {
   const passErr = auth.validatePassword(pass);
   if (passErr) { authMsg(passErr, 'err'); return; }
   if (pass !== pass2)  { authMsg('Пароли не совпадают', 'err'); return; }
+  auth.setLogin(login);
+  auth._authBusy = true;
   await auth.fetchServerHash(login);
   if (auth._serverHash) {
+    auth._authBusy = false;
     authMsg('Этот логин уже занят. Войдите с паролем.', 'err');
     await authBootScreen();
     return;
@@ -2163,15 +2234,23 @@ async function authSetup() {
   try {
     await auth.setPassword(login, pass);
   } catch (e) {
-    btn.disabled = false; btn.textContent = 'Создать аккаунт и войти';
     authMsg(e.message === 'login taken' ? 'Этот логин уже занят' : (e.message || 'Не удалось создать аккаунт'), 'err');
     return;
+  } finally {
+    auth._authBusy = false;
+    btn.disabled = false;
+    btn.textContent = 'Создать аккаунт и войти';
   }
   if (sb.isEnabled() && (state.projects.length || state.entries.length)) {
     await sb.pushAll();
   }
   auth.login(login);
-  btn.disabled = false; btn.textContent = 'Создать аккаунт и войти';
+  if (auth.useServerAuth() && !auth.getApiToken()) {
+    authMsg('Аккаунт создан, но сессия сервера не получена. Попробуйте войти с паролем.', 'err');
+    auth.logout();
+    await authBootScreen();
+    return;
+  }
   await authAfterSuccess();
 }
 
@@ -2214,6 +2293,7 @@ async function authAfterSuccess() {
 }
 
 function authSuccess() {
+  appStarted = true;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'flex';
   updateTopbarUser();
@@ -6872,6 +6952,7 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{
 // ─── INIT ─────────────────────────────────────────────────────────────────
 function initApp() {
   load();
+  applyDockerConfig();
   state.timer = normalizeTimer(state.timer);
   timerBg.init().then(() => {
     if (state.timer.running) startTimerTick();
@@ -6966,15 +7047,25 @@ auth.migrateLegacyLocal();
 applyDockerConfig();
 (async () => {
   await authBootScreen();
+  while (auth._authBusy) await new Promise(r => setTimeout(r, 50));
+
   if (auth.isLoggedIn()) {
     if (auth.useServerAuth() && !(await auth.ensureSession(auth.getLogin()))) {
-      auth.logout();
-      document.getElementById('auth-screen').style.display = 'flex';
+      if (!appStarted) {
+        auth.logout();
+        authMsg('Сессия истекла. Войдите с паролем ещё раз.', 'err');
+        document.getElementById('main-app').style.display = 'none';
+        document.getElementById('auth-screen').style.display = 'flex';
+      }
       return;
     }
-    load();
-    authSuccess();
+    if (!appStarted) {
+      load();
+      applyDockerConfig();
+      authSuccess();
+    }
   } else {
+    document.getElementById('main-app').style.display = 'none';
     document.getElementById('auth-screen').style.display = 'flex';
   }
 })();
