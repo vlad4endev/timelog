@@ -88,6 +88,7 @@ html.tl-show-auth #auth-screen{display:flex!important}
   --safe-left:env(safe-area-inset-left,0px);
   --safe-right:env(safe-area-inset-right,0px);
   --bottom-nav-h:56px;
+  --topbar-h:54px;
   --touch-min:44px;
 }
 html{-webkit-text-size-adjust:100%;touch-action:manipulation}
@@ -104,7 +105,13 @@ input,select,textarea{font-family:inherit;outline:none}
 .topbar-left,.topbar-center,.topbar-right{display:flex;align-items:center}
 .topbar-logo{display:none;width:28px;height:28px;border-radius:7px;flex-shrink:0;object-fit:cover;box-shadow:0 1px 4px rgba(5,150,105,.2)}
 .topbar-center{flex:1;min-width:0}
+.topbar-title-desktop{font-weight:600;font-size:16px}
 .topbar-right{gap:8px;flex-shrink:0}
+.topbar-mobile-brand{display:none;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;width:100%}
+.topbar-mobile-main{display:flex;align-items:center;gap:7px;min-width:0;max-width:100%}
+.topbar-project-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--accent)}
+.topbar-project-name{font-size:16px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;letter-spacing:-.01em}
+.topbar-page-tag{display:inline-flex;align-items:center;font-size:10px;font-weight:600;letter-spacing:.02em;padding:2px 7px;border-radius:6px;background:var(--bg3);color:var(--text3);line-height:1.35;max-width:100%;white-space:nowrap}
 .content{padding:24px;flex:1;min-width:0;max-width:100%;overflow-x:hidden}
 #main-content{min-width:0;max-width:100%}
 
@@ -210,6 +217,30 @@ tr:hover td{background:var(--bg3)}
 .modal-title{font-size:17px;font-weight:600}
 .modal-body{padding:20px 24px}
 .modal-footer{padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+
+/* Timer start modal */
+.timer-start-modal-card{max-width:440px;border:none;overflow:hidden;display:flex;flex-direction:column;max-height:92dvh}
+.timer-start-modal-head{background:linear-gradient(135deg,var(--accent3),var(--accent));padding:18px 20px;display:flex;align-items:flex-start;gap:12px;color:#fff;position:relative}
+.timer-start-modal-icon{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;backdrop-filter:blur(8px)}
+.timer-start-modal-title{font-size:17px;font-weight:700;line-height:1.25}
+.timer-start-modal-sub{font-size:12px;opacity:.78;margin-top:3px}
+.timer-start-modal-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s}
+.timer-start-modal-close:active{background:rgba(255,255,255,.28)}
+.timer-start-modal-body{padding:18px 20px;overflow-y:auto;flex:1}
+.timer-start-modal-footer{padding:14px 20px calc(14px + var(--safe-bottom));border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;background:var(--bg2)}
+.timer-form-task-row{display:flex;gap:8px;align-items:flex-start}
+.timer-form-task-row .form-textarea{flex:1;min-width:0}
+.timer-form-ai-btn{width:42px;height:42px;border-radius:var(--radius2);background:var(--accent-light);border:1px solid var(--accent-border);color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s,background .15s}
+.timer-form-ai-btn:disabled{opacity:.4;cursor:default}
+.timer-form-ai-btn:not(:disabled):active{background:rgba(5,150,105,.16)}
+.timer-ai-preview{display:none;margin-top:10px;padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)}
+.timer-ai-preview-label{font-size:11px;color:var(--accent);margin-bottom:6px;font-weight:600;display:flex;align-items:center;gap:5px}
+.timer-ai-preview-text{font-size:14px;color:var(--text);line-height:1.5}
+.timer-ai-preview-actions{display:flex;gap:8px;margin-top:10px}
+.timer-start-btn{width:100%;padding:14px;border:none;border-radius:var(--radius2);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;box-shadow:0 4px 14px rgba(5,150,105,.28);transition:opacity .15s,transform .15s,box-shadow .15s}
+.timer-start-btn[aria-disabled="true"]{opacity:.45;cursor:default;box-shadow:none;animation:none!important}
+.timer-start-btn:not([aria-disabled="true"]):active{transform:scale(.98)}
+.timer-start-modal-cancel{width:100%;justify-content:center;min-height:var(--touch-min)}
 
 /* Page header */
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
@@ -546,6 +577,28 @@ html.tl-show-auth #global-boot-splash{display:none!important}
 .bottom-nav-fab.running{background:var(--red);box-shadow:0 4px 16px rgba(220,38,38,.35);animation:timerPulse 2s ease-in-out infinite}
 @keyframes timerPulse{0%,100%{box-shadow:0 4px 16px rgba(220,38,38,.35)}50%{box-shadow:0 4px 20px rgba(220,38,38,.55),0 0 0 6px rgba(220,38,38,.12)}}
 
+/* Mobile "More" menu page */
+.mobile-more-page{padding:4px 0 8px}
+.mobile-more-intro{font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.45}
+.mobile-more-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mobile-more-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 8px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s;min-height:96px;text-align:center}
+.mobile-more-item:active{transform:scale(.97);opacity:.85}
+.mobile-more-item.active{border-color:var(--accent);background:var(--accent-light);box-shadow:0 0 0 1px var(--accent-border)}
+.mobile-more-icon{width:44px;height:44px;border-radius:12px;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--accent2);flex-shrink:0}
+.mobile-more-item.active .mobile-more-icon{background:rgba(5,150,105,.15);color:var(--accent)}
+.mobile-more-icon svg{width:22px;height:22px;stroke-width:1.75}
+.mobile-more-label{font-size:12px;font-weight:600;color:var(--text);line-height:1.25}
+.mobile-more-item.active .mobile-more-label{color:var(--accent2)}
+.mobile-more-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.mobile-more-section-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.mobile-more-quick{display:flex;flex-direction:column;gap:8px}
+.mobile-more-quick-btn{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);cursor:pointer;text-align:left;transition:border-color .15s,background .15s;width:100%}
+.mobile-more-quick-btn:active{background:var(--bg3)}
+.mobile-more-quick-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mobile-more-quick-text{flex:1;min-width:0}
+.mobile-more-quick-title{font-size:14px;font-weight:600;color:var(--text)}
+.mobile-more-quick-sub{font-size:12px;color:var(--text2);margin-top:2px}
+
 /* Mobile active timer strip */
 .mobile-timer-bar{position:fixed;left:var(--safe-left);right:var(--safe-right);bottom:calc(var(--bottom-nav-h) + var(--safe-bottom));z-index:199;background:linear-gradient(135deg,var(--accent3),var(--accent));color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 -2px 12px rgba(5,150,105,.25)}
 .mobile-timer-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0;animation:pulse 1.5s infinite}
@@ -660,31 +713,36 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 .filter-card{padding:14px 16px}
 
 @media(max-width:768px){
-  .sidebar{transform:translateX(-100%);width:min(280px,85vw);padding-top:var(--safe-top)}
-  .sidebar.open{transform:none;box-shadow:4px 0 24px rgba(15,23,42,.12)}
-  .sidebar-backdrop.open{display:block}
+  .sidebar,.sidebar-backdrop{display:none!important}
   .main{margin-left:0}
   .hamburger{display:none!important}
   .topbar-logo{display:block}
   .mobile-bottom-nav{display:grid}
+  .main{padding-top:calc(var(--topbar-h) + var(--safe-top))}
   .content{padding:12px 12px calc(12px + var(--bottom-nav-h) + var(--safe-bottom) + 4px)}
   body.timer-active-mobile .content{padding-bottom:calc(12px + var(--bottom-nav-h) + 48px + var(--safe-bottom))}
   body.timer-active-mobile .pwa-install-banner{bottom:calc(var(--bottom-nav-h) + 48px + var(--safe-bottom) + 8px)}
   .topbar{
-    display:grid;
-    grid-template-columns:1fr auto 1fr;
+    position:fixed;
+    top:0;
+    left:var(--safe-left);
+    right:var(--safe-right);
+    z-index:50;
+    display:flex;
     align-items:center;
-    padding:10px 12px;
-    padding-top:calc(10px + var(--safe-top));
-    gap:8px;
+    gap:10px;
+    padding:8px 14px;
+    padding-top:calc(8px + var(--safe-top));
+    min-height:calc(var(--topbar-h) + var(--safe-top));
+    box-sizing:border-box;
   }
-  .topbar-left{grid-column:1;display:flex;align-items:center;justify-content:flex-start}
-  .topbar-center{grid-column:2;text-align:center;justify-self:center;min-width:0}
-  .topbar-right{grid-column:3;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+  .topbar-left{display:flex;align-items:center;justify-content:flex-start;flex-shrink:0}
+  .topbar-center{flex:1;min-width:0;text-align:left}
+  .topbar-right{display:none!important}
+  .topbar-title-desktop{display:none!important}
+  .topbar-mobile-brand{display:flex}
   #topbar-title{font-size:16px!important;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
   .topbar-add-btn{display:none}
-  .topbar-user .auth-email-lbl{display:none}
-  .topbar-user .auth-logout{padding:8px 10px;min-height:36px;font-size:12px}
   .grid3,.grid4:not(.stats-grid){grid-template-columns:1fr 1fr}
   .stats-grid{grid-template-columns:1fr 1fr;gap:10px}
   .analytics-stage-grid{grid-template-columns:repeat(3,1fr);gap:8px}
@@ -711,6 +769,10 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .modal-header,.modal-body,.modal-footer{padding-left:20px;padding-right:20px}
   .modal-footer{flex-direction:column-reverse;padding-bottom:calc(14px + var(--safe-bottom))}
   .modal-footer .btn{width:100%;justify-content:center;min-height:var(--touch-min)}
+  .timer-start-modal-card{max-width:100%;border-radius:16px 16px 0 0;max-height:92dvh}
+  .timer-start-modal-footer{padding-bottom:calc(14px + var(--safe-bottom))}
+  .timer-form-task-row .timer-form-ai-btn{width:44px;height:44px}
+  .timer-ai-preview-actions .btn{flex:1;justify-content:center;min-height:var(--touch-min)}
   .toast-container{bottom:calc(var(--bottom-nav-h) + var(--safe-bottom) + 12px);right:12px;left:12px}
   .toast{width:100%}
   .entry-item{flex-wrap:wrap;padding:14px;gap:10px}
@@ -748,6 +810,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .dash-timer-running-actions button{width:100%;justify-content:center;min-height:var(--touch-min)}
   .dash-timer-panel{padding:16px}
   .dash-timer-panel-head{flex-direction:column;gap:8px}
+  #dash-timer-panel{display:none!important}
   .dash-field-label{font-size:12px}
   .dash-timer-task-row{flex-direction:column}
   .dash-timer-task-row #dash-ai-btn{align-self:flex-end;width:44px;height:44px}
@@ -831,6 +894,10 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .bottom-nav-item{font-size:9px;padding-bottom:4px}
   .bottom-nav-item svg{width:22px;height:22px}
   .bottom-nav-fab{width:44px;height:44px;margin-top:-16px}
+  .mobile-more-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .mobile-more-item{min-height:88px;padding:14px 8px 12px}
+  .mobile-more-icon{width:40px;height:40px;border-radius:10px}
+  .mobile-more-label{font-size:11px}
   .settings-project-btns{grid-template-columns:1fr}
   .filter-bar-actions{grid-template-columns:1fr}
   .plan-day-grid{grid-template-columns:1fr}
@@ -1102,7 +1169,14 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
       </button>
     </div>
     <div class="topbar-center">
-      <div id="topbar-title" style="font-weight:600;font-size:16px">Дашборд</div>
+      <div id="topbar-title" class="topbar-title-desktop">Дашборд</div>
+      <div class="topbar-mobile-brand" id="topbar-mobile-brand">
+        <div class="topbar-mobile-main">
+          <span class="topbar-project-dot" id="topbar-project-dot"></span>
+          <span class="topbar-project-name" id="topbar-project-name">TimeLog</span>
+        </div>
+        <span class="topbar-page-tag" id="topbar-page-tag">Главная</span>
+      </div>
     </div>
     <div class="topbar-right">
       <button class="btn btn-primary btn-sm topbar-add-btn" onclick="openAddEntryModal()">
@@ -1192,8 +1266,8 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     <span>Аналитика</span>
   </button>
-  <button class="bottom-nav-item" data-page="menu" onclick="toggleSidebar()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+  <button class="bottom-nav-item" data-page="more" onclick="showPage('more')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
     <span>Ещё</span>
   </button>
 </nav>
@@ -1384,31 +1458,66 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 </div>
 
 <div class="modal-overlay" id="modal-quick-timer">
-  <div class="modal" style="max-width:400px">
-    <div class="modal-header">
-      <div class="modal-title">Запустить таймер</div>
-      <button class="btn-icon" onclick="closeModal('modal-quick-timer')">
+  <div class="modal timer-start-modal-card">
+    <div class="timer-start-modal-head">
+      <div class="timer-start-modal-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+      <div style="flex:1;min-width:0;padding-right:28px">
+        <div class="timer-start-modal-title">Начать запись времени</div>
+        <div class="timer-start-modal-sub" id="timer-modal-date"></div>
+      </div>
+      <button type="button" class="timer-start-modal-close" onclick="closeModal('modal-quick-timer')" aria-label="Закрыть">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body timer-start-modal-body">
+      <div id="timer-modal-no-projects" class="dash-warning hidden" style="margin-bottom:14px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Нет активных проектов — <span style="cursor:pointer;color:var(--accent)" onclick="closeModal('modal-quick-timer');showPage('projects')">создать</span>
+      </div>
       <div class="form-group">
         <label class="form-label">Проект</label>
-        <select class="form-select" id="timer-project">
-          <option value="">Выберите проект</option>
+        <select class="form-select" id="timer-project" onchange="timerModalProjectChanged()">
+          <option value="">— Выберите проект</option>
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">Задача</label>
-        <input type="text" class="form-input" id="timer-task" placeholder="Что делаете?">
+      <div id="timer-board-task-wrap" class="form-group" style="display:none">
+        <label class="form-label">Задача из Kanban</label>
+        <select class="form-select" id="timer-board-task" onchange="timerModalBoardTaskSelected()">
+          <option value="">— Новая задача (ввести текст ниже)</option>
+        </select>
+        <input type="hidden" id="timer-task-id" value="">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Что буду делать</label>
+        <div class="timer-form-task-row">
+          <textarea id="timer-task" class="form-textarea" placeholder="Опишите задачу своими словами..." style="min-height:80px;resize:none" oninput="timerModalTaskChanged()"></textarea>
+          <button type="button" id="timer-ai-btn" class="timer-form-ai-btn" onclick="timerModalAIPolish()" title="Улучшить описание через AI" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+          </button>
+        </div>
+        <div id="timer-ai-hint" class="text-xs text-muted mt4" style="opacity:.75">Напишите задачу → нажмите ✦ → AI сформулирует профессионально</div>
+        <div id="timer-ai-unavail" class="text-xs text-muted mt4 hidden" style="opacity:.75">Включите OpenRouter в настройках для AI-формулировки</div>
+      </div>
+      <div id="timer-ai-preview" class="timer-ai-preview">
+        <div class="timer-ai-preview-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+          AI сформулировал
+        </div>
+        <div id="timer-ai-text" class="timer-ai-preview-text"></div>
+        <div class="timer-ai-preview-actions">
+          <button type="button" onclick="timerModalApplyAI()" class="btn btn-primary btn-sm">Применить</button>
+          <button type="button" onclick="timerModalDiscardAI()" class="btn btn-ghost btn-sm">Оставить своё</button>
+        </div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-quick-timer')">Отмена</button>
-      <button class="btn btn-primary btn-start-animated" onclick="startTimerFromModal()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Запустить
+    <div class="modal-footer timer-start-modal-footer">
+      <button type="button" id="timer-start-btn" class="timer-start-btn btn-start-animated" onclick="startTimerFromModal()" aria-disabled="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Запустить таймер
       </button>
+      <button type="button" class="btn btn-ghost timer-start-modal-cancel" onclick="closeModal('modal-quick-timer')">Отмена</button>
     </div>
   </div>
 </div>
@@ -3533,14 +3642,42 @@ function finishTimerStartUI() {
   });
 }
 function startTimerFromModal() {
-  const projectId = document.getElementById('timer-project').value;
-  const task = document.getElementById('timer-task').value.trim();
-  if (!projectId) { showToast('Выберите проект', 'error'); return; }
-  if (!task) { showToast('Введите задачу', 'error'); return; }
-  closeModal('modal-quick-timer');
-  startTimer(projectId, task);
-  finishTimerStartUI();
-  showToast('Таймер запущен', 'success');
+  startTimerFromForm('timer');
+}
+function openQuickTimer() {
+  if (state.timer.running) { stopTimer(); return; }
+  prepareTimerModal();
+  openModal('modal-quick-timer');
+  setTimeout(() => document.getElementById('timer-task')?.focus(), 250);
+}
+function prepareTimerModal() {
+  const now = new Date();
+  const dateEl = document.getElementById('timer-modal-date');
+  if (dateEl) {
+    dateEl.textContent = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
+      + ' · ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+  const activeProjects = state.projects.filter(p => p.status === 'active');
+  const noProj = document.getElementById('timer-modal-no-projects');
+  if (noProj) noProj.classList.toggle('hidden', activeProjects.length > 0);
+  const sel = document.getElementById('timer-project');
+  if (sel) {
+    const preferred = getHeaderProject()?.id || '';
+    sel.innerHTML = '<option value="">— Выберите проект</option>' +
+      activeProjects.map(p => `<option value="${p.id}">${escHtml(p.name)}${p.client ? ' · ' + escHtml(p.client) : ''}</option>`).join('');
+    sel.value = preferred && activeProjects.some(p => p.id === preferred) ? preferred : '';
+  }
+  const taskEl = document.getElementById('timer-task');
+  if (taskEl) taskEl.value = '';
+  const taskIdEl = document.getElementById('timer-task-id');
+  if (taskIdEl) taskIdEl.value = '';
+  const preview = document.getElementById('timer-ai-preview');
+  if (preview) { preview.style.display = 'none'; preview.dataset.text = ''; }
+  const aiAvail = state.settings.openrouter.enabled && state.settings.openrouter.apiKey;
+  document.getElementById('timer-ai-hint')?.classList.toggle('hidden', !aiAvail);
+  document.getElementById('timer-ai-unavail')?.classList.toggle('hidden', aiAvail);
+  document.getElementById('timer-ai-btn')?.classList.toggle('hidden', !aiAvail);
+  timerProjectChanged('timer');
 }
 function startTimerTick() {
   clearInterval(timerInterval);
@@ -3730,47 +3867,119 @@ function updateTimerUI() {
   else if (mobileTimerScreenOpen) updateMobileTimerScreen();
 
   if (isActive) syncTimerNotification();
-}
-function openQuickTimer() {
-  if (state.timer.running) { stopTimer(); return; }
-  populateProjectSelects();
-  openModal('modal-quick-timer');
+  updateTopbar();
 }
 
 // ─── PAGES ───────────────────────────────────────────────────────────────
-const pageTitles = { dashboard: 'Дашборд', analytics: 'Аналитика', planning: 'Планирование', projects: 'Проекты', board: 'Доска задач', timelog: 'Записи времени', reports: 'Отчёты', payments: 'Оплата', settings: 'Настройки' };
+const pageTitles = { dashboard: 'Дашборд', analytics: 'Аналитика', planning: 'Планирование', projects: 'Проекты', board: 'Доска задач', timelog: 'Записи времени', reports: 'Отчёты', payments: 'Оплата', settings: 'Настройки', more: 'Ещё' };
+const pageTags = { dashboard: 'Главная', analytics: 'Аналитика', planning: 'Планирование', projects: 'Проекты', board: 'Доска', timelog: 'Записи', reports: 'Отчёты', payments: 'Оплата', settings: 'Настройки', more: 'Ещё' };
+const moreMenuPages = ['more', 'planning', 'projects', 'board', 'reports', 'payments', 'settings'];
+function getHeaderProject() {
+  if (state.timer.running && state.timer.projectId) return getProject(state.timer.projectId) || null;
+  const dashProj = document.getElementById('dash-project')?.value || document.getElementById('timer-project')?.value;
+  if (dashProj) return getProject(dashProj) || null;
+  const recent = [...state.entries].filter(e => !e.archived).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+  if (recent?.projectId) return getProject(recent.projectId) || null;
+  return state.projects.find(p => p.status === 'active') || state.projects[0] || null;
+}
+function updateTopbar(page) {
+  page = page || state.currentPage;
+  const title = pageTitles[page] || page;
+  const tag = pageTags[page] || title;
+  const titleEl = document.getElementById('topbar-title');
+  const tagEl = document.getElementById('topbar-page-tag');
+  const projEl = document.getElementById('topbar-project-name');
+  const dotEl = document.getElementById('topbar-project-dot');
+  if (titleEl) titleEl.textContent = title;
+  if (tagEl) tagEl.textContent = tag;
+  const project = getHeaderProject();
+  if (projEl) projEl.textContent = project?.name || 'TimeLog';
+  if (dotEl) {
+    dotEl.style.background = project?.color || 'var(--accent)';
+    dotEl.style.opacity = project ? '1' : '.35';
+  }
+}
 function showPage(page) {
+  if (page === 'more' && !isMobileNav()) page = 'dashboard';
   state.currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === page);
   });
-  document.getElementById('topbar-title').textContent = pageTitles[page] || page;
+  updateTopbar(page);
   closeSidebar();
   updateBottomNav(page);
   renderPage();
 }
 function updateBottomNav(page) {
-  const menuPages = ['projects', 'reports', 'payments', 'settings', 'board'];
   document.querySelectorAll('.bottom-nav-item').forEach(el => {
     const p = el.dataset.page;
-    if (p === 'menu') el.classList.toggle('active', menuPages.includes(page));
+    if (p === 'more') el.classList.toggle('active', moreMenuPages.includes(page));
     else if (p) el.classList.toggle('active', p === page);
   });
 }
 function handleBottomFab() {
-  if (state.timer.running) {
-    stopTimer();
-  } else {
-    showPage('dashboard');
-    setTimeout(() => {
-      const taskEl = document.getElementById('dash-task');
-      if (taskEl) taskEl.focus();
-    }, 150);
-  }
+  if (state.timer.running) stopTimer();
+  else openQuickTimer();
+}
+function renderMoreMenu() {
+  const items = [
+    { page: 'planning', label: 'Планирование', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
+    { page: 'projects', label: 'Проекты', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h18v4H3zM3 10h11v4H3zM3 17h8v4H3z"/></svg>' },
+    { page: 'board', label: 'Доска задач', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>' },
+    { page: 'reports', label: 'Отчёты', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' },
+    { page: 'payments', label: 'Оплата', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>' },
+    { page: 'settings', label: 'Настройки', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>' },
+  ];
+  const grid = items.map(it => `
+    <button type="button" class="mobile-more-item${state.currentPage === it.page ? ' active' : ''}" onclick="showPage('${it.page}')">
+      <div class="mobile-more-icon">${it.icon}</div>
+      <span class="mobile-more-label">${it.label}</span>
+    </button>
+  `).join('');
+  const timerQuick = state.timer.running ? `
+    <div class="mobile-more-section">
+      <div class="mobile-more-section-title">Активный таймер</div>
+      <button type="button" class="mobile-more-quick-btn" onclick="openMobileTimerScreen()">
+        <div class="mobile-more-quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+        <div class="mobile-more-quick-text">
+          <div class="mobile-more-quick-title">Открыть таймер</div>
+          <div class="mobile-more-quick-sub">${escHtml(state.timer.task || 'Запись времени')}</div>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  ` : `
+    <div class="mobile-more-section">
+      <div class="mobile-more-section-title">Быстрые действия</div>
+      <div class="mobile-more-quick">
+        <button type="button" class="mobile-more-quick-btn" onclick="openQuickTimer()">
+          <div class="mobile-more-quick-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+          <div class="mobile-more-quick-text">
+            <div class="mobile-more-quick-title">Начать запись</div>
+            <div class="mobile-more-quick-sub">Запустить таймер по проекту</div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button type="button" class="mobile-more-quick-btn" onclick="openAddEntryModal()">
+          <div class="mobile-more-quick-icon" style="background:var(--bg3);color:var(--accent2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+          <div class="mobile-more-quick-text">
+            <div class="mobile-more-quick-title">Добавить время</div>
+            <div class="mobile-more-quick-sub">Запись вручную за прошлый период</div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+  return `<div class="mobile-more-page">
+    <p class="mobile-more-intro">Все разделы приложения — без бокового меню.</p>
+    <div class="mobile-more-grid">${grid}</div>
+    ${timerQuick}
+  </div>`;
 }
 function renderPage() {
   const el = document.getElementById('main-content');
-  const pages = { dashboard: renderDashboard, analytics: renderAnalytics, planning: renderPlanning, projects: renderProjects, board: renderBoard, timelog: renderTimelog, reports: renderReports, payments: renderPayments, settings: renderSettings };
+  const pages = { dashboard: renderDashboard, analytics: renderAnalytics, planning: renderPlanning, projects: renderProjects, board: renderBoard, timelog: renderTimelog, reports: renderReports, payments: renderPayments, settings: renderSettings, more: renderMoreMenu };
   el.innerHTML = (pages[state.currentPage] || renderDashboard)();
   bindPageEvents();
   if (state.currentPage === 'settings') { updateRatePreview(); initProfileSection(); }
@@ -3922,23 +4131,22 @@ function renderDashboard() {
   </div>
 
   <div class="section-title" style="margin-top:0">Последние записи</div>
-  ${recentEntries.length ? recentEntries.map(e => entryItem(e)).join('') : emptyState('Нет записей', 'Запустите таймер выше чтобы начать')}
+  ${recentEntries.length ? recentEntries.map(e => entryItem(e)).join('') : emptyState('Нет записей', isMobileView() ? 'Нажмите ▶ внизу, чтобы начать запись' : 'Запустите таймер выше чтобы начать')}
   `;
 }
 
-// ─── DASHBOARD TIMER LOGIC ────────────────────────────────────────────────
-function dashProjectChanged() {
-  const projectId = document.getElementById('dash-project')?.value || '';
-  const wrap = document.getElementById('dash-board-task-wrap');
-  const select = document.getElementById('dash-board-task');
-  const taskIdEl = document.getElementById('dash-task-id');
-  const taskEl = document.getElementById('dash-task');
+// ─── TIMER FORM (dashboard + modal) ───────────────────────────────────────
+function timerProjectChanged(prefix) {
+  const projectId = document.getElementById(`${prefix}-project`)?.value || '';
+  const wrap = document.getElementById(`${prefix}-board-task-wrap`);
+  const select = document.getElementById(`${prefix}-board-task`);
+  const taskIdEl = document.getElementById(`${prefix}-task-id`);
+  const taskEl = document.getElementById(`${prefix}-task`);
   if (taskIdEl) taskIdEl.value = '';
   if (select) {
     select.innerHTML = '<option value="">— Новая задача (ввести текст ниже)</option>';
     if (projectId) {
-      const tasks = getProjectBoardTasks(projectId).filter(t => t.status !== 'done');
-      tasks.forEach(t => {
+      getProjectBoardTasks(projectId).filter(t => t.status !== 'done').forEach(t => {
         const opt = document.createElement('option');
         opt.value = t.id;
         opt.textContent = t.title + (t.status === 'in_progress' ? ' (в работе)' : '');
@@ -3949,48 +4157,51 @@ function dashProjectChanged() {
   }
   if (wrap) wrap.style.display = projectId && select && select.options.length > 1 ? 'block' : 'none';
   if (taskEl && select?.value) taskEl.value = '';
-  checkDashReady();
+  if (prefix === 'dash' || prefix === 'timer') updateTopbar();
+  checkTimerFormReady(prefix);
 }
-function dashBoardTaskSelected() {
-  const taskId = document.getElementById('dash-board-task')?.value || '';
-  const taskIdEl = document.getElementById('dash-task-id');
-  const taskEl = document.getElementById('dash-task');
+function timerBoardTaskSelected(prefix) {
+  const taskId = document.getElementById(`${prefix}-board-task`)?.value || '';
+  const taskIdEl = document.getElementById(`${prefix}-task-id`);
+  const taskEl = document.getElementById(`${prefix}-task`);
   if (taskIdEl) taskIdEl.value = taskId;
   if (taskId) {
     const t = getBoardTask(taskId);
     if (t && taskEl) taskEl.value = t.title;
   }
-  checkDashReady();
+  timerTaskChanged(prefix);
 }
-function dashTaskChanged() {
-  const task = document.getElementById('dash-task')?.value.trim();
-  const aiBtn = document.getElementById('dash-ai-btn');
-  const select = document.getElementById('dash-board-task');
-  const taskIdEl = document.getElementById('dash-task-id');
+function timerTaskChanged(prefix) {
+  const task = document.getElementById(`${prefix}-task`)?.value.trim();
+  const aiBtn = document.getElementById(`${prefix}-ai-btn`);
+  const select = document.getElementById(`${prefix}-board-task`);
+  const taskIdEl = document.getElementById(`${prefix}-task-id`);
   if (select?.value && task !== getBoardTask(select.value)?.title) {
     select.value = '';
     if (taskIdEl) taskIdEl.value = '';
   }
   if (aiBtn) aiBtn.disabled = !task;
-  checkDashReady();
+  checkTimerFormReady(prefix);
 }
-function checkDashReady() {
-  const proj = document.getElementById('dash-project')?.value;
-  const task = document.getElementById('dash-task')?.value.trim();
-  const btn = document.getElementById('dash-start-btn');
+function checkTimerFormReady(prefix) {
+  const proj = document.getElementById(`${prefix}-project`)?.value;
+  const task = document.getElementById(`${prefix}-task`)?.value.trim();
+  const btn = document.getElementById(`${prefix}-start-btn`);
   if (!btn) return;
   const ready = !!(proj && task);
   btn.setAttribute('aria-disabled', ready ? 'false' : 'true');
   btn.classList.toggle('btn-start-animated', ready);
 }
-async function dashAIPolish() {
-  const task = document.getElementById('dash-task')?.value.trim();
+async function polishTaskWithAI(prefix) {
+  const task = document.getElementById(`${prefix}-task`)?.value.trim();
   if (!task) return;
   const or = state.settings.openrouter;
-  const projectId = document.getElementById('dash-project')?.value;
+  const projectId = document.getElementById(`${prefix}-project`)?.value;
   const project = getProject(projectId);
-  const btn = document.getElementById('dash-ai-btn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>'; }
+  const btn = document.getElementById(`${prefix}-ai-btn`);
+  const starIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>';
+  const spinIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
+  if (btn) { btn.disabled = true; btn.innerHTML = spinIcon; }
   try {
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -4006,45 +4217,60 @@ async function dashAIPolish() {
     const d = await r.json();
     const improved = d.choices?.[0]?.message?.content?.trim();
     if (improved) {
-      const preview = document.getElementById('dash-ai-preview');
-      const aiText = document.getElementById('dash-ai-text');
+      const preview = document.getElementById(`${prefix}-ai-preview`);
+      const aiText = document.getElementById(`${prefix}-ai-text`);
       if (preview && aiText) { aiText.textContent = improved; preview.style.display = 'block'; preview.dataset.text = improved; }
-      const hint = document.getElementById('dash-ai-hint');
+      const hint = document.getElementById(`${prefix}-ai-hint`);
       if (hint) hint.style.display = 'none';
-    } else { showToast('AI не ответил: ' + (d.error?.message||''), 'error'); }
-  } catch(e) { showToast('Ошибка AI: '+e.message, 'error'); }
-  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>'; }
+    } else { showToast('AI не ответил: ' + (d.error?.message || ''), 'error'); }
+  } catch (e) { showToast('Ошибка AI: ' + e.message, 'error'); }
+  if (btn) { btn.disabled = false; btn.innerHTML = starIcon; timerTaskChanged(prefix); }
 }
-function dashApplyAI() {
-  const preview = document.getElementById('dash-ai-preview');
-  const taskEl = document.getElementById('dash-task');
+function applyTaskAI(prefix) {
+  const preview = document.getElementById(`${prefix}-ai-preview`);
+  const taskEl = document.getElementById(`${prefix}-task`);
   if (preview && taskEl) {
     taskEl.value = preview.dataset.text || '';
     preview.style.display = 'none';
-    checkDashReady();
+    checkTimerFormReady(prefix);
     showToast('✨ Формулировка применена');
   }
 }
-function dashDiscardAI() {
-  const preview = document.getElementById('dash-ai-preview');
+function discardTaskAI(prefix) {
+  const preview = document.getElementById(`${prefix}-ai-preview`);
   if (preview) preview.style.display = 'none';
-  const hint = document.getElementById('dash-ai-hint');
+  const hint = document.getElementById(`${prefix}-ai-hint`);
   if (hint) hint.style.display = 'block';
 }
-function dashStartTimer() {
-  const projectId = document.getElementById('dash-project')?.value;
-  const task = document.getElementById('dash-task')?.value.trim();
-  const taskId = document.getElementById('dash-task-id')?.value || null;
+function startTimerFromForm(prefix) {
+  const projectId = document.getElementById(`${prefix}-project`)?.value;
+  const task = document.getElementById(`${prefix}-task`)?.value.trim();
+  const taskId = document.getElementById(`${prefix}-task-id`)?.value || null;
   if (!projectId) { showToast('Выберите проект', 'error'); return; }
   if (!task) { showToast('Введите задачу', 'error'); return; }
   if (taskId) {
     const bt = getBoardTask(taskId);
     if (!bt || bt.projectId !== projectId) { showToast('Задача не принадлежит выбранному проекту', 'error'); return; }
   }
+  if (prefix === 'timer') closeModal('modal-quick-timer');
   startTimer(projectId, task, taskId);
   finishTimerStartUI();
   showToast('Таймер запущен', 'success');
 }
+function dashProjectChanged() { timerProjectChanged('dash'); }
+function dashBoardTaskSelected() { timerBoardTaskSelected('dash'); }
+function dashTaskChanged() { timerTaskChanged('dash'); }
+function checkDashReady() { checkTimerFormReady('dash'); }
+function dashAIPolish() { return polishTaskWithAI('dash'); }
+function dashApplyAI() { applyTaskAI('dash'); }
+function dashDiscardAI() { discardTaskAI('dash'); }
+function dashStartTimer() { startTimerFromForm('dash'); }
+function timerModalProjectChanged() { timerProjectChanged('timer'); }
+function timerModalBoardTaskSelected() { timerBoardTaskSelected('timer'); }
+function timerModalTaskChanged() { timerTaskChanged('timer'); }
+function timerModalAIPolish() { return polishTaskWithAI('timer'); }
+function timerModalApplyAI() { applyTaskAI('timer'); }
+function timerModalDiscardAI() { discardTaskAI('timer'); }
 
 function entryItem(e) {
   const p = getProject(e.projectId);
@@ -6131,7 +6357,7 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 function populateProjectSelects() {
-  ['entry-project','timer-project','payment-project'].forEach(id=>{
+  ['entry-project','payment-project'].forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
     const hasBlank = id==='payment-project';
@@ -6871,6 +7097,7 @@ function renderSettings() {
         </div>
       </div>
       <button type="button" class="btn btn-primary btn-sm mt12" id="profile-save-btn" onclick="profileSaveCredentials()">Сохранить логин и пароль</button>
+      ${curLogin ? `<button type="button" class="btn btn-ghost btn-sm mt8" onclick="authLogout()">Выйти из аккаунта</button>` : ''}
 
       <div class="divider"></div>
       <div class="settings-toggle-row" style="margin-bottom:0">
@@ -7486,12 +7713,17 @@ function showToast(msg, type='success') {
   setTimeout(()=>el.remove(),3000);
 }
 
-// ─── SIDEBAR ─────────────────────────────────────────────────────────────
+// ─── SIDEBAR (desktop only; mobile uses bottom nav + «Ещё» page) ────────
+function isMobileNav() {
+  return window.matchMedia('(max-width:768px)').matches;
+}
 function toggleSidebar() {
+  if (isMobileNav()) { showPage('more'); return; }
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-backdrop').classList.toggle('open');
 }
 function closeSidebar() {
+  if (isMobileNav()) return;
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebar-backdrop').classList.remove('open');
 }
@@ -7532,6 +7764,7 @@ function initApp() {
   if (params.get('page') && pageTitles[params.get('page')]) showPage(params.get('page'));
   if (params.get('action') === 'add') setTimeout(openAddEntryModal, 100);
   updateBottomNav(state.currentPage);
+  updateTopbar(state.currentPage);
   setTimeout(showInstallBannerIfNeeded, 2500);
 }
 
