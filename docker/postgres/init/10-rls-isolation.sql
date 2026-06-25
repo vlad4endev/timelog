@@ -12,11 +12,28 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO timelog_u
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO timelog_user;
 
--- Current user login from PostgREST JWT (claim: login)
+-- Current user login from PostgREST JWT (login + sub claims; claims JSON fallback)
 CREATE OR REPLACE FUNCTION app_jwt_login() RETURNS text
   LANGUAGE sql STABLE
 AS $$
-  SELECT nullif(current_setting('request.jwt.claim.login', true), '');
+  SELECT COALESCE(
+    NULLIF(current_setting('request.jwt.claim.login', true), ''),
+    NULLIF(current_setting('request.jwt.claim.sub', true), ''),
+    NULLIF(
+      CASE
+        WHEN COALESCE(current_setting('request.jwt.claims', true), '') = '' THEN NULL
+        ELSE current_setting('request.jwt.claims', true)::json->>'login'
+      END,
+      ''
+    ),
+    NULLIF(
+      CASE
+        WHEN COALESCE(current_setting('request.jwt.claims', true), '') = '' THEN NULL
+        ELSE current_setting('request.jwt.claims', true)::json->>'sub'
+      END,
+      ''
+    )
+  );
 $$;
 
 -- ─── RLS: tables with user_login column ─────────────────────────────────

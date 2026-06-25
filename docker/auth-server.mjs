@@ -18,6 +18,7 @@ const PORT = Number(process.env.AUTH_PORT || 3001);
 const JWT_SECRET = process.env.JWT_SECRET;
 const DATABASE_URL = process.env.DATABASE_URL;
 const TOKEN_TTL = process.env.AUTH_TOKEN_TTL || '14d';
+const SESSION_COOKIE = 'tl_token';
 const RATE_WINDOW_MS = Number(process.env.AUTH_RATE_WINDOW_MS || 60_000);
 const RATE_MAX = Number(process.env.AUTH_RATE_MAX || 30);
 
@@ -33,6 +34,61 @@ if (!DATABASE_URL) {
 const pool = new pg.Pool({ connectionString: DATABASE_URL });
 const key = new TextEncoder().encode(JWT_SECRET);
 const rateBuckets = new Map();
+
+function parseTokenTtlSeconds(ttl) {
+  const m = /^(\d+)([smhd])$/.exec(String(ttl || '14d'));
+  if (!m) return 14 * 86400;
+  const n = Number(m[1]);
+  const mult = { s: 1, m: 60, h: 3600, d: 86400 }[m[2]] || 86400;
+  return n * mult;
+}
+
+const SESSION_COOKIE_MAX_AGE = parseTokenTtlSeconds(TOKEN_TTL);
+
+function parseCookies(req) {
+  const out = {};
+  for (const part of (req.headers.cookie || '').split(';')) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq <= 0) continue;
+    const name = trimmed.slice(0, eq);
+    const value = trimmed.slice(eq + 1);
+    try {
+      out[name] = decodeURIComponent(value);
+    } catch {
+      out[name] = value;
+    }
+  }
+  return out;
+}
+
+function isSecureRequest(req) {
+  if (process.env.COOKIE_SECURE === '1') return true;
+  const proto = req.headers['x-forwarded-proto'];
+  if (typeof proto === 'string' && proto.split(',')[0].trim() === 'https') return true;
+  return false;
+}
+
+function sessionCookieAttrs(req, maxAge = SESSION_COOKIE_MAX_AGE) {
+  const parts = [`Path=/`, `Max-Age=${maxAge}`, 'SameSite=Lax', 'HttpOnly'];
+  if (isSecureRequest(req)) parts.push('Secure');
+  return parts.join('; ');
+}
+
+function setSessionCookie(res, token, req) {
+  res.setHeader(
+    'Set-Cookie',
+    `${SESSION_COOKIE}=${encodeURIComponent(token)}; ${sessionCookieAttrs(req)}`
+  );
+}
+
+function clearSessionCookie(res, req) {
+  res.setHeader(
+    'Set-Cookie',
+    `${SESSION_COOKIE}=; ${sessionCookieAttrs(req, 0)}`
+  );
+}
 
 function normalizeLogin(raw) {
   if (!raw || typeof raw !== 'string') return '';
@@ -84,7 +140,7 @@ function isAllowedOrigin(origin, req) {
 }
 
 async function signToken(login) {
-  return new SignJWT({ role: 'timelog_user', login })
+  return new SignJWT({ role: 'timelog_user', login, sub: login })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setIssuedAt()
     .setIssuer('timelog')
@@ -95,9 +151,24 @@ async function signToken(login) {
 async function verifyBearerToken(authHeader) {
   if (!authHeader?.startsWith('Bearer ')) return null;
   try {
-    const { payload } = await jwtVerify(authHeader.slice(7), key, { issuer: 'timelog' });
+    const token = authHeader.slice(7);
+    const { payload } = await jwtVerify(token, key, { issuer: 'timelog' });
     if (payload.role !== 'timelog_user' || typeof payload.login !== 'string') return null;
-    return payload.login;
+    return { login: payload.login, token };
+  } catch {
+    return null;
+  }
+}
+
+async function verifyRequestSession(req) {
+  const fromBearer = await verifyBearerToken(req.headers.authorization || '');
+  if (fromBearer) return fromBearer;
+  const token = parseCookies(req)[SESSION_COOKIE];
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, key, { issuer: 'timelog' });
+    if (payload.role !== 'timelog_user' || typeof payload.login !== 'string') return null;
+    return { login: payload.login, token };
   } catch {
     return null;
   }
@@ -141,6 +212,7 @@ function handleCors(req, res) {
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, Prefer');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin');
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -322,7 +394,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const token = await signToken(login);
-    json(res, 200, { token, login }, req);
+    setSessionCookie(res, token, req);
+    json(res, 200, { ok: true, token, login }, req);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/auth/session') {
+    const session = await verifyRequestSession(req);
+    if (!session) {
+      clearSessionCookie(res, req);
+      json(res, 401, { ok: false, error: 'no session' }, req);
+      return;
+    }
+    json(res, 200, { ok: true, login: session.login, token: session.token }, req);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/auth/logout') {
+    clearSessionCookie(res, req);
+    json(res, 200, { ok: true }, req);
     return;
   }
 
@@ -355,7 +445,8 @@ const server = http.createServer(async (req, res) => {
       [login, pwHash]
     );
     const token = await signToken(login);
-    json(res, 201, { token, login }, req);
+    setSessionCookie(res, token, req);
+    json(res, 201, { ok: true, token, login }, req);
     return;
   }
 
@@ -373,13 +464,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (oldLogin === newLogin) {
-      const tokenLogin = await verifyBearerToken(req.headers.authorization || '');
-      if (tokenLogin !== oldLogin) {
+      const session = await verifyRequestSession(req);
+      if (!session || session.login !== oldLogin) {
         json(res, 401, { error: 'unauthorized' }, req);
         return;
       }
       const token = await signToken(newLogin);
-      json(res, 200, { token, login: newLogin }, req);
+      setSessionCookie(res, token, req);
+      json(res, 200, { ok: true, token, login: newLogin }, req);
       return;
     }
     const auth = await authenticateCredentials(oldLogin, body);
@@ -400,13 +492,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const token = await signToken(newLogin);
-    json(res, 200, { token, login: newLogin }, req);
+    setSessionCookie(res, token, req);
+    json(res, 200, { ok: true, token, login: newLogin }, req);
     return;
   }
 
   if (req.method === 'POST' && url.pathname === '/auth/claim-legacy') {
-    const tokenLogin = await verifyBearerToken(req.headers.authorization || '');
-    if (!tokenLogin) {
+    const session = await verifyRequestSession(req);
+    if (!session) {
       json(res, 401, { error: 'unauthorized' }, req);
       return;
     }
@@ -417,7 +510,7 @@ const server = http.createServer(async (req, res) => {
     }
     const legacyLogin = normalizeLogin(body.from || 'default');
     try {
-      const result = await claimLegacyData(tokenLogin, legacyLogin);
+      const result = await claimLegacyData(session.login, legacyLogin);
       json(res, result.claimed ? 200 : 409, result, req);
     } catch (e) {
       console.error('claim-legacy failed:', e);
@@ -427,17 +520,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/auth/me') {
-    const tokenLogin = await verifyBearerToken(req.headers.authorization || '');
-    if (!tokenLogin) {
+    const session = await verifyRequestSession(req);
+    if (!session) {
       json(res, 401, { error: 'unauthorized' }, req);
       return;
     }
     const [pr, en] = await Promise.all([
-      pool.query('SELECT COUNT(*)::int AS n FROM projects WHERE user_login = $1', [tokenLogin]),
-      pool.query('SELECT COUNT(*)::int AS n FROM time_entries WHERE user_login = $1', [tokenLogin]),
+      pool.query('SELECT COUNT(*)::int AS n FROM projects WHERE user_login = $1', [session.login]),
+      pool.query('SELECT COUNT(*)::int AS n FROM time_entries WHERE user_login = $1', [session.login]),
     ]);
     json(res, 200, {
-      login: tokenLogin,
+      login: session.login,
       projectsInDb: pr.rows[0]?.n ?? 0,
       entriesInDb: en.rows[0]?.n ?? 0,
     }, req);
@@ -472,7 +565,8 @@ const server = http.createServer(async (req, res) => {
     const pwHash = await hashPassword(body.newPassword);
     await setUserHash(login, pwHash);
     const token = await signToken(login);
-    json(res, 200, { token, login }, req);
+    setSessionCookie(res, token, req);
+    json(res, 200, { ok: true, token, login }, req);
     return;
   }
 

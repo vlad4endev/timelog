@@ -40,7 +40,16 @@ curl -sS "${BASE}/auth/me" -H "Authorization: Bearer ${TOKEN}"
 
 echo ""
 echo ""
-echo "=== 3. PostgREST projects (what the app sees) ==="
+echo "=== 3. JWT context (RLS uses app_jwt_login()) ==="
+curl -sS -X POST "${BASE}/rest/v1/rpc/debug_jwt_context" \
+  -H "apikey: ${ANON_KEY:-x}" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{}' 2>/dev/null || echo "(run migrate-rls.sh to install debug_jwt_context)"
+
+echo ""
+echo ""
+echo "=== 4. PostgREST projects (what the app sees) ==="
 if [[ -z "$ANON_KEY" ]]; then
   echo "⊘ ANON_KEY not set in .env"
   exit 0
@@ -57,7 +66,8 @@ echo "HTTP $CODE"
 if [[ "$CODE" == "200" ]] && echo "$HTTP" | head -1 | grep -q '^\[\]'; then
   echo ""
   echo "✕ API returned [] but /auth/me may show projects in DB."
-  echo "  → Run: ./scripts/migrate-rls.sh"
+  echo "  → Run: ./scripts/migrate-rls.sh   (fixes app_jwt_login for PostgREST JWT claims)"
+  echo "  → Then: docker compose restart postgrest"
   echo "  → If behind NPM/Caddy: ensure Authorization header is forwarded to the backend"
 elif [[ "$CODE" == "401" || "$CODE" == "403" ]]; then
   echo ""
