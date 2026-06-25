@@ -1703,8 +1703,8 @@ const auth = {
   async claimLegacyServerData(fromLogin = 'default') {
     if (!this.useServerAuth() || !this.getApiToken()) return { claimed: false };
     const res = await this.authFetch('/auth/claim-legacy', { from: fromLogin });
-    if (!res?.ok && res?.reason !== 'already_has_data') return { claimed: false, ...res };
-    return res || { claimed: false };
+    if (!res) return { claimed: false };
+    return res;
   },
 
   async changePasswordApi(login, currentPassword, newPassword) {
@@ -6854,9 +6854,7 @@ async function sbConnect() {
 async function sbSync() {
   if (!sb.isEnabled()) return;
   showToast('Синхронизируем...', 'success');
-  await sb.pull();
-  renderPage();
-  showToast('✓ Данные обновлены из облака', 'success');
+  await syncWithServer();
 }
 
 function sbDisconnect() {

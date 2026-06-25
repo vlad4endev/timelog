@@ -31,40 +31,37 @@ if ! docker compose ps postgres --status running -q 2>/dev/null | grep -q .; the
   exit 1
 fi
 
+FROM_ESC="${FROM//\'/\'\'}"
+TO_ESC="${TO//\'/\'\'}"
+
 echo "→ Moving data user_login '$FROM' → '$TO' in database '$DB_NAME'..."
 
-docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" \
-  -v from_login="$FROM" -v to_login="$TO" <<'EOSQL'
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" <<EOSQL
 BEGIN;
 
-DO $migrate$
-DECLARE
-  t text;
-  n int;
+DO \$\$
 BEGIN
-  SELECT COUNT(*)::int INTO n FROM projects WHERE user_login = :'from_login';
-  IF n = 0 THEN
-    RAISE EXCEPTION 'No projects found for user_login %', :'from_login';
+  IF NOT EXISTS (SELECT 1 FROM projects WHERE user_login = '${FROM_ESC}' LIMIT 1) THEN
+    RAISE EXCEPTION 'No projects found for user_login %', '${FROM_ESC}';
   END IF;
-
-  FOREACH t IN ARRAY ARRAY[
-    'projects', 'board_tasks', 'time_entries', 'billing_reports',
-    'payments', 'schedule_overrides', 'schedule_blocks'
-  ] LOOP
-    EXECUTE format('UPDATE %I SET user_login = $1 WHERE user_login = $2', t)
-      USING :'to_login', :'from_login';
-  END LOOP;
-
-  UPDATE active_timer SET id = :'to_login' WHERE id = :'from_login';
-  UPDATE schedule_settings SET id = :'to_login' WHERE id = :'from_login';
 END
-$migrate$;
+\$\$;
+
+UPDATE projects         SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
+UPDATE board_tasks      SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
+UPDATE time_entries     SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
+UPDATE billing_reports  SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
+UPDATE payments         SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
+UPDATE schedule_overrides SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
+UPDATE schedule_blocks  SET user_login = '${TO_ESC}' WHERE user_login = '${FROM_ESC}';
+UPDATE active_timer     SET id = '${TO_ESC}' WHERE id = '${FROM_ESC}';
+UPDATE schedule_settings SET id = '${TO_ESC}' WHERE id = '${FROM_ESC}';
 
 COMMIT;
 
-SELECT 'projects' AS table_name, COUNT(*)::int AS rows FROM projects WHERE user_login = :'to_login'
+SELECT 'projects' AS table_name, COUNT(*)::int AS rows FROM projects WHERE user_login = '${TO_ESC}'
 UNION ALL
-SELECT 'time_entries', COUNT(*)::int FROM time_entries WHERE user_login = :'to_login';
+SELECT 'time_entries', COUNT(*)::int FROM time_entries WHERE user_login = '${TO_ESC}';
 EOSQL
 
-echo "✓ Done. Restart web if needed: docker compose up -d --build"
+echo "✓ Done. User '$TO' should see data after re-login in the app."
