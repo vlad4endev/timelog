@@ -67,8 +67,14 @@ elif [[ "$MODE" != "prod" ]]; then
   exit 1
 fi
 
+echo "→ Stopping existing timelog containers..."
+docker compose down --remove-orphans 2>/dev/null || true
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+if ids=$(docker ps -aq --filter name='^timelog-' 2>/dev/null); then
+  [[ -n "$ids" ]] && docker rm -f $ids 2>/dev/null || true
+fi
+
 echo "→ Building and starting ($MODE)..."
-"${COMPOSE[@]}" down --remove-orphans 2>/dev/null || true
 "${COMPOSE[@]}" up -d --build --wait
 
 if docker compose ps postgres --status running -q 2>/dev/null | grep -q .; then
@@ -86,8 +92,12 @@ if [[ "$MODE" == "tls" ]]; then
   curl -sf "https://${PUBLIC_HOST}/health" && echo " ok" || echo " (wait for TLS cert or check DNS)"
 else
   PORT="${HTTP_PORT:-8080}"
+  BIND="${BIND_ADDRESS:-127.0.0.1}"
   echo ""
-  echo "→ Health: http://127.0.0.1:${PORT}/health"
+  echo "→ Health: http://${BIND}:${PORT}/health"
   curl -sf "http://127.0.0.1:${PORT}/health" && echo " ok" || echo " failed"
-  echo "→ Put reverse proxy (Caddy/nginx) in front of 127.0.0.1:${PORT} for HTTPS"
+  if [[ "$BIND" == "127.0.0.1" ]]; then
+    echo "→ NPM in Docker: forward to 172.17.0.1:${PORT} (not 127.0.0.1)"
+  fi
+  echo "→ Put reverse proxy in front of ${BIND}:${PORT} for HTTPS"
 fi

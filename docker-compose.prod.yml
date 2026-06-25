@@ -8,6 +8,6 @@ services:
 
   web:
     restart: always
-    # Bind to localhost only — put host Caddy/nginx in front, or use deploy.sh tls
+    # BIND_ADDRESS=127.0.0.1 (default) or 0.0.0.0 if NPM runs in Docker (use 172.17.0.1 in NPM)
     ports:
-      - "127.0.0.1:${HTTP_PORT:-8080}:80"
+      - "${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:80"
