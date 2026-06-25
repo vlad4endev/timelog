@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <style id="boot-critical">
+html,body{background:#f4f6f8;min-height:100%;margin:0}
 #auth-screen,#main-app,#global-boot-splash{display:none!important}
 html.tl-auth-boot #global-boot-splash{display:flex!important}
 html.tl-restore #main-app{display:flex!important}
@@ -17,20 +18,17 @@ html.tl-show-auth #auth-screen{display:flex!important}
     var m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[$()*+.?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)'));
     return m ? decodeURIComponent(m[1]) : '';
   }
-  function hasSessionHint() {
+  function hasActiveSession() {
     try {
       var login = localStorage.getItem('tl_login') || cookieGet('tl_login');
       if (!login) return false;
-      if ((localStorage.getItem('tl_session') || cookieGet('tl_session')) === 'ok') return true;
-      if (localStorage.getItem('tl_api_token_' + login)) return true;
-      if (localStorage.getItem('tl_pw_hash_' + login)) return true;
-      if (localStorage.getItem('tl_pw_hash')) return true;
+      return (localStorage.getItem('tl_session') || cookieGet('tl_session')) === 'ok';
     } catch (_) {}
     return false;
   }
   document.documentElement.classList.add('tl-auth-boot');
   try {
-    if (hasSessionHint()) {
+    if (hasActiveSession()) {
       document.documentElement.classList.add('tl-restore');
       document.documentElement.classList.remove('tl-auth-boot');
       var login = localStorage.getItem('tl_login') || cookieGet('tl_login');
@@ -399,7 +397,10 @@ html.tl-restore #session-boot-overlay{display:flex}
 html.tl-restore #global-boot-splash{display:none!important}
 html.tl-auth-boot #global-boot-splash{display:flex}
 html.tl-show-auth #global-boot-splash{display:none!important}
-.session-boot-overlay{position:fixed;inset:0;z-index:10000;background:var(--bg);display:none;align-items:center;justify-content:center}
+.session-boot-overlay{position:fixed;inset:0;z-index:10000;background:linear-gradient(160deg,#f4f6f8 0%,#ecfdf5 100%);display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.session-boot-logo{width:48px;height:48px;border-radius:12px;overflow:hidden;box-shadow:0 6px 20px rgba(5,150,105,.22)}
+.session-boot-logo img{display:block;width:100%;height:100%;object-fit:cover}
+.session-boot-text{font-size:14px;color:var(--text2);font-weight:500}
 .hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
 .btn-pause{background:var(--amber);color:#fff}
 .btn-pause:hover{background:#d97706}
@@ -970,6 +971,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 <div id="global-boot-splash" class="global-boot-splash" aria-hidden="true">
   <div class="global-boot-logo"><img src="icon-192.png" width="56" height="56" alt="TimeLog"></div>
   <div class="auth-boot-spinner" aria-hidden="true"></div>
+  <div class="session-boot-text">TimeLog</div>
 </div>
 
 <!-- Auth Screen -->
@@ -1085,7 +1087,9 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 
 <div class="app" id="main-app" style="display:none">
 <div id="session-boot-overlay" class="session-boot-overlay" aria-hidden="true">
+  <div class="session-boot-logo"><img src="icon-192.png" width="48" height="48" alt="TimeLog"></div>
   <div class="auth-boot-spinner" aria-hidden="true"></div>
+  <div class="session-boot-text">Загрузка…</div>
 </div>
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
@@ -2004,13 +2008,16 @@ const auth = {
     const base = this.authBaseUrl();
     if (!base) return false;
     try {
-      const r = await fetch(`${base}/auth/session`, { credentials: 'same-origin' });
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const r = await fetch(`${base}/auth/session`, { credentials: 'same-origin', signal: ctrl.signal });
+      clearTimeout(t);
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.ok || !data.login || !data.token) return false;
       this.persistSession(data.login, data.token);
       return true;
     } catch (e) {
-      console.error('Session restore failed:', e);
+      if (e?.name !== 'AbortError') console.error('Session restore failed:', e);
       return false;
     }
   },
@@ -7833,36 +7840,65 @@ function applyDockerConfig() {
   return !!(state.settings.supabase.url && cfg.anonKey);
 }
 
+function authForceLoginScreen(msg) {
+  if (appStarted) return;
+  authRevealLoginScreen();
+  if (msg) authMsg(msg, 'err');
+}
+
+function bootWithTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(() => resolve('timeout'), ms))
+  ]);
+}
+
 // Boot sequence — логин + пароль, Face ID
 auth.migrateLegacyLocal();
 applyDockerConfig();
 (async () => {
-  if (auth.useServerAuth()) {
-    await auth.restoreSessionFromServer();
-  }
-  while (auth._authBusy) await new Promise(r => setTimeout(r, 50));
+  try {
+    if (auth.useServerAuth()) {
+      await bootWithTimeout(auth.restoreSessionFromServer(), 8000);
+    }
+    while (auth._authBusy) await new Promise(r => setTimeout(r, 50));
 
-  if (auth.isLoggedIn()) {
-    if (auth.useServerAuth() && !(await auth.ensureSession(auth.getLogin()))) {
+    if (auth.isLoggedIn()) {
+      let sessionOk = true;
+      if (auth.useServerAuth()) {
+        const sessionResult = await bootWithTimeout(auth.ensureSession(auth.getLogin()), 8000);
+        sessionOk = sessionResult !== 'timeout' && !!sessionResult;
+      }
+      if (auth.useServerAuth() && !sessionOk) {
+        if (!appStarted) {
+          await auth.logout();
+          await bootWithTimeout(authBootScreen(), 8000);
+          authForceLoginScreen('Сессия истекла. Войдите с паролем ещё раз.');
+        }
+        return;
+      }
       if (!appStarted) {
-        await auth.logout();
-        await authBootScreen();
-        authMsg('Сессия истекла. Войдите с паролем ещё раз.', 'err');
-        authRevealLoginScreen();
+        load();
+        applyDockerConfig();
+        authSuccess();
       }
       return;
     }
-    if (!appStarted) {
-      load();
-      applyDockerConfig();
-      authSuccess();
-    }
-    return;
-  }
 
-  await authBootScreen();
-  authRevealLoginScreen();
+    await bootWithTimeout(authBootScreen(), 8000);
+    authRevealLoginScreen();
+  } catch (e) {
+    console.error('Boot failed:', e);
+    authForceLoginScreen('Ошибка загрузки. Попробуйте обновить страницу.');
+  }
 })();
+
+setTimeout(() => {
+  if (!appStarted && !document.documentElement.classList.contains('tl-show-auth')) {
+    console.warn('Boot timeout — showing login');
+    authForceLoginScreen('Долгая загрузка. Проверьте сеть или войдите снова.');
+  }
+}, 12000);
 </script>
 </body>
 </html>
