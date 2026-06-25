@@ -13,6 +13,7 @@ await build({
   platform: 'browser',
   target: ['es2020'],
   minify: false,
+  footer: { js: 'window.TimeLogNative = TimeLogNative;' },
 });
 
 console.log('built www/native-bridge.js');

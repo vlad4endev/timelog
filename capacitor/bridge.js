@@ -22,6 +22,10 @@ export function isNativePlatform() {
   return Capacitor.isNativePlatform();
 }
 
+export function getPlatform() {
+  return isNativePlatform() ? Capacitor.getPlatform() : 'web';
+}
+
 function calcElapsedMs(timer, now = Date.now()) {
   if (!timer?.running || !timer.startTime) return 0;
   const paused = timer.pausedMs || 0;
@@ -179,9 +183,17 @@ export async function updateNativeTimer(timer) {
   }
 
   if (Capacitor.getPlatform() === 'ios') {
-    // iOS delivers a new notification on every schedule() call — never update every second.
-    await syncIosTimerNotification();
+    // iOS creates a new notification on every schedule() — tick updates must not schedule.
+    return;
   }
+}
+
+export async function refreshIosTimerNotification(timer) {
+  if (!isNativePlatform() || Capacitor.getPlatform() !== 'ios' || !nativeActive || !timer?.running) {
+    return;
+  }
+  currentTimer = timer;
+  await syncIosTimerNotification();
 }
 
 export async function stopNativeTimer() {
@@ -214,6 +226,12 @@ export function initNativeTimer(onAction) {
       App.getLaunchUrl().catch(() => {});
     });
   }
+
+  App.getState()
+    .then(({ isActive }) => {
+      iosAppActive = isActive;
+    })
+    .catch(() => {});
 
   App.addListener('appStateChange', ({ isActive }) => {
     iosAppActive = isActive;

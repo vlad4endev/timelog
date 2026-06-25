@@ -1,4 +1,5 @@
-const CACHE_NAME = 'timelog-v13';
+const CACHE_NAME = 'timelog-v15';
+const IS_IOS = /iPad|iPhone|iPod/.test(self.navigator?.userAgent || '');
 const TIMER_DB = 'timelog-timer';
 const TIMER_STORE = 'timer';
 const TIMER_NOTIF_TAG = 'timelog-active-timer';
@@ -166,14 +167,24 @@ function buildTimerNotifContent(timer, now = Date.now()) {
   return { title, body };
 }
 
-async function updateTimerNotification(timer) {
+let lastNotifSignature = null;
+
+async function updateTimerNotification(timer, force = false) {
   if (!self.registration?.showNotification) return;
   if (!timer?.running) {
+    lastNotifSignature = null;
     const notifs = await self.registration.getNotifications({ tag: TIMER_NOTIF_TAG });
     notifs.forEach(n => n.close());
     return;
   }
   const { title, body } = buildTimerNotifContent(timer);
+  const signature = `${timer.paused}|${timer.task}|${timer.projectName}`;
+  if (IS_IOS) {
+    if (!force && signature === lastNotifSignature) return;
+    lastNotifSignature = signature;
+    const existing = await self.registration.getNotifications({ tag: TIMER_NOTIF_TAG });
+    existing.forEach(n => n.close());
+  }
   await self.registration.showNotification(title, {
     body,
     tag: TIMER_NOTIF_TAG,
@@ -191,7 +202,7 @@ async function updateTimerNotification(timer) {
 
 let notifInterval = null;
 function scheduleNotificationUpdates() {
-  if (notifInterval) return;
+  if (IS_IOS || notifInterval) return;
   notifInterval = setInterval(() => {
     readTimer()
       .then(timer => {
@@ -221,8 +232,8 @@ self.addEventListener('activate', event => {
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => readTimer()).then(timer => {
       if (timer?.running) {
-        scheduleNotificationUpdates();
-        return updateTimerNotification(timer);
+        if (!IS_IOS) scheduleNotificationUpdates();
+        return updateTimerNotification(timer, false);
       }
     })
   );
@@ -240,13 +251,22 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('message', event => {
   const { type, timer } = event.data || {};
+  if (type === 'TIMER_CLOSE_NOTIF') {
+    event.waitUntil(updateTimerNotification(null));
+    return;
+  }
   if (type === 'TIMER_SYNC') {
+    const notify = event.data?.notify !== false;
     event.waitUntil(
       (async () => {
         if (timer?.running) {
           await writeTimer(timer);
-          scheduleNotificationUpdates();
-          await updateTimerNotification(timer);
+          if (!IS_IOS) {
+            scheduleNotificationUpdates();
+            await updateTimerNotification(timer, false);
+          } else if (notify) {
+            await updateTimerNotification(timer, true);
+          }
         } else {
           await clearTimer();
           stopNotificationUpdates();

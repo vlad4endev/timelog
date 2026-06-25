@@ -1816,19 +1816,21 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   </div>
 </div>
 
+<script src="native-bridge.js"></script>
 <script>
 window.TimeLogNative = window.TimeLogNative || (function () {
   function noop() { return Promise.resolve(); }
   return {
     isNativePlatform: function () { return false; },
+    getPlatform: function () { return 'web'; },
     initNativeTimer: function () {},
     startNativeTimer: noop,
     updateNativeTimer: noop,
+    refreshIosTimerNotification: noop,
     stopNativeTimer: noop,
   };
 })();
 </script>
-<script src="native-bridge.js"></script>
 <script>
 // ─── Session cookies (mirror localStorage for persistence across reloads) ─
 const sessionCookies = {
@@ -3260,6 +3262,81 @@ const sb = {
   isEnabled() { return state.settings.supabase.enabled && state.settings.supabase.url && state.settings.supabase.anonKey; }
 };
 
+let serverSyncInFlight = null;
+let lastServerSyncAt = 0;
+const SERVER_SYNC_DEBOUNCE_MS = 2500;
+const SERVER_SYNC_POLL_MS = 30000;
+let serverSyncPollTimer = null;
+let serverSyncListenersBound = false;
+
+function applyServerPull() {
+  if (state.timer.running) startTimerTick();
+  updateTimerUI();
+  renderPage();
+  persistTimerBackground();
+  checkAllProjectHourLimits();
+}
+
+async function refreshFromServer(options = {}) {
+  const { silent = true, force = false } = options;
+  if (!sb.isEnabled()) return { ok: true, skipped: true };
+  if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) {
+    if (!silent) showToast('Сессия истекла — войдите с паролем для синхронизации с БД', 'error');
+    return { ok: false };
+  }
+  const now = Date.now();
+  if (!force && now - lastServerSyncAt < SERVER_SYNC_DEBOUNCE_MS) return { ok: true, skipped: true };
+  if (serverSyncInFlight) return serverSyncInFlight;
+
+  serverSyncInFlight = (async () => {
+    try {
+      const pullResult = await sb.pull();
+      lastServerSyncAt = Date.now();
+      if (pullResult?.ok === false) {
+        if (!silent) {
+          if (pullResult.reason === 'rls_or_proxy') {
+            showToast(`В БД ${pullResult.serverProjects} проект(ов), но API вернул пусто. На сервере: ./scripts/migrate-rls.sh и ./scripts/test-user-api.sh`, 'error');
+          } else {
+            showToast('Не удалось загрузить данные из API — выйдите и войдите с паролем снова', 'error');
+          }
+        }
+        return pullResult;
+      }
+      applyServerPull();
+      if (!silent) showToast('✓ Данные синхронизированы', 'success');
+      return { ok: true };
+    } catch (e) {
+      console.error('refreshFromServer failed', e);
+      if (!silent) showToast('Не удалось синхронизировать с БД', 'error');
+      return { ok: false };
+    } finally {
+      serverSyncInFlight = null;
+    }
+  })();
+  return serverSyncInFlight;
+}
+
+function onAppResumeSync() {
+  if (!appStarted || !sb.isEnabled()) return;
+  refreshFromServer({ silent: true });
+}
+
+function startBackgroundSync() {
+  if (serverSyncListenersBound) return;
+  serverSyncListenersBound = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') onAppResumeSync();
+  });
+  window.addEventListener('focus', onAppResumeSync);
+  window.addEventListener('pageshow', onAppResumeSync);
+  if (!serverSyncPollTimer) {
+    serverSyncPollTimer = setInterval(() => {
+      if (document.visibilityState !== 'visible' || !appStarted || !sb.isEnabled()) return;
+      refreshFromServer({ silent: true });
+    }, SERVER_SYNC_POLL_MS);
+  }
+}
+
 async function syncWithServer() {
   if (!sb.isEnabled()) return;
   if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) {
@@ -3271,26 +3348,14 @@ async function syncWithServer() {
     const claim = await auth.claimLegacyServerData('default');
     claimedLegacy = !!claim?.claimed;
   }
-  const pullResult = await sb.pull();
-  if (pullResult?.ok === false) {
-    if (pullResult.reason === 'rls_or_proxy') {
-      showToast(`В БД ${pullResult.serverProjects} проект(ов), но API вернул пусто. На сервере: ./scripts/migrate-rls.sh и ./scripts/test-user-api.sh`, 'error');
-    } else {
-      showToast('Не удалось загрузить данные из API — выйдите и войдите с паролем снова', 'error');
-    }
-    return;
-  }
+  const pullResult = await refreshFromServer({ silent: true, force: true });
+  if (pullResult?.ok === false && !pullResult.skipped) return;
   if (!state.projects.length && !state.entries.length && importLegacyLocalToState()) {
     await sb.pushAll();
     save();
   } else if (claimedLegacy) {
     save();
   }
-  if (state.timer.running) startTimerTick();
-  updateTimerUI();
-  renderPage();
-  persistTimerBackground();
-  checkAllProjectHourLimits();
   if (claimedLegacy) showToast('✓ Перенесены данные с прежнего аккаунта (default)', 'success');
   else showToast('✓ Данные синхронизированы', 'success');
 }
@@ -3354,6 +3419,41 @@ function buildTimerSyncPayload() {
     projectName: project?.name || ''
   };
 }
+function isAppleMobileDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function shouldLiveSyncTimerNotification() {
+  if (nativeTimer.available()) {
+    return window.TimeLogNative.getPlatform?.() === 'android';
+  }
+  return !isAppleMobileDevice();
+}
+function shouldNotifyPwaTimer() {
+  if (!state.timer.running) return false;
+  if (nativeTimer.available()) {
+    return window.TimeLogNative.getPlatform?.() === 'android';
+  }
+  if (isAppleMobileDevice()) {
+    return document.visibilityState === 'hidden';
+  }
+  return true;
+}
+function postTimerToServiceWorker({ notify } = {}) {
+  const ctrl = navigator.serviceWorker?.controller;
+  if (!ctrl) return;
+  ctrl.postMessage({
+    type: 'TIMER_SYNC',
+    timer: buildTimerSyncPayload(),
+    notify: notify ?? shouldNotifyPwaTimer(),
+  });
+}
+function closePwaTimerNotification() {
+  const ctrl = navigator.serviceWorker?.controller;
+  if (ctrl && isAppleMobileDevice() && !nativeTimer.available()) {
+    ctrl.postMessage({ type: 'TIMER_CLOSE_NOTIF' });
+  }
+}
 const nativeTimer = {
   _active: false,
   available() {
@@ -3363,16 +3463,24 @@ const nativeTimer = {
   init() {
     if (!this.available()) return;
     window.TimeLogNative.initNativeTimer(action => {
-      if (action === 'sync') reconcileTimerOnWake();
-      else handleTimerNotifAction(action);
+      if (action === 'sync') {
+        reconcileTimerOnWake();
+        onAppResumeSync();
+      } else handleTimerNotifAction(action);
     });
   },
   async sync(timer) {
     if (!this.available()) return;
+    const platform = window.TimeLogNative.getPlatform?.() || 'web';
     try {
       if (timer?.running) {
-        if (this._active) await window.TimeLogNative.updateNativeTimer(timer);
-        else {
+        if (this._active) {
+          if (platform === 'ios') {
+            await window.TimeLogNative.refreshIosTimerNotification(timer);
+          } else {
+            await window.TimeLogNative.updateNativeTimer(timer);
+          }
+        } else {
           this._active = true;
           await window.TimeLogNative.startNativeTimer(timer);
         }
@@ -3386,15 +3494,11 @@ const nativeTimer = {
   }
 };
 function syncTimerNotification() {
-  const payload = buildTimerSyncPayload();
   if (nativeTimer.available()) {
-    nativeTimer.sync(payload);
+    nativeTimer.sync(buildTimerSyncPayload());
     return;
   }
-  const ctrl = navigator.serviceWorker?.controller;
-  if (ctrl && state.timer.running) {
-    ctrl.postMessage({ type: 'TIMER_SYNC', timer: payload });
-  }
+  if (state.timer.running) postTimerToServiceWorker();
 }
 function mergeTimers(local, remote) {
   if (!remote?.running) return local;
@@ -3426,6 +3530,15 @@ const timerBg = {
   async init() {
     if (timerBgReady) return;
     nativeTimer.init();
+    document.addEventListener('visibilitychange', () => {
+      if (!state.timer.running) return;
+      if (document.visibilityState === 'hidden') {
+        persistTimerBackground(true, { notify: true });
+      } else {
+        closePwaTimerNotification();
+        reconcileTimerOnWake();
+      }
+    });
     if (nativeTimer.available()) {
       timerBgReady = true;
       return;
@@ -3459,11 +3572,8 @@ const timerBg = {
     } catch {
       // SW unavailable
     }
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') reconcileTimerOnWake();
-    });
     window.addEventListener('pageshow', () => reconcileTimerOnWake());
-    window.addEventListener('pagehide', () => persistTimerBackground(true));
+    window.addEventListener('pagehide', () => persistTimerBackground(true, { notify: true }));
     window.addEventListener('beforeunload', () => persistTimerBackground(true));
     const params = new URLSearchParams(location.search);
     const action = params.get('timerAction');
@@ -3499,14 +3609,13 @@ function reconcileTimerOnWake() {
   updateTimerUI();
 }
 
-function persistTimerBackground(syncOnly) {
+function persistTimerBackground(syncOnly, { notify } = {}) {
   if (!syncOnly) save();
   const timer = buildTimerSyncPayload();
   if (nativeTimer.available()) {
     nativeTimer.sync(timer);
   } else {
-    const ctrl = navigator.serviceWorker?.controller;
-    if (ctrl) ctrl.postMessage({ type: 'TIMER_SYNC', timer });
+    postTimerToServiceWorker({ notify });
   }
   if (sb.isEnabled()) {
     if (state.timer.running) sb.upsertTimer(state.timer);
@@ -3785,6 +3894,7 @@ function confirmStopTimer() {
     createdAt: Date.now()
   };
   state.entries.unshift(entry);
+  save();
   if (sb.isEnabled()) sb.upsertEntry(entry);
   const project = getProject(state.timer.projectId);
   const amount = calcEntryAmount(state.timer.projectId, billH);
@@ -3892,7 +4002,7 @@ function updateTimerUI() {
   if (!isActive) closeMobileTimerScreen();
   else if (mobileTimerScreenOpen) updateMobileTimerScreen();
 
-  if (isActive) syncTimerNotification();
+  if (isActive && shouldLiveSyncTimerNotification()) syncTimerNotification();
   updateTopbar();
 }
 
@@ -7783,6 +7893,7 @@ function initApp() {
   checkAllProjectHourLimits();
   if (sb.isEnabled()) {
     syncWithServer().catch(() => showToast('Не удалось синхронизировать с БД', 'error'));
+    startBackgroundSync();
   }
   const params = new URLSearchParams(location.search);
   if (params.get('page') && pageTitles[params.get('page')]) showPage(params.get('page'));

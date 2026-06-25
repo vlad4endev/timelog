@@ -7,9 +7,13 @@ var TimeLogNative = (function () {
     isNativePlatform: function () {
       return false;
     },
+    getPlatform: function () {
+      return 'web';
+    },
     initNativeTimer: function () {},
     startNativeTimer: noop,
     updateNativeTimer: noop,
+    refreshIosTimerNotification: noop,
     stopNativeTimer: noop,
   };
 })();
