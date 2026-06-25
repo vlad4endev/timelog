@@ -1,40 +1,64 @@
 {
+  "id": "/",
   "name": "TimeLog — Учёт рабочего времени",
   "short_name": "TimeLog",
   "description": "Профессиональный трекер рабочего времени для разработчиков",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f0f1a",
-  "theme_color": "#6c63ff",
-  "orientation": "any",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#f4f6f8",
+  "theme_color": "#059669",
+  "orientation": "portrait-primary",
   "lang": "ru",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "categories": ["productivity", "utilities"],
+  "categories": ["productivity", "utilities", "business"],
   "shortcuts": [
     {
       "name": "Добавить время",
       "short_name": "Добавить",
-      "url": "/?action=add",
+      "url": "/?action=add&source=shortcut",
       "description": "Быстро добавить запись времени"
+    },
+    {
+      "name": "Аналитика",
+      "short_name": "Аналитика",
+      "url": "/?page=analytics&source=shortcut",
+      "description": "Открыть аналитику"
     },
     {
       "name": "Отчёт",
       "short_name": "Отчёт",
-      "url": "/?page=reports",
+      "url": "/?page=reports&source=shortcut",
       "description": "Открыть отчёты"
     }
-  ]
+  ],
+  "screenshots": []
 }
