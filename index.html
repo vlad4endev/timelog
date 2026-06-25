@@ -822,23 +822,25 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 
       <!-- Unlock form (shown when password already set) -->
       <div id="auth-unlock-form">
+        <form onsubmit="event.preventDefault();authUnlock();">
         <div class="auth-field">
           <label>Логин</label>
           <input class="auth-input" type="text" id="auth-login" placeholder="Телефон, email или логин"
             autocomplete="username" inputmode="email"
-            oninput="authOnLoginInput()" onkeydown="if(event.key==='Enter')document.getElementById('auth-pass')?.focus()">
+            oninput="authOnLoginInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-pass')?.focus()}">
         </div>
         <div class="auth-field">
           <label>Пароль</label>
           <div style="position:relative">
             <input class="auth-input" type="password" id="auth-pass" placeholder="Введите пароль"
-              autocomplete="current-password" onkeydown="if(event.key==='Enter')authUnlock()">
+              autocomplete="current-password">
             <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-pass')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
         </div>
-        <button class="auth-btn" id="auth-unlock-btn" onclick="authUnlock()">Войти</button>
+        <button type="submit" class="auth-btn" id="auth-unlock-btn">Войти</button>
+        </form>
         <div id="auth-biometric-wrap" style="display:none">
           <div class="auth-divider">или</div>
           <button type="button" class="auth-biometric-btn" id="auth-biometric-btn" onclick="authBiometricUnlock()">
@@ -859,18 +861,19 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
         <div id="auth-setup-hint" style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
           Придумайте пароль для входа в приложение.
         </div>
+        <form onsubmit="event.preventDefault();authSetup();">
         <div class="auth-field">
           <label>Логин</label>
           <input class="auth-input" type="text" id="auth-setup-login" placeholder="Телефон, email или логин"
             autocomplete="username" inputmode="email"
-            onkeydown="if(event.key==='Enter')document.getElementById('auth-new-pass')?.focus()">
+            onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-new-pass')?.focus()}">
           <div style="font-size:11px;color:var(--text2);margin-top:6px">Телефон: +79001234567 · email · логин от 3 символов</div>
         </div>
         <div class="auth-field">
           <label>Новый пароль</label>
           <div style="position:relative">
             <input class="auth-input" type="password" id="auth-new-pass" placeholder="Минимум 4 символа"
-              autocomplete="new-password" onkeydown="if(event.key==='Enter')authSetup()">
+              autocomplete="new-password">
             <button type="button" class="auth-pass-toggle" onclick="authTogglePass('auth-new-pass')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
@@ -879,9 +882,10 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
         <div class="auth-field" style="margin-bottom:20px">
           <label>Повторите пароль</label>
           <input class="auth-input" type="password" id="auth-new-pass2" placeholder="••••••••"
-            autocomplete="new-password" onkeydown="if(event.key==='Enter')authSetup()">
+            autocomplete="new-password">
         </div>
-        <button class="auth-btn" id="auth-setup-btn" onclick="authSetup()">Создать аккаунт и войти</button>
+        <button type="submit" class="auth-btn" id="auth-setup-btn">Создать аккаунт и войти</button>
+        </form>
       </div>
     </div>
   </div>
@@ -2047,7 +2051,8 @@ let state = {
     openrouter: { apiKey: '', model: 'anthropic/claude-3.5-haiku', enabled: false },
     aiPrompt: 'Ты помощник разработчика. Перефразируй описание задачи профессионально и лаконично для технического отчёта на русском языке. Сохрани суть, добавь технические детали если уместно. Верни только переформулированный текст без объяснений.',
     supabase: { url: '', anonKey: '', enabled: false },
-    projectHourAlerts: {}
+    projectHourAlerts: {},
+    profile: { phone: '' }
   },
   currentPage: 'dashboard',
   selectedColor: '#059669'
@@ -2080,6 +2085,8 @@ function load() {
         if (!d.settings.roundMode) state.settings.roundMode = 'up';
         if (d.settings.minBillable == null) state.settings.minBillable = 0;
         if (!state.settings.projectHourAlerts) state.settings.projectHourAlerts = {};
+        if (!state.settings.profile) state.settings.profile = { phone: '' };
+        else state.settings.profile = Object.assign({ phone: '' }, state.settings.profile);
       }
     }
   } catch(e) {}
@@ -2890,7 +2897,7 @@ function renderPage() {
   const pages = { dashboard: renderDashboard, analytics: renderAnalytics, planning: renderPlanning, projects: renderProjects, board: renderBoard, timelog: renderTimelog, reports: renderReports, payments: renderPayments, settings: renderSettings };
   el.innerHTML = (pages[state.currentPage] || renderDashboard)();
   bindPageEvents();
-  if (state.currentPage === 'settings') updateRatePreview();
+  if (state.currentPage === 'settings') { updateRatePreview(); initProfileSection(); }
   if (state.timer.running) updateTimerUI();
 }
 
@@ -3228,6 +3235,12 @@ function checkProjectHourLimit(projectId) {
   state.settings.projectHourAlerts[projectId] = true;
   save();
   showToast(`Лимит ${fmtHours(p.maxHours)} превышен: ${fmtHours(hrs)} по проекту «${p.name}»`, 'warning');
+}
+
+function checkAllProjectHourLimits() {
+  state.projects.forEach(p => {
+    if (p.maxHours > 0) checkProjectHourLimit(p.id);
+  });
 }
 
 function renderProjects() {
@@ -5821,6 +5834,92 @@ function applyDefaultRateToProjects() {
 }
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────
+function initProfileSection() {
+  const hint = document.getElementById('profile-biometric-hint');
+  if (!hint) return;
+  webauthn.canUse().then(can => {
+    if (!can) hint.textContent = webauthn.label() + ' недоступен на этом устройстве';
+  });
+}
+
+function profileSavePhone() {
+  const raw = document.getElementById('profile-phone')?.value.trim() || '';
+  if (!state.settings.profile) state.settings.profile = { phone: '' };
+  if (!raw) {
+    state.settings.profile.phone = '';
+    save();
+    showToast('Телефон удалён');
+    return;
+  }
+  const phone = auth.normalizeLogin(raw);
+  if (!phone.startsWith('+')) {
+    showToast('Введите номер в формате +79001234567', 'error');
+    return;
+  }
+  const err = auth.validateLogin(phone);
+  if (err) { showToast(err, 'error'); return; }
+  state.settings.profile.phone = phone;
+  save();
+  const el = document.getElementById('profile-phone');
+  if (el) el.value = phone;
+  showToast('Телефон сохранён', 'success');
+}
+
+async function profileSaveCredentials() {
+  const oldLogin = auth.getLogin();
+  if (!oldLogin) { showToast('Сначала войдите в аккаунт', 'error'); return; }
+  const newLogin = auth.normalizeLogin(document.getElementById('profile-login')?.value || '');
+  const curPass = document.getElementById('profile-cur-pass')?.value || '';
+  const newPass = document.getElementById('profile-new-pass')?.value || '';
+  const newPass2 = document.getElementById('profile-new-pass2')?.value || '';
+
+  const loginErr = auth.validateLogin(newLogin);
+  if (loginErr) { showToast(loginErr, 'error'); return; }
+
+  const loginChanged = newLogin !== oldLogin;
+  const passChanged = !!(newPass || newPass2);
+
+  if (!loginChanged && !passChanged) {
+    showToast('Нет изменений', 'error');
+    return;
+  }
+  if (!curPass) {
+    showToast('Введите текущий пароль для подтверждения', 'error');
+    return;
+  }
+  if (passChanged) {
+    if (newPass.length < 4) { showToast('Новый пароль: минимум 4 символа', 'error'); return; }
+    if (newPass !== newPass2) { showToast('Пароли не совпадают', 'error'); return; }
+  }
+
+  const btn = document.getElementById('profile-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Сохраняем...'; }
+
+  let activeLogin = oldLogin;
+  if (loginChanged) {
+    const r = await auth.changeLogin(oldLogin, newLogin, curPass);
+    if (!r.ok) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Сохранить логин и пароль'; }
+      showToast(r.error, 'error');
+      return;
+    }
+    activeLogin = newLogin;
+  }
+  if (passChanged) {
+    const r = await auth.changePassword(activeLogin, curPass, newPass);
+    if (!r.ok) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Сохранить логин и пароль'; }
+      showToast(r.error, 'error');
+      return;
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Сохранить логин и пароль'; }
+  updateTopbarUser();
+  showToast('Данные для входа обновлены', 'success');
+  renderPage();
+}
+
 function renderSettings() {
   const s = state.settings;
   const or = s.openrouter;
@@ -5839,11 +5938,72 @@ function renderSettings() {
     ['google/gemini-flash-1.5','Gemini Flash 1.5 (быстрый)'],
     ['meta-llama/llama-3.1-8b-instruct:free','Llama 3.1 8B (бесплатный)'],
   ];
+  const profile = s.profile || { phone: '' };
+  const curLogin = auth.getLogin() || '';
+  const profilePhone = profile.phone || (curLogin.startsWith('+') ? curLogin : '');
+  const bioLabel = webauthn.label();
+  const bioEnabled = curLogin && webauthn.hasCredential(curLogin);
 
   return `
   <div class="settings-wrap">
 
-    <div class="section-title" style="margin-top:0">💰 Финансы и почасовая оплата</div>
+    <div class="section-title" style="margin-top:0">👤 Профиль</div>
+    <div class="card mb16">
+      <div class="form-group">
+        <label class="form-label">Телефон</label>
+        <div class="settings-input-row">
+          <input type="tel" class="form-input" id="profile-phone" value="${escHtml(profilePhone)}"
+            placeholder="+79001234567" inputmode="tel" autocomplete="tel" style="flex:1">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="profileSavePhone()">Сохранить</button>
+        </div>
+        <div class="text-xs text-muted mt4">Для связи и входа по номеру. Формат: +79001234567</div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="text-sm fw-6 mb8">Логин и пароль</div>
+      <div class="form-group">
+        <label class="form-label">Логин для входа</label>
+        <input type="text" class="form-input" id="profile-login" value="${escHtml(curLogin)}"
+          placeholder="Телефон, email или имя пользователя" autocomplete="username" inputmode="email">
+        <div class="text-xs text-muted mt4">Телефон (+7900…), email или логин от 3 символов</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Текущий пароль</label>
+        <div style="position:relative">
+          <input type="password" class="form-input" id="profile-cur-pass" placeholder="••••••••" autocomplete="current-password" style="padding-right:40px">
+          <button type="button" class="btn-icon" style="position:absolute;right:8px;top:50%;transform:translateY(-50%)" onclick="authTogglePass('profile-cur-pass')" aria-label="Показать пароль">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Новый пароль</label>
+          <input type="password" class="form-input" id="profile-new-pass" placeholder="Оставьте пустым, если не меняете" autocomplete="new-password">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Повторите пароль</label>
+          <input type="password" class="form-input" id="profile-new-pass2" placeholder="••••••••" autocomplete="new-password">
+        </div>
+      </div>
+      <button type="button" class="btn btn-primary btn-sm mt12" id="profile-save-btn" onclick="profileSaveCredentials()">Сохранить логин и пароль</button>
+
+      <div class="divider"></div>
+      <div class="settings-toggle-row" style="margin-bottom:0">
+        <div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:4px">${bioLabel}</div>
+          <div class="text-sm text-muted">Быстрый вход на этом устройстве без ввода пароля</div>
+          <div class="text-xs text-muted mt4" id="profile-biometric-hint">${bioEnabled ? bioLabel + ' включён' : 'Сначала сохраните пароль, затем включите ' + bioLabel}</div>
+        </div>
+        ${bioEnabled ? `
+          <button type="button" class="btn btn-ghost btn-sm" onclick="authDisableBiometric()">Отключить</button>
+        ` : `
+          <button type="button" class="btn btn-primary btn-sm" onclick="authEnableBiometric()">Включить ${bioLabel}</button>
+        `}
+      </div>
+    </div>
+
+    <div class="section-title">💰 Финансы и почасовая оплата</div>
     <div class="card mb16">
       <div class="form-row">
         <div class="form-group" style="margin-bottom:0">
@@ -6044,18 +6204,6 @@ create policy "open" on app_users for all using (true) with check (true);</pre>
         <button class="btn btn-ghost btn-sm" onclick="sbTest()">Проверить соединение</button>
         ${!s.supabase.enabled ? `<button class="btn btn-primary" onclick="sbConnect()" style="flex:1">🔗 Подключить и мигрировать данные</button>` : ''}
       </div>
-    </div>
-
-    <div class="section-title">Безопасность</div>
-    <div class="card mb16">
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Аккаунт: <strong style="color:var(--text)">${escHtml(auth.getLogin()||'—')}</strong></div>
-      ${webauthn.hasCredential(auth.getLogin()) ? `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <span class="text-sm" style="color:var(--green)">✓ ${webauthn.label()} включён на этом устройстве</span>
-          <button class="btn btn-ghost btn-sm" onclick="authDisableBiometric()">Отключить</button>
-        </div>` : `
-        <button class="btn btn-ghost btn-sm" onclick="authEnableBiometric()">Включить ${webauthn.label()}</button>
-        <div class="text-xs text-muted mt8">Быстрый вход по Face ID / Touch ID на этом устройстве</div>`}
     </div>
 
     <div class="section-title">Управление проектами</div>
