@@ -2896,6 +2896,9 @@ function authSuccess() {
 }
 
 function authLogout() {
+  sb._writeQueue.clear();
+  sb._dirtyKeys.clear();
+  clearTimeout(sb._flushTimer);
   auth.logout().finally(() => {
     state.projects = [];
     state.entries = [];
@@ -3047,7 +3050,7 @@ function scheduleUserSettingsSync(immediate = false) {
     run();
     return;
   }
-  userSettingsSyncTimer = setTimeout(run, 800);
+  userSettingsSyncTimer = setTimeout(run, 250);
 }
 
 function save(opts = {}) {
@@ -3080,6 +3083,12 @@ function load() {
 
 // ─── SUPABASE LAYER ──────────────────────────────────────────────────────
 const sb = {
+  _writeQueue: new Map(),
+  _dirtyKeys: new Set(),
+  _flushTimer: null,
+  _flushInFlight: null,
+  FLUSH_DELAY_MS: 80,
+
   userLogin() { return auth.getLogin() || ''; },
 
   scope(path) {
@@ -3133,6 +3142,194 @@ const sb = {
       const text = await r.text();
       return text ? JSON.parse(text) : [];
     } catch(e) { console.error('Supabase fetch error:', e); return null; }
+  },
+
+  _scheduleFlush(immediate = false) {
+    clearTimeout(this._flushTimer);
+    const delay = immediate ? 0 : this.FLUSH_DELAY_MS;
+    this._flushTimer = setTimeout(() => { this.flushWrites().catch(e => console.error('sync flush failed', e)); }, delay);
+  },
+
+  _queueUpsert(table, id, row, immediate = false) {
+    const key = `${table}:${id}`;
+    this._dirtyKeys.add(key);
+    this._writeQueue.set(key, { type: 'upsert', table, id, row });
+    this._scheduleFlush(immediate);
+  },
+
+  _queueDelete(table, id, extra = null, immediate = false) {
+    const entityKey = `${table}:${id || extra?.date}`;
+    const queueKey = `del:${entityKey}`;
+    this._dirtyKeys.add(entityKey);
+    this._writeQueue.set(queueKey, { type: 'delete', table, id, extra });
+    this._scheduleFlush(immediate);
+  },
+
+  _queueClearTimer() {
+    this._writeQueue.set('timer:clear', { type: 'clearTimer' });
+    this._scheduleFlush(true);
+  },
+
+  _pendingDeleteIds(table) {
+    const ids = new Set();
+    for (const job of this._writeQueue.values()) {
+      if (job.type === 'delete' && job.table === table && job.id) ids.add(job.id);
+    }
+    return ids;
+  },
+
+  async flushWrites() {
+    if (this._flushInFlight) return this._flushInFlight;
+    if (!this._writeQueue.size || !this.isEnabled()) return true;
+    if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) return false;
+
+    const batch = [...this._writeQueue.values()];
+    this._writeQueue.clear();
+    clearTimeout(this._flushTimer);
+
+    this._flushInFlight = (async () => {
+      let ok = true;
+      try {
+        if (auth.useServerAuth() && auth.getApiToken()) {
+          ok = await this._flushViaAuth(batch);
+        } else {
+          ok = await this._flushViaRest(batch);
+        }
+        if (ok) {
+          for (const job of batch) {
+            if (job.type === 'upsert') this._dirtyKeys.delete(`${job.table}:${job.id}`);
+            else if (job.type === 'delete') this._dirtyKeys.delete(`${job.table}:${job.id || job.extra?.date}`);
+          }
+        } else {
+          for (const job of batch) {
+            const key = job.type === 'delete'
+              ? `del:${job.table}:${job.id || job.extra?.date}`
+              : `${job.table}:${job.id}`;
+            this._writeQueue.set(key, job);
+          }
+        }
+      } finally {
+        this._flushInFlight = null;
+      }
+      return ok;
+    })();
+    return this._flushInFlight;
+  },
+
+  async _flushViaAuth(batch) {
+    const upserts = {};
+    const deletes = [];
+    let timer = null;
+    let clearTimer = false;
+    for (const job of batch) {
+      if (job.type === 'upsert') {
+        if (!upserts[job.table]) upserts[job.table] = [];
+        upserts[job.table].push(job.row);
+      } else if (job.type === 'delete') {
+        deletes.push(job.extra?.date
+          ? { table: job.table, date: job.extra.date }
+          : { table: job.table, id: job.id });
+      } else if (job.type === 'clearTimer') {
+        clearTimer = true;
+      }
+    }
+    for (const job of batch) {
+      if (job.type === 'upsert' && job.table === 'active_timer') timer = job.row;
+    }
+    const res = await auth.authFetch('/auth/sync/push', { upserts, deletes, timer, clearTimer });
+    return !!res?.ok;
+  },
+
+  async _flushViaRest(batch) {
+    const tasks = batch.map(job => {
+      if (job.type === 'upsert') {
+        return this.req('POST', job.table, job.row);
+      }
+      if (job.type === 'delete') {
+        if (job.table === 'schedule_overrides' && job.extra?.date) {
+          const login = this.userLogin();
+          const q = login
+            ? `schedule_overrides?date=eq.${job.extra.date}&user_login=eq.${encodeURIComponent(login)}`
+            : `schedule_overrides?date=eq.${job.extra.date}`;
+          return this.req('DELETE', q);
+        }
+        return this.req('DELETE', this.scopedDelete(job.table, job.id));
+      }
+      if (job.type === 'clearTimer') {
+        return this.req('DELETE', `active_timer?id=eq.${encodeURIComponent(this.userId())}`);
+      }
+      return Promise.resolve(true);
+    });
+    const results = await Promise.all(tasks);
+    return results.every(r => r !== null);
+  },
+
+  applyPullPayload(payload) {
+    const mergeList = (table, serverRows, toLocal, localArr) => {
+      if (serverRows === null || serverRows === undefined) return;
+      const pendingDel = this._pendingDeleteIds(table);
+      const dirtyIds = new Set(
+        [...this._dirtyKeys].filter(k => k.startsWith(`${table}:`)).map(k => k.slice(table.length + 1))
+      );
+      const fromServer = serverRows.map(toLocal).filter(r => !pendingDel.has(r.id));
+      const keptLocal = localArr.filter(r => dirtyIds.has(r.id) && !pendingDel.has(r.id));
+      const serverIds = new Set(fromServer.map(r => r.id));
+      return [...fromServer, ...keptLocal.filter(r => !serverIds.has(r.id))];
+    };
+
+    if (payload.projects !== undefined) {
+      state.projects = mergeList('projects', payload.projects, sb.rowToProject, state.projects) ?? state.projects;
+    }
+    if (payload.time_entries !== undefined) {
+      state.entries = mergeList('time_entries', payload.time_entries, sb.rowToEntry, state.entries) ?? state.entries;
+    }
+    if (payload.payments !== undefined) {
+      state.payments = mergeList('payments', payload.payments, sb.rowToPayment, state.payments) ?? state.payments;
+    }
+    if (payload.board_tasks !== undefined) {
+      state.boardTasks = mergeList('board_tasks', payload.board_tasks, sb.rowToBoardTask, state.boardTasks) ?? state.boardTasks;
+    }
+    if (payload.billing_reports !== undefined) {
+      state.reports = mergeList('billing_reports', payload.billing_reports, sb.rowToReport, state.reports) ?? state.reports;
+    }
+    if (payload.active_timer !== undefined && payload.active_timer !== null && !this._dirtyKeys.has(`active_timer:${this.userId()}`)) {
+      state.timer = mergeTimers(state.timer, sb.rowToTimer(payload.active_timer));
+    }
+    if (payload.schedule_settings !== undefined && payload.schedule_settings?.week_template && !this._dirtyKeys.has(`schedule_settings:${this.userId()}`)) {
+      state.schedule.weekTemplate = Object.assign({}, getDefaultSchedule().weekTemplate, payload.schedule_settings.week_template);
+    }
+    if (payload.schedule_overrides !== undefined) {
+      const overrides = { ...state.schedule.overrides };
+      const dirtyDates = new Set(
+        [...this._dirtyKeys].filter(k => k.startsWith('schedule_overrides:')).map(k => k.slice('schedule_overrides:'.length))
+      );
+      for (const r of payload.schedule_overrides) {
+        if (!dirtyDates.has(r.date)) {
+          overrides[r.date] = { type: r.type, hours: r.hours, note: r.note || '' };
+        }
+      }
+      state.schedule.overrides = overrides;
+    }
+    if (payload.schedule_blocks !== undefined) {
+      state.schedule.blocks = mergeList('schedule_blocks', payload.schedule_blocks, sb.rowToBlock, state.schedule.blocks) ?? state.schedule.blocks;
+    }
+    if (payload.user_settings !== undefined && payload.user_settings?.settings && !this._dirtyKeys.has(`user_settings:${this.userId()}`)) {
+      applyRemoteUserSettings(payload.user_settings.settings);
+    }
+  },
+
+  async pullViaAuth() {
+    const res = await auth.authFetch('/auth/sync/pull');
+    if (!res?.ok) return null;
+    this.applyPullPayload(res);
+    if (res.projects?.length === 0 && auth.useServerAuth() && auth.getApiToken()) {
+      const me = await auth.fetchSessionInfo();
+      if (me && me.projectsInDb > 0) {
+        return { ok: false, reason: 'rls_or_proxy', serverProjects: me.projectsInDb };
+      }
+    }
+    save();
+    return { ok: true };
   },
 
   // Map local → DB column names
@@ -3216,6 +3413,10 @@ const sb = {
 
   // Pull everything from Supabase into state
   async pull() {
+    if (auth.useServerAuth() && auth.getApiToken()) {
+      const fast = await this.pullViaAuth();
+      if (fast) return fast;
+    }
     const uid = encodeURIComponent(this.userId());
     const [projects, entries, payments, boardTasks, reports, timerRow, scheduleSettings, scheduleOverrides, scheduleBlocks, userSettingsRow] = await Promise.all([
       sb.req('GET', sb.scope('projects?order=created_at.asc')),
@@ -3232,34 +3433,18 @@ const sb = {
     if (projects === null && auth.useServerAuth()) {
       return { ok: false, reason: 'api_error' };
     }
-    if (projects !== null) state.projects = projects.map(sb.rowToProject);
-    if (entries  !== null) state.entries  = entries.map(sb.rowToEntry);
-    if (payments !== null) state.payments = payments.map(sb.rowToPayment);
-    if (boardTasks !== null) state.boardTasks = boardTasks.map(sb.rowToBoardTask);
-    if (reports !== null) state.reports = reports.map(sb.rowToReport);
-    if (timerRow !== null && timerRow[0]) {
-      state.timer = mergeTimers(state.timer, sb.rowToTimer(timerRow[0]));
-    }
-    if (scheduleSettings !== null) {
-      const row = scheduleSettings[0];
-      if (row?.week_template) {
-        state.schedule.weekTemplate = Object.assign({}, getDefaultSchedule().weekTemplate, row.week_template);
-      }
-    }
-    if (scheduleOverrides !== null) {
-      const overrides = {};
-      scheduleOverrides.forEach(r => {
-        overrides[r.date] = { type: r.type, hours: r.hours, note: r.note || '' };
-      });
-      state.schedule.overrides = overrides;
-    }
-    if (scheduleBlocks !== null) {
-      state.schedule.blocks = scheduleBlocks.map(sb.rowToBlock);
-    }
-    if (userSettingsRow !== null) {
-      const row = userSettingsRow[0];
-      if (row?.settings) applyRemoteUserSettings(row.settings);
-    }
+    this.applyPullPayload({
+      projects,
+      time_entries: entries,
+      payments,
+      board_tasks: boardTasks,
+      billing_reports: reports,
+      active_timer: timerRow?.[0] || null,
+      schedule_settings: scheduleSettings?.[0] || null,
+      schedule_overrides: scheduleOverrides,
+      schedule_blocks: scheduleBlocks,
+      user_settings: userSettingsRow?.[0] || null,
+    });
     if (projects !== null && projects.length === 0 && auth.useServerAuth() && auth.getApiToken()) {
       const me = await auth.fetchSessionInfo();
       if (me && me.projectsInDb > 0) {
@@ -3270,31 +3455,27 @@ const sb = {
     return { ok: true };
   },
 
-  // Upsert single records
-  async upsertProject(p)  { return await sb.req('POST', 'projects',     sb.projectToRow(p)); },
-  async upsertEntry(e)    { return await sb.req('POST', 'time_entries', sb.entryToRow(e)); },
-  async upsertPayment(p)  { return await sb.req('POST', 'payments',     sb.paymentToRow(p)); },
-  async upsertBoardTask(t){ return await sb.req('POST', 'board_tasks',  sb.boardTaskToRow(t)); },
-  async upsertReport(r)   { return await sb.req('POST', 'billing_reports', sb.reportToRow(r)); },
-  async upsertTimer(t)    { return await sb.req('POST', 'active_timer', sb.timerToRow(t)); },
-  async upsertScheduleSettings(s) { return await sb.req('POST', 'schedule_settings', sb.scheduleSettingsToRow(s)); },
-  async upsertUserSettings() { return await sb.req('POST', 'user_settings', sb.userSettingsToRow()); },
-  async upsertScheduleOverride(date, o) { return await sb.req('POST', 'schedule_overrides', sb.overrideToRow(date, o)); },
-  async upsertScheduleBlock(b) { return await sb.req('POST', 'schedule_blocks', sb.blockToRow(b)); },
-  async clearTimerRemote(){ return await sb.req('DELETE', `active_timer?id=eq.${encodeURIComponent(this.userId())}`); },
+  // Upsert single records (queued — UI stays instant, network batches)
+  upsertProject(p)  { this._queueUpsert('projects', p.id, sb.projectToRow(p)); },
+  upsertEntry(e)    { this._queueUpsert('time_entries', e.id, sb.entryToRow(e)); },
+  upsertPayment(p)  { this._queueUpsert('payments', p.id, sb.paymentToRow(p)); },
+  upsertBoardTask(t){ this._queueUpsert('board_tasks', t.id, sb.boardTaskToRow(t)); },
+  upsertReport(r)   { this._queueUpsert('billing_reports', r.id, sb.reportToRow(r)); },
+  upsertTimer(t)    { this._queueUpsert('active_timer', this.userId(), sb.timerToRow(t), true); },
+  upsertScheduleSettings(s) { this._queueUpsert('schedule_settings', this.userId(), sb.scheduleSettingsToRow(s)); },
+  upsertUserSettings() { this._queueUpsert('user_settings', this.userId(), sb.userSettingsToRow()); },
+  upsertScheduleOverride(date, o) { this._queueUpsert('schedule_overrides', date, sb.overrideToRow(date, o)); },
+  upsertScheduleBlock(b) { this._queueUpsert('schedule_blocks', b.id, sb.blockToRow(b)); },
+  clearTimerRemote() { this._queueClearTimer(); },
 
   // Delete single records (scoped to current user)
-  async deleteProject(id) { return await sb.req('DELETE', sb.scopedDelete('projects', id)); },
-  async deleteEntry(id)   { return await sb.req('DELETE', sb.scopedDelete('time_entries', id)); },
-  async deletePayment(id) { return await sb.req('DELETE', sb.scopedDelete('payments', id)); },
-  async deleteBoardTask(id){ return await sb.req('DELETE', sb.scopedDelete('board_tasks', id)); },
-  async deleteReport(id)  { return await sb.req('DELETE', sb.scopedDelete('billing_reports', id)); },
-  async deleteScheduleOverride(date) {
-    const login = this.userLogin();
-    const q = login ? `schedule_overrides?date=eq.${date}&user_login=eq.${encodeURIComponent(login)}` : `schedule_overrides?date=eq.${date}`;
-    return await sb.req('DELETE', q);
-  },
-  async deleteScheduleBlock(id) { return await sb.req('DELETE', sb.scopedDelete('schedule_blocks', id)); },
+  deleteProject(id) { this._queueDelete('projects', id, null, true); },
+  deleteEntry(id)   { this._queueDelete('time_entries', id, null, true); },
+  deletePayment(id) { this._queueDelete('payments', id, null, true); },
+  deleteBoardTask(id){ this._queueDelete('board_tasks', id, null, true); },
+  deleteReport(id)  { this._queueDelete('billing_reports', id, null, true); },
+  deleteScheduleOverride(date) { this._queueDelete('schedule_overrides', date, { date }, true); },
+  deleteScheduleBlock(id) { this._queueDelete('schedule_blocks', id, null, true); },
 
   async migrateUserLogin(oldLogin, newLogin) {
     if (!oldLogin || !newLogin || oldLogin === newLogin) return;
@@ -3308,26 +3489,24 @@ const sb = {
   },
 
   async syncSchedule() {
-    await sb.upsertScheduleSettings(state.schedule);
-    const dates = Object.keys(state.schedule.overrides);
-    await Promise.all(dates.map(d => sb.upsertScheduleOverride(d, state.schedule.overrides[d])));
-    await Promise.all(state.schedule.blocks.map(b => sb.upsertScheduleBlock(b)));
+    sb.upsertScheduleSettings(state.schedule);
+    Object.entries(state.schedule.overrides).forEach(([d, o]) => sb.upsertScheduleOverride(d, o));
+    state.schedule.blocks.forEach(b => sb.upsertScheduleBlock(b));
+    return sb.flushWrites();
   },
 
   // Push all local data to Supabase (migration)
   async pushAll() {
-    const results = await Promise.all([
-      ...state.projects.map(p => sb.upsertProject(p)),
-      ...state.entries.map(e  => sb.upsertEntry(e)),
-      ...state.payments.map(p => sb.upsertPayment(p)),
-      ...state.boardTasks.map(t => sb.upsertBoardTask(t)),
-      ...state.reports.map(r => sb.upsertReport(r)),
-      sb.upsertScheduleSettings(state.schedule),
-      sb.upsertUserSettings(),
-      ...Object.entries(state.schedule.overrides).map(([d, o]) => sb.upsertScheduleOverride(d, o)),
-      ...state.schedule.blocks.map(b => sb.upsertScheduleBlock(b))
-    ]);
-    return results.every(r => r !== null);
+    state.projects.forEach(p => sb.upsertProject(p));
+    state.entries.forEach(e => sb.upsertEntry(e));
+    state.payments.forEach(p => sb.upsertPayment(p));
+    state.boardTasks.forEach(t => sb.upsertBoardTask(t));
+    state.reports.forEach(r => sb.upsertReport(r));
+    sb.upsertScheduleSettings(state.schedule);
+    sb.upsertUserSettings();
+    Object.entries(state.schedule.overrides).forEach(([d, o]) => sb.upsertScheduleOverride(d, o));
+    state.schedule.blocks.forEach(b => sb.upsertScheduleBlock(b));
+    return sb.flushWrites();
   },
 
   isEnabled() { return state.settings.supabase.enabled && state.settings.supabase.url && state.settings.supabase.anonKey; }
@@ -3335,8 +3514,8 @@ const sb = {
 
 let serverSyncInFlight = null;
 let lastServerSyncAt = 0;
-const SERVER_SYNC_DEBOUNCE_MS = 2500;
-const SERVER_SYNC_POLL_MS = 30000;
+const SERVER_SYNC_DEBOUNCE_MS = 400;
+const SERVER_SYNC_POLL_MS = 8000;
 let serverSyncPollTimer = null;
 let serverSyncListenersBound = false;
 
@@ -3361,6 +3540,7 @@ async function refreshFromServer(options = {}) {
 
   serverSyncInFlight = (async () => {
     try {
+      await sb.flushWrites();
       const pullResult = await sb.pull();
       lastServerSyncAt = Date.now();
       if (pullResult?.ok === false) {
@@ -3397,9 +3577,13 @@ function startBackgroundSync() {
   serverSyncListenersBound = true;
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') onAppResumeSync();
+    else if (sb.isEnabled()) sb.flushWrites().catch(() => {});
   });
   window.addEventListener('focus', onAppResumeSync);
   window.addEventListener('pageshow', onAppResumeSync);
+  window.addEventListener('pagehide', () => {
+    if (sb.isEnabled()) sb.flushWrites().catch(() => {});
+  });
   if (!serverSyncPollTimer) {
     serverSyncPollTimer = setInterval(() => {
       if (document.visibilityState !== 'visible' || !appStarted || !sb.isEnabled()) return;
@@ -3408,10 +3592,11 @@ function startBackgroundSync() {
   }
 }
 
-async function syncWithServer() {
+async function syncWithServer(options = {}) {
+  const { silent = false } = options;
   if (!sb.isEnabled()) return;
   if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) {
-    showToast('Сессия истекла — войдите с паролем для синхронизации с БД', 'error');
+    if (!silent) showToast('Сессия истекла — войдите с паролем для синхронизации с БД', 'error');
     return;
   }
   let claimedLegacy = false;
@@ -3424,9 +3609,12 @@ async function syncWithServer() {
   if (!state.projects.length && !state.entries.length && importLegacyLocalToState()) {
     await sb.pushAll();
     save();
+    applyServerPull();
   } else if (claimedLegacy) {
     save();
+    applyServerPull();
   }
+  if (silent) return;
   if (claimedLegacy) showToast('✓ Перенесены данные с прежнего аккаунта (default)', 'success');
   else showToast('✓ Данные синхронизированы', 'success');
 }
@@ -6276,7 +6464,10 @@ async function markReportPaid(reportId) {
   });
 
   save();
-  if (sb.isEnabled()) await sb.upsertReport(report);
+  if (sb.isEnabled()) {
+    sb.upsertReport(report);
+    await sb.flushWrites();
+  }
   renderPage();
   showToast('Отчёт оплачен, задачи в архиве');
 }
@@ -6298,7 +6489,10 @@ async function deleteReport(reportId) {
   state.reports = state.reports.filter(r => r.id !== reportId);
   if (selectedReportId === reportId) selectedReportId = '';
   save();
-  if (sb.isEnabled()) await sb.deleteReport(reportId);
+  if (sb.isEnabled()) {
+    sb.deleteReport(reportId);
+    await sb.flushWrites();
+  }
   renderPage();
   showToast('Отчёт удалён');
 }
@@ -7969,7 +8163,7 @@ function initApp() {
   updateTopbarUser();
   checkAllProjectHourLimits();
   if (sb.isEnabled()) {
-    syncWithServer().catch(() => showToast('Не удалось синхронизировать с БД', 'error'));
+    syncWithServer({ silent: true }).catch(() => showToast('Не удалось синхронизировать с БД', 'error'));
     startBackgroundSync();
   }
   const params = new URLSearchParams(location.search);

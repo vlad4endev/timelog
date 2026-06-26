@@ -311,6 +311,278 @@ async function migrateLogin(oldLogin, newLogin) {
   }
 }
 
+async function pullUserData(login) {
+  const [
+    projects,
+    entries,
+    payments,
+    boardTasks,
+    reports,
+    timerRow,
+    scheduleSettings,
+    scheduleOverrides,
+    scheduleBlocks,
+    userSettings,
+  ] = await Promise.all([
+    pool.query(
+      'SELECT * FROM projects WHERE user_login = $1 ORDER BY created_at ASC',
+      [login]
+    ),
+    pool.query(
+      'SELECT * FROM time_entries WHERE user_login = $1 ORDER BY created_at DESC',
+      [login]
+    ),
+    pool.query(
+      'SELECT * FROM payments WHERE user_login = $1 ORDER BY created_at DESC',
+      [login]
+    ),
+    pool.query(
+      'SELECT * FROM board_tasks WHERE user_login = $1 ORDER BY position ASC',
+      [login]
+    ),
+    pool.query(
+      'SELECT * FROM billing_reports WHERE user_login = $1 ORDER BY created_at DESC',
+      [login]
+    ),
+    pool.query('SELECT * FROM active_timer WHERE id = $1 LIMIT 1', [login]),
+    pool.query('SELECT * FROM schedule_settings WHERE id = $1 LIMIT 1', [login]),
+    pool.query(
+      'SELECT * FROM schedule_overrides WHERE user_login = $1 ORDER BY date ASC',
+      [login]
+    ),
+    pool.query(
+      'SELECT * FROM schedule_blocks WHERE user_login = $1 ORDER BY date ASC',
+      [login]
+    ),
+    pool.query('SELECT * FROM user_settings WHERE id = $1 LIMIT 1', [login]),
+  ]);
+  return {
+    projects: projects.rows,
+    time_entries: entries.rows,
+    payments: payments.rows,
+    board_tasks: boardTasks.rows,
+    billing_reports: reports.rows,
+    active_timer: timerRow.rows[0] || null,
+    schedule_settings: scheduleSettings.rows[0] || null,
+    schedule_overrides: scheduleOverrides.rows,
+    schedule_blocks: scheduleBlocks.rows,
+    user_settings: userSettings.rows[0] || null,
+  };
+}
+
+async function upsertProjectRow(client, login, r) {
+  await client.query(
+    `INSERT INTO projects (
+      id, name, client, rate, color, status, description, max_hours,
+      spec_text, spec_file_name, spec_file_mime, spec_file_data, created_at, user_login
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name, client = EXCLUDED.client, rate = EXCLUDED.rate,
+      color = EXCLUDED.color, status = EXCLUDED.status, description = EXCLUDED.description,
+      max_hours = EXCLUDED.max_hours, spec_text = EXCLUDED.spec_text,
+      spec_file_name = EXCLUDED.spec_file_name, spec_file_mime = EXCLUDED.spec_file_mime,
+      spec_file_data = EXCLUDED.spec_file_data, user_login = EXCLUDED.user_login`,
+    [
+      r.id, r.name, r.client ?? null, r.rate ?? 0, r.color ?? '#059669',
+      r.status ?? 'active', r.description ?? null, r.max_hours ?? null,
+      r.spec_text ?? null, r.spec_file_name ?? null, r.spec_file_mime ?? null,
+      r.spec_file_data ?? null, r.created_at ?? new Date().toISOString(),
+      r.user_login || login,
+    ]
+  );
+}
+
+async function upsertEntryRow(client, login, r) {
+  await client.query(
+    `INSERT INTO time_entries (
+      id, project_id, task, date, hours, start_time, end_time, notes,
+      task_id, report_id, archived, created_at, user_login
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+    ON CONFLICT (id) DO UPDATE SET
+      project_id = EXCLUDED.project_id, task = EXCLUDED.task, date = EXCLUDED.date,
+      hours = EXCLUDED.hours, start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time,
+      notes = EXCLUDED.notes, task_id = EXCLUDED.task_id, report_id = EXCLUDED.report_id,
+      archived = EXCLUDED.archived, user_login = EXCLUDED.user_login`,
+    [
+      r.id, r.project_id, r.task, r.date, r.hours, r.start_time ?? null,
+      r.end_time ?? null, r.notes ?? null, r.task_id ?? null, r.report_id ?? null,
+      !!r.archived, r.created_at ?? new Date().toISOString(), r.user_login || login,
+    ]
+  );
+}
+
+async function upsertPaymentRow(client, login, r) {
+  await client.query(
+    `INSERT INTO payments (
+      id, project_id, amount, date, period_from, period_to, note, created_at, user_login
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    ON CONFLICT (id) DO UPDATE SET
+      project_id = EXCLUDED.project_id, amount = EXCLUDED.amount, date = EXCLUDED.date,
+      period_from = EXCLUDED.period_from, period_to = EXCLUDED.period_to,
+      note = EXCLUDED.note, user_login = EXCLUDED.user_login`,
+    [
+      r.id, r.project_id ?? null, r.amount, r.date, r.period_from ?? null,
+      r.period_to ?? null, r.note ?? null, r.created_at ?? new Date().toISOString(),
+      r.user_login || login,
+    ]
+  );
+}
+
+async function upsertBoardTaskRow(client, login, r) {
+  await client.query(
+    `INSERT INTO board_tasks (
+      id, project_id, title, description, status, position, priority, archived,
+      created_at, updated_at, user_login
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    ON CONFLICT (id) DO UPDATE SET
+      project_id = EXCLUDED.project_id, title = EXCLUDED.title, description = EXCLUDED.description,
+      status = EXCLUDED.status, position = EXCLUDED.position, priority = EXCLUDED.priority,
+      archived = EXCLUDED.archived, updated_at = EXCLUDED.updated_at, user_login = EXCLUDED.user_login`,
+    [
+      r.id, r.project_id, r.title, r.description ?? null, r.status ?? 'todo',
+      r.position ?? 0, r.priority ?? 'medium', !!r.archived,
+      r.created_at ?? new Date().toISOString(), r.updated_at ?? new Date().toISOString(),
+      r.user_login || login,
+    ]
+  );
+}
+
+async function upsertReportRow(client, login, r) {
+  await client.query(
+    `INSERT INTO billing_reports (
+      id, title, period_from, period_to, project_id, entry_ids, text,
+      total_hours, total_amount, status, paid_at, created_at, user_login
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+    ON CONFLICT (id) DO UPDATE SET
+      title = EXCLUDED.title, period_from = EXCLUDED.period_from, period_to = EXCLUDED.period_to,
+      project_id = EXCLUDED.project_id, entry_ids = EXCLUDED.entry_ids, text = EXCLUDED.text,
+      total_hours = EXCLUDED.total_hours, total_amount = EXCLUDED.total_amount,
+      status = EXCLUDED.status, paid_at = EXCLUDED.paid_at, user_login = EXCLUDED.user_login`,
+    [
+      r.id, r.title ?? null, r.period_from, r.period_to, r.project_id ?? null,
+      r.entry_ids ?? [], r.text, r.total_hours ?? 0, r.total_amount ?? 0,
+      r.status ?? 'unpaid', r.paid_at ?? null, r.created_at ?? new Date().toISOString(),
+      r.user_login || login,
+    ]
+  );
+}
+
+async function upsertScheduleSettingsRow(client, login, r) {
+  await client.query(
+    `INSERT INTO schedule_settings (id, week_template, updated_at)
+     VALUES ($1, $2::jsonb, $3)
+     ON CONFLICT (id) DO UPDATE SET
+       week_template = EXCLUDED.week_template, updated_at = EXCLUDED.updated_at`,
+    [r.id || login, JSON.stringify(r.week_template || {}), r.updated_at ?? new Date().toISOString()]
+  );
+}
+
+async function upsertUserSettingsRow(client, login, r) {
+  await client.query(
+    `INSERT INTO user_settings (id, settings, updated_at)
+     VALUES ($1, $2::jsonb, $3)
+     ON CONFLICT (id) DO UPDATE SET
+       settings = EXCLUDED.settings, updated_at = EXCLUDED.updated_at`,
+    [r.id || login, JSON.stringify(r.settings || {}), r.updated_at ?? new Date().toISOString()]
+  );
+}
+
+async function upsertScheduleOverrideRow(client, login, r) {
+  await client.query(
+    `INSERT INTO schedule_overrides (date, type, hours, note, user_login)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (user_login, date) DO UPDATE SET
+       type = EXCLUDED.type, hours = EXCLUDED.hours, note = EXCLUDED.note`,
+    [r.date, r.type, r.hours ?? null, r.note ?? null, r.user_login || login]
+  );
+}
+
+async function upsertScheduleBlockRow(client, login, r) {
+  await client.query(
+    `INSERT INTO schedule_blocks (
+      id, date, start_time, end_time, title, note, created_at, user_login
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    ON CONFLICT (id) DO UPDATE SET
+      date = EXCLUDED.date, start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time,
+      title = EXCLUDED.title, note = EXCLUDED.note, user_login = EXCLUDED.user_login`,
+    [
+      r.id, r.date, r.start_time, r.end_time, r.title ?? null, r.note ?? null,
+      r.created_at ?? new Date().toISOString(), r.user_login || login,
+    ]
+  );
+}
+
+async function upsertTimerRow(client, login, r) {
+  await client.query(
+    `INSERT INTO active_timer (
+      id, running, start_time, project_id, task, task_id, paused, paused_ms, pause_start, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    ON CONFLICT (id) DO UPDATE SET
+      running = EXCLUDED.running, start_time = EXCLUDED.start_time, project_id = EXCLUDED.project_id,
+      task = EXCLUDED.task, task_id = EXCLUDED.task_id, paused = EXCLUDED.paused,
+      paused_ms = EXCLUDED.paused_ms, pause_start = EXCLUDED.pause_start, updated_at = EXCLUDED.updated_at`,
+    [
+      r.id || login, !!r.running, r.start_time ?? null, r.project_id ?? null,
+      r.task ?? '', r.task_id ?? null, !!r.paused, r.paused_ms ?? 0,
+      r.pause_start ?? null, r.updated_at ?? new Date().toISOString(),
+    ]
+  );
+}
+
+const UPSERT_HANDLERS = {
+  projects: upsertProjectRow,
+  time_entries: upsertEntryRow,
+  payments: upsertPaymentRow,
+  board_tasks: upsertBoardTaskRow,
+  billing_reports: upsertReportRow,
+  schedule_settings: upsertScheduleSettingsRow,
+  user_settings: upsertUserSettingsRow,
+  schedule_overrides: upsertScheduleOverrideRow,
+  schedule_blocks: upsertScheduleBlockRow,
+  active_timer: upsertTimerRow,
+};
+
+async function applySyncPush(login, body) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const [table, rows] of Object.entries(body.upserts || {})) {
+      const handler = UPSERT_HANDLERS[table];
+      if (!handler || !Array.isArray(rows)) continue;
+      for (const row of rows) {
+        await handler(client, login, row);
+      }
+    }
+    if (body.timer) {
+      await upsertTimerRow(client, login, body.timer);
+    }
+    if (body.clearTimer) {
+      await client.query('DELETE FROM active_timer WHERE id = $1', [login]);
+    }
+    for (const del of body.deletes || []) {
+      if (!del?.table || !UPSERT_HANDLERS[del.table]) continue;
+      if (del.table === 'schedule_overrides' && del.date) {
+        await client.query(
+          'DELETE FROM schedule_overrides WHERE user_login = $1 AND date = $2',
+          [login, del.date]
+        );
+      } else if (del.id) {
+        await client.query(
+          `DELETE FROM ${del.table} WHERE id = $1 AND user_login = $2`,
+          [del.id, login]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 async function claimLegacyData(login, legacyLogin = 'default') {
   const client = await pool.connect();
   try {
@@ -539,6 +811,43 @@ const server = http.createServer(async (req, res) => {
       projectsInDb: pr.rows[0]?.n ?? 0,
       entriesInDb: en.rows[0]?.n ?? 0,
     }, req);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/auth/sync/pull') {
+    const session = await verifyRequestSession(req);
+    if (!session) {
+      json(res, 401, { error: 'unauthorized' }, req);
+      return;
+    }
+    try {
+      const data = await pullUserData(session.login);
+      json(res, 200, { ok: true, ...data }, req);
+    } catch (e) {
+      console.error('sync/pull failed:', e);
+      json(res, 500, { error: 'pull failed' }, req);
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/auth/sync/push') {
+    const session = await verifyRequestSession(req);
+    if (!session) {
+      json(res, 401, { error: 'unauthorized' }, req);
+      return;
+    }
+    const body = await readBody(req);
+    if (body === null) {
+      json(res, 400, { error: 'invalid json' }, req);
+      return;
+    }
+    try {
+      const result = await applySyncPush(session.login, body);
+      json(res, 200, result, req);
+    } catch (e) {
+      console.error('sync/push failed:', e);
+      json(res, 500, { error: 'push failed' }, req);
+    }
     return;
   }
 
