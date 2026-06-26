@@ -2898,7 +2898,8 @@ function authSuccess() {
 function authLogout() {
   sb._writeQueue.clear();
   sb._dirtyKeys.clear();
-  clearTimeout(sb._flushTimer);
+  sb._suppressAutoFlush = false;
+  entityLocalEdits = {};
   auth.logout().finally(() => {
     state.projects = [];
     state.entries = [];
@@ -2953,6 +2954,27 @@ let state = {
 };
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────
+/** Tracks entities edited locally but not yet confirmed on server (persisted in localStorage). */
+let entityLocalEdits = {};
+
+function entityEditKey(table, id) {
+  return `${table}:${id}`;
+}
+
+function markEntityLocalEdit(table, id) {
+  if (!id) return;
+  entityLocalEdits[entityEditKey(table, id)] = Date.now();
+}
+
+function clearEntityLocalEdit(table, id) {
+  if (!id) return;
+  delete entityLocalEdits[entityEditKey(table, id)];
+}
+
+function hasPendingLocalEdit(table, id) {
+  return !!entityLocalEdits[entityEditKey(table, id)];
+}
+
 function applyLocalData(d) {
   state.projects = d.projects || [];
   state.entries  = d.entries  || [];
@@ -2972,6 +2994,7 @@ function applyLocalData(d) {
     if (!state.settings.profile) state.settings.profile = { phone: '' };
     else state.settings.profile = Object.assign({ phone: '' }, state.settings.profile);
   }
+  entityLocalEdits = d.entityLocalEdits || {};
 }
 
 /** Import data from timelog_v1 / timelog_v1_default if current state is empty. */
@@ -3044,19 +3067,20 @@ function scheduleUserSettingsSync(immediate = false) {
   if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) return;
   clearTimeout(userSettingsSyncTimer);
   const run = () => {
-    sb.upsertUserSettings().catch(e => console.error('user settings sync failed', e));
+    sb.upsertUserSettings();
+    void sb.flushWrites().catch(e => console.error('user settings sync failed', e));
   };
   if (immediate) {
     run();
     return;
   }
-  userSettingsSyncTimer = setTimeout(run, 250);
+  userSettingsSyncTimer = setTimeout(run, 0);
 }
 
 function save(opts = {}) {
   try {
     const login = auth.getLogin();
-    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings };
+    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings, entityLocalEdits };
     localStorage.setItem(auth.dataKey(login), JSON.stringify(d));
     scheduleUserSettingsSync(!!opts.syncSettingsNow);
   } catch(e) {}
@@ -3085,9 +3109,9 @@ function load() {
 const sb = {
   _writeQueue: new Map(),
   _dirtyKeys: new Set(),
-  _flushTimer: null,
   _flushInFlight: null,
-  FLUSH_DELAY_MS: 80,
+  _suppressAutoFlush: false,
+  _flushScheduled: false,
 
   userLogin() { return auth.getLogin() || ''; },
 
@@ -3144,30 +3168,35 @@ const sb = {
     } catch(e) { console.error('Supabase fetch error:', e); return null; }
   },
 
-  _scheduleFlush(immediate = false) {
-    clearTimeout(this._flushTimer);
-    const delay = immediate ? 0 : this.FLUSH_DELAY_MS;
-    this._flushTimer = setTimeout(() => { this.flushWrites().catch(e => console.error('sync flush failed', e)); }, delay);
+  _commitQueuedWrite() {
+    if (this._suppressAutoFlush || this._flushScheduled) return;
+    this._flushScheduled = true;
+    queueMicrotask(() => {
+      this._flushScheduled = false;
+      void this.flushWrites().catch(e => console.error('sync flush failed', e));
+    });
   },
 
-  _queueUpsert(table, id, row, immediate = false) {
+  _queueUpsert(table, id, row) {
     const key = `${table}:${id}`;
     this._dirtyKeys.add(key);
+    markEntityLocalEdit(table, id);
     this._writeQueue.set(key, { type: 'upsert', table, id, row });
-    this._scheduleFlush(immediate);
+    this._commitQueuedWrite();
   },
 
-  _queueDelete(table, id, extra = null, immediate = false) {
+  _queueDelete(table, id, extra = null) {
     const entityKey = `${table}:${id || extra?.date}`;
     const queueKey = `del:${entityKey}`;
     this._dirtyKeys.add(entityKey);
+    markEntityLocalEdit(table, id || extra?.date);
     this._writeQueue.set(queueKey, { type: 'delete', table, id, extra });
-    this._scheduleFlush(immediate);
+    this._commitQueuedWrite();
   },
 
   _queueClearTimer() {
     this._writeQueue.set('timer:clear', { type: 'clearTimer' });
-    this._scheduleFlush(true);
+    this._commitQueuedWrite();
   },
 
   _pendingDeleteIds(table) {
@@ -3178,42 +3207,134 @@ const sb = {
     return ids;
   },
 
+  replayPendingEditsToQueue() {
+    this._suppressAutoFlush = true;
+    try {
+      for (const key of Object.keys(entityLocalEdits)) {
+        const sep = key.indexOf(':');
+        if (sep <= 0) continue;
+        const table = key.slice(0, sep);
+        const id = key.slice(sep + 1);
+        if (this._writeQueue.has(key) || this._writeQueue.has(`del:${key}`)) continue;
+        const queueUpsert = (row) => {
+          const k = `${table}:${id}`;
+          this._dirtyKeys.add(k);
+          markEntityLocalEdit(table, id);
+          this._writeQueue.set(k, { type: 'upsert', table, id, row });
+        };
+        const queueDelete = () => {
+          const entityKey = `${table}:${id}`;
+          const queueKey = `del:${entityKey}`;
+          this._dirtyKeys.add(entityKey);
+          markEntityLocalEdit(table, id);
+          this._writeQueue.set(queueKey, {
+            type: 'delete', table, id,
+            extra: table === 'schedule_overrides' ? { date: id } : null,
+          });
+        };
+        switch (table) {
+          case 'projects': {
+            const p = state.projects.find(x => x.id === id);
+            if (p) queueUpsert(this.projectToRow(p)); else queueDelete();
+            break;
+          }
+          case 'time_entries': {
+            const e = state.entries.find(x => x.id === id);
+            if (e) queueUpsert(this.entryToRow(e)); else queueDelete();
+            break;
+          }
+          case 'payments': {
+            const p = state.payments.find(x => x.id === id);
+            if (p) queueUpsert(this.paymentToRow(p)); else queueDelete();
+            break;
+          }
+          case 'board_tasks': {
+            const t = state.boardTasks.find(x => x.id === id);
+            if (t) queueUpsert(this.boardTaskToRow(t)); else queueDelete();
+            break;
+          }
+          case 'billing_reports': {
+            const r = state.reports.find(x => x.id === id);
+            if (r) queueUpsert(this.reportToRow(r)); else queueDelete();
+            break;
+          }
+          case 'schedule_blocks': {
+            const b = state.schedule.blocks.find(x => x.id === id);
+            if (b) queueUpsert(this.blockToRow(b)); else queueDelete();
+            break;
+          }
+          case 'schedule_overrides': {
+            const o = state.schedule.overrides[id];
+            if (o) queueUpsert(this.overrideToRow(id, o)); else queueDelete();
+            break;
+          }
+          case 'schedule_settings':
+            queueUpsert(this.scheduleSettingsToRow(state.schedule));
+            break;
+          case 'user_settings':
+            queueUpsert(this.userSettingsToRow());
+            break;
+          case 'active_timer':
+            queueUpsert(this.timerToRow(state.timer));
+            break;
+          default:
+            break;
+        }
+      }
+    } finally {
+      this._suppressAutoFlush = false;
+    }
+  },
+
+  async _executeFlush(batch) {
+    let ok = true;
+    if (auth.useServerAuth() && auth.getApiToken()) {
+      ok = await this._flushViaAuth(batch);
+    } else {
+      ok = await this._flushViaRest(batch);
+    }
+    if (ok) {
+      for (const job of batch) {
+        if (job.type === 'upsert') {
+          this._dirtyKeys.delete(`${job.table}:${job.id}`);
+          clearEntityLocalEdit(job.table, job.id);
+        } else if (job.type === 'delete') {
+          this._dirtyKeys.delete(`${job.table}:${job.id || job.extra?.date}`);
+          clearEntityLocalEdit(job.table, job.id || job.extra?.date);
+        }
+      }
+      save();
+    } else {
+      for (const job of batch) {
+        const key = job.type === 'delete'
+          ? `del:${job.table}:${job.id || job.extra?.date}`
+          : `${job.table}:${job.id}`;
+        this._writeQueue.set(key, job);
+      }
+    }
+    return ok;
+  },
+
   async flushWrites() {
-    if (this._flushInFlight) return this._flushInFlight;
-    if (!this._writeQueue.size || !this.isEnabled()) return true;
+    if (!this.isEnabled()) return true;
     if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) return false;
 
-    const batch = [...this._writeQueue.values()];
-    this._writeQueue.clear();
-    clearTimeout(this._flushTimer);
-
-    this._flushInFlight = (async () => {
-      let ok = true;
-      try {
-        if (auth.useServerAuth() && auth.getApiToken()) {
-          ok = await this._flushViaAuth(batch);
-        } else {
-          ok = await this._flushViaRest(batch);
-        }
-        if (ok) {
-          for (const job of batch) {
-            if (job.type === 'upsert') this._dirtyKeys.delete(`${job.table}:${job.id}`);
-            else if (job.type === 'delete') this._dirtyKeys.delete(`${job.table}:${job.id || job.extra?.date}`);
-          }
-        } else {
-          for (const job of batch) {
-            const key = job.type === 'delete'
-              ? `del:${job.table}:${job.id || job.extra?.date}`
-              : `${job.table}:${job.id}`;
-            this._writeQueue.set(key, job);
-          }
-        }
-      } finally {
-        this._flushInFlight = null;
+    while (this._writeQueue.size) {
+      if (this._flushInFlight) {
+        const ok = await this._flushInFlight;
+        if (!ok) return false;
+        continue;
       }
-      return ok;
-    })();
-    return this._flushInFlight;
+
+      const batch = [...this._writeQueue.values()];
+      this._writeQueue.clear();
+
+      this._flushInFlight = this._executeFlush(batch);
+      const ok = await this._flushInFlight;
+      this._flushInFlight = null;
+      if (!ok) return false;
+    }
+    return true;
   },
 
   async _flushViaAuth(batch) {
@@ -3265,16 +3386,40 @@ const sb = {
   },
 
   applyPullPayload(payload) {
-    const mergeList = (table, serverRows, toLocal, localArr) => {
+    const shouldKeepLocal = (table, id) => {
+      const key = `${table}:${id}`;
+      return this._dirtyKeys.has(key) || hasPendingLocalEdit(table, id);
+    };
+
+    const mergeList = (table, serverRows, toLocal, localArr, getTs = r => r.updatedAt || r.createdAt || 0) => {
       if (serverRows === null || serverRows === undefined) return;
       const pendingDel = this._pendingDeleteIds(table);
-      const dirtyIds = new Set(
-        [...this._dirtyKeys].filter(k => k.startsWith(`${table}:`)).map(k => k.slice(table.length + 1))
-      );
-      const fromServer = serverRows.map(toLocal).filter(r => !pendingDel.has(r.id));
-      const keptLocal = localArr.filter(r => dirtyIds.has(r.id) && !pendingDel.has(r.id));
-      const serverIds = new Set(fromServer.map(r => r.id));
-      return [...fromServer, ...keptLocal.filter(r => !serverIds.has(r.id))];
+      const localById = new Map(localArr.map(r => [r.id, r]));
+      const merged = new Map();
+
+      for (const sr of serverRows) {
+        if (pendingDel.has(sr.id)) continue;
+        const serverItem = toLocal(sr);
+        const localItem = localById.get(serverItem.id);
+        if (shouldKeepLocal(table, serverItem.id)) {
+          if (localItem) merged.set(serverItem.id, localItem);
+          continue;
+        }
+        if (localItem && getTs(localItem) > getTs(serverItem)) {
+          merged.set(serverItem.id, localItem);
+        } else {
+          merged.set(serverItem.id, serverItem);
+        }
+      }
+
+      for (const localItem of localArr) {
+        if (pendingDel.has(localItem.id)) continue;
+        if (shouldKeepLocal(table, localItem.id) || !merged.has(localItem.id)) {
+          merged.set(localItem.id, localItem);
+        }
+      }
+
+      return [...merged.values()];
     };
 
     if (payload.projects !== undefined) {
@@ -3300,11 +3445,8 @@ const sb = {
     }
     if (payload.schedule_overrides !== undefined) {
       const overrides = { ...state.schedule.overrides };
-      const dirtyDates = new Set(
-        [...this._dirtyKeys].filter(k => k.startsWith('schedule_overrides:')).map(k => k.slice('schedule_overrides:'.length))
-      );
       for (const r of payload.schedule_overrides) {
-        if (!dirtyDates.has(r.date)) {
+        if (!shouldKeepLocal('schedule_overrides', r.date)) {
           overrides[r.date] = { type: r.type, hours: r.hours, note: r.note || '' };
         }
       }
@@ -3461,7 +3603,7 @@ const sb = {
   upsertPayment(p)  { this._queueUpsert('payments', p.id, sb.paymentToRow(p)); },
   upsertBoardTask(t){ this._queueUpsert('board_tasks', t.id, sb.boardTaskToRow(t)); },
   upsertReport(r)   { this._queueUpsert('billing_reports', r.id, sb.reportToRow(r)); },
-  upsertTimer(t)    { this._queueUpsert('active_timer', this.userId(), sb.timerToRow(t), true); },
+  upsertTimer(t)    { this._queueUpsert('active_timer', this.userId(), sb.timerToRow(t)); },
   upsertScheduleSettings(s) { this._queueUpsert('schedule_settings', this.userId(), sb.scheduleSettingsToRow(s)); },
   upsertUserSettings() { this._queueUpsert('user_settings', this.userId(), sb.userSettingsToRow()); },
   upsertScheduleOverride(date, o) { this._queueUpsert('schedule_overrides', date, sb.overrideToRow(date, o)); },
@@ -3489,14 +3631,17 @@ const sb = {
   },
 
   async syncSchedule() {
+    this._suppressAutoFlush = true;
     sb.upsertScheduleSettings(state.schedule);
     Object.entries(state.schedule.overrides).forEach(([d, o]) => sb.upsertScheduleOverride(d, o));
     state.schedule.blocks.forEach(b => sb.upsertScheduleBlock(b));
+    this._suppressAutoFlush = false;
     return sb.flushWrites();
   },
 
   // Push all local data to Supabase (migration)
   async pushAll() {
+    this._suppressAutoFlush = true;
     state.projects.forEach(p => sb.upsertProject(p));
     state.entries.forEach(e => sb.upsertEntry(e));
     state.payments.forEach(p => sb.upsertPayment(p));
@@ -3506,6 +3651,7 @@ const sb = {
     sb.upsertUserSettings();
     Object.entries(state.schedule.overrides).forEach(([d, o]) => sb.upsertScheduleOverride(d, o));
     state.schedule.blocks.forEach(b => sb.upsertScheduleBlock(b));
+    this._suppressAutoFlush = false;
     return sb.flushWrites();
   },
 
@@ -3540,6 +3686,7 @@ async function refreshFromServer(options = {}) {
 
   serverSyncInFlight = (async () => {
     try {
+      sb.replayPendingEditsToQueue();
       await sb.flushWrites();
       const pullResult = await sb.pull();
       lastServerSyncAt = Date.now();
@@ -4293,8 +4440,9 @@ function updateTopbar(page) {
     dotEl.style.opacity = '1';
   }
 }
-function showPage(page) {
+async function showPage(page) {
   if (page === 'more' && !isMobileNav()) page = 'dashboard';
+  if (sb.isEnabled()) await sb.flushWrites();
   state.currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === page);
