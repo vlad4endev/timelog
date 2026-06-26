@@ -2995,11 +2995,67 @@ function importLegacyLocalToState() {
   return false;
 }
 
-function save() {
+function userSettingsForRemote() {
+  const s = state.settings;
+  return {
+    defaultRate: s.defaultRate,
+    currency: s.currency,
+    billableIncrement: s.billableIncrement,
+    roundMode: s.roundMode,
+    minBillable: s.minBillable,
+    aiPrompt: s.aiPrompt,
+    profile: s.profile,
+    projectHourAlerts: s.projectHourAlerts,
+    openrouter: {
+      apiKey: s.openrouter?.apiKey || '',
+      model: s.openrouter?.model || 'anthropic/claude-3.5-haiku',
+      enabled: !!s.openrouter?.enabled
+    }
+  };
+}
+
+function applyRemoteUserSettings(remote) {
+  if (!remote || typeof remote !== 'object') return;
+  if (remote.defaultRate != null) state.settings.defaultRate = remote.defaultRate;
+  if (remote.currency) state.settings.currency = remote.currency;
+  if (remote.billableIncrement != null) state.settings.billableIncrement = remote.billableIncrement;
+  if (remote.roundMode) state.settings.roundMode = remote.roundMode;
+  if (remote.minBillable != null) state.settings.minBillable = remote.minBillable;
+  if (remote.aiPrompt) state.settings.aiPrompt = remote.aiPrompt;
+  if (remote.profile) state.settings.profile = Object.assign({ phone: '' }, state.settings.profile, remote.profile);
+  if (remote.projectHourAlerts) state.settings.projectHourAlerts = Object.assign({}, state.settings.projectHourAlerts, remote.projectHourAlerts);
+  if (remote.openrouter) {
+    const or = remote.openrouter;
+    const local = state.settings.openrouter || {};
+    state.settings.openrouter = {
+      apiKey: or.apiKey || local.apiKey || '',
+      model: or.model || local.model || 'anthropic/claude-3.5-haiku',
+      enabled: typeof or.enabled === 'boolean' ? or.enabled : !!local.enabled
+    };
+  }
+}
+
+let userSettingsSyncTimer = null;
+function scheduleUserSettingsSync(immediate = false) {
+  if (!sb.isEnabled()) return;
+  if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) return;
+  clearTimeout(userSettingsSyncTimer);
+  const run = () => {
+    sb.upsertUserSettings().catch(e => console.error('user settings sync failed', e));
+  };
+  if (immediate) {
+    run();
+    return;
+  }
+  userSettingsSyncTimer = setTimeout(run, 800);
+}
+
+function save(opts = {}) {
   try {
     const login = auth.getLogin();
     const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings };
     localStorage.setItem(auth.dataKey(login), JSON.stringify(d));
+    scheduleUserSettingsSync(!!opts.syncSettingsNow);
   } catch(e) {}
 }
 function load() {
@@ -3104,6 +3160,13 @@ const sb = {
   scheduleSettingsToRow(s) {
     return { id: this.userId(), week_template: s.weekTemplate, updated_at: new Date().toISOString() };
   },
+  userSettingsToRow() {
+    return {
+      id: this.userId(),
+      settings: userSettingsForRemote(),
+      updated_at: new Date().toISOString()
+    };
+  },
   overrideToRow(date, o) {
     return this.userRow({ date, type: o.type, hours: o.hours ?? null, note: o.note || null });
   },
@@ -3154,7 +3217,7 @@ const sb = {
   // Pull everything from Supabase into state
   async pull() {
     const uid = encodeURIComponent(this.userId());
-    const [projects, entries, payments, boardTasks, reports, timerRow, scheduleSettings, scheduleOverrides, scheduleBlocks] = await Promise.all([
+    const [projects, entries, payments, boardTasks, reports, timerRow, scheduleSettings, scheduleOverrides, scheduleBlocks, userSettingsRow] = await Promise.all([
       sb.req('GET', sb.scope('projects?order=created_at.asc')),
       sb.req('GET', sb.scope('time_entries?order=created_at.desc')),
       sb.req('GET', sb.scope('payments?order=created_at.desc')),
@@ -3163,7 +3226,8 @@ const sb = {
       sb.req('GET', `active_timer?id=eq.${uid}&limit=1`),
       sb.req('GET', `schedule_settings?id=eq.${uid}&limit=1`),
       sb.req('GET', sb.scope('schedule_overrides?order=date.asc')),
-      sb.req('GET', sb.scope('schedule_blocks?order=date.asc'))
+      sb.req('GET', sb.scope('schedule_blocks?order=date.asc')),
+      sb.req('GET', `user_settings?id=eq.${uid}&limit=1`)
     ]);
     if (projects === null && auth.useServerAuth()) {
       return { ok: false, reason: 'api_error' };
@@ -3192,6 +3256,10 @@ const sb = {
     if (scheduleBlocks !== null) {
       state.schedule.blocks = scheduleBlocks.map(sb.rowToBlock);
     }
+    if (userSettingsRow !== null) {
+      const row = userSettingsRow[0];
+      if (row?.settings) applyRemoteUserSettings(row.settings);
+    }
     if (projects !== null && projects.length === 0 && auth.useServerAuth() && auth.getApiToken()) {
       const me = await auth.fetchSessionInfo();
       if (me && me.projectsInDb > 0) {
@@ -3210,6 +3278,7 @@ const sb = {
   async upsertReport(r)   { return await sb.req('POST', 'billing_reports', sb.reportToRow(r)); },
   async upsertTimer(t)    { return await sb.req('POST', 'active_timer', sb.timerToRow(t)); },
   async upsertScheduleSettings(s) { return await sb.req('POST', 'schedule_settings', sb.scheduleSettingsToRow(s)); },
+  async upsertUserSettings() { return await sb.req('POST', 'user_settings', sb.userSettingsToRow()); },
   async upsertScheduleOverride(date, o) { return await sb.req('POST', 'schedule_overrides', sb.overrideToRow(date, o)); },
   async upsertScheduleBlock(b) { return await sb.req('POST', 'schedule_blocks', sb.blockToRow(b)); },
   async clearTimerRemote(){ return await sb.req('DELETE', `active_timer?id=eq.${encodeURIComponent(this.userId())}`); },
@@ -3235,6 +3304,7 @@ const sb = {
     }
     await sb.req('PATCH', `active_timer?id=eq.${encodeURIComponent(oldLogin)}`, { id: newLogin });
     await sb.req('PATCH', `schedule_settings?id=eq.${encodeURIComponent(oldLogin)}`, { id: newLogin });
+    await sb.req('PATCH', `user_settings?id=eq.${encodeURIComponent(oldLogin)}`, { id: newLogin });
   },
 
   async syncSchedule() {
@@ -3253,6 +3323,7 @@ const sb = {
       ...state.boardTasks.map(t => sb.upsertBoardTask(t)),
       ...state.reports.map(r => sb.upsertReport(r)),
       sb.upsertScheduleSettings(state.schedule),
+      sb.upsertUserSettings(),
       ...Object.entries(state.schedule.overrides).map(([d, o]) => sb.upsertScheduleOverride(d, o)),
       ...state.schedule.blocks.map(b => sb.upsertScheduleBlock(b))
     ]);
@@ -7331,7 +7402,7 @@ function renderSettings() {
         <label class="form-label">API ключ OpenRouter</label>
         <div class="settings-input-row">
           <input type="password" class="form-input" id="s-apikey" value="${or.apiKey||''}" placeholder="sk-or-v1-..." style="flex:1"
-            oninput="state.settings.openrouter.apiKey=this.value;save()">
+            oninput="state.settings.openrouter.apiKey=this.value;save({syncSettingsNow:true})">
           <button class="btn btn-ghost btn-sm" onclick="testOpenRouter()" id="test-ai-btn">Проверить</button>
         </div>
         <div id="ai-test-result" class="text-xs mt4"></div>
@@ -7339,7 +7410,7 @@ function renderSettings() {
 
       <div class="form-group" style="margin-bottom:0">
         <label class="form-label">Модель</label>
-        <select class="form-select" id="s-model" onchange="state.settings.openrouter.model=this.value;save()">
+        <select class="form-select" id="s-model" onchange="state.settings.openrouter.model=this.value;save({syncSettingsNow:true})">
           ${models.map(([v,l])=>`<option value="${v}" ${or.model===v?'selected':''}>${l}</option>`).join('')}
         </select>
       </div>
@@ -7457,7 +7528,7 @@ function renderSettings() {
 
 function toggleAI(val) {
   state.settings.openrouter.enabled = val;
-  save();
+  save({ syncSettingsNow: true });
   renderPage();
 }
 
@@ -7505,6 +7576,9 @@ create table if not exists schedule_settings (
   id text primary key, week_template jsonb not null default '{"mon":8,"tue":8,"wed":8,"thu":8,"fri":8,"sat":0,"sun":0}',
   updated_at timestamptz default now()
 );
+create table if not exists user_settings (
+  id text primary key, settings jsonb not null default '{}', updated_at timestamptz default now()
+);
 create table if not exists schedule_overrides (
   user_login text not null, date date not null, type text not null default 'off',
   hours numeric, note text, created_at timestamptz default now(),
@@ -7535,6 +7609,7 @@ alter table schedule_overrides enable row level security;
 alter table schedule_blocks enable row level security;
 alter table active_timer enable row level security;
 alter table schedule_settings enable row level security;
+alter table user_settings enable row level security;
 alter table app_users enable row level security;
 
 create policy projects_user on projects for all to timelog_user
@@ -7554,6 +7629,8 @@ create policy schedule_blocks_user on schedule_blocks for all to timelog_user
 create policy active_timer_user on active_timer for all to timelog_user
   using (id = app_jwt_login()) with check (id = app_jwt_login());
 create policy schedule_settings_user on schedule_settings for all to timelog_user
+  using (id = app_jwt_login()) with check (id = app_jwt_login());
+create policy user_settings_user on user_settings for all to timelog_user
   using (id = app_jwt_login()) with check (id = app_jwt_login());
 
 revoke all on all tables in schema public from anon;`;
@@ -7701,7 +7778,7 @@ async function testOpenRouter() {
     const d = await r.json();
     if (d.choices?.[0]?.message?.content) {
       res.style.color = 'var(--green)'; res.textContent = '✓ Подключение успешно! Модель отвечает.';
-      state.settings.openrouter.enabled = true; save();
+      state.settings.openrouter.enabled = true; save({ syncSettingsNow: true });
     } else {
       res.style.color = 'var(--red)'; res.textContent = '✕ Ошибка: ' + (d.error?.message || JSON.stringify(d));
     }

@@ -284,6 +284,10 @@ async function reassignUserData(client, oldLogin, newLogin) {
     'UPDATE schedule_settings SET id = $1 WHERE id = $2',
     [newLogin, oldLogin]
   );
+  await client.query(
+    'UPDATE user_settings SET id = $1 WHERE id = $2',
+    [newLogin, oldLogin]
+  );
 }
 
 async function migrateLogin(oldLogin, newLogin) {
