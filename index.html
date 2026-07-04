@@ -2389,6 +2389,13 @@ const webauthn = {
   },
 
   async canUse() {
+    if (this._isNative()) {
+      // Raw WebAuthn platform authenticators inside a Capacitor WKWebView/
+      // WebView need Associated Domains entitlements to persist reliably —
+      // this app never had those (rpId was a bare 'localhost'), so the
+      // native Face ID / BiometricPrompt plugin is used here instead.
+      try { return !!(await window.TimeLogNative?.nativeBiometricAvailable?.()); } catch { return false; }
+    }
     if (!window.isSecureContext) return false;
     if (!window.PublicKeyCredential || !PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) return false;
     try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch { return false; }
@@ -2419,6 +2426,27 @@ const webauthn = {
   async register(login) {
     if (!login) return { ok: false, reason: 'no_login' };
     if (!await this.canUse()) return { ok: false, reason: 'unavailable' };
+
+    if (this._isNative()) {
+      // There's no keypair to create — the OS owns enrollment. Confirm the
+      // sensor genuinely works right now before saving the "enabled" flag,
+      // so a cancelled/failed prompt doesn't silently mark it as on.
+      let verified = false;
+      try {
+        verified = await window.TimeLogNative?.nativeBiometricAuthenticate?.(`Подтвердите, чтобы включить ${this.label()}`);
+      } catch (e) {
+        return { ok: false, reason: 'no_credential', error: e };
+      }
+      if (!verified) return { ok: false, reason: 'no_credential' };
+      try {
+        localStorage.setItem(this.storageKey(login), JSON.stringify({ native: true }));
+      } catch (e) {
+        return { ok: false, reason: 'storage_failed', error: e };
+      }
+      if (!this.hasCredential(login)) return { ok: false, reason: 'storage_failed' };
+      return { ok: true };
+    }
+
     const challenge = crypto.getRandomValues(new Uint8Array(32));
     const rpId = this.rpId();
     const cred = await navigator.credentials.create({
@@ -2460,13 +2488,18 @@ const webauthn = {
     const raw = localStorage.getItem(this.storageKey(login));
     if (!raw) return false;
     const stored = JSON.parse(raw);
+
+    if (this._isNative()) {
+      try { return !!(await window.TimeLogNative?.nativeBiometricAuthenticate?.(`Войти в TimeLog`)); } catch { return false; }
+    }
+
     const challenge = crypto.getRandomValues(new Uint8Array(32));
     const rpId = stored.rpId || this.rpId();
     const allowCred = {
       id: this._b64ToBuf(stored.rawId),
       type: 'public-key'
     };
-    if (!this._isNative()) allowCred.transports = ['internal', 'hybrid'];
+    allowCred.transports = ['internal', 'hybrid'];
     const assertion = await navigator.credentials.get({
       publicKey: {
         challenge,

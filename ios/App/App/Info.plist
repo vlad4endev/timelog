@@ -47,5 +47,7 @@
 	<true/>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Уведомление показывает время работы и наработку, пока идёт таймер.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID используется для быстрой разблокировки приложения на этом устройстве.</string>
 </dict>
 </plist>

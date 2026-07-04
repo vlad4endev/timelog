@@ -7,3 +7,5 @@ export {
   stopNativeTimer,
   initNativeTimer,
 } from './bridge.js';
+
+export { nativeBiometricAvailable, nativeBiometricAuthenticate } from './biometric.js';
