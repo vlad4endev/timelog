@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "setup": "./scripts/setup.sh",
+    "test": "node scripts/test-calculations.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "jwt": "node scripts/generate-jwt.mjs",
     "copy:www": "node scripts/copy-www.mjs",
