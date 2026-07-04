@@ -2412,8 +2412,13 @@ const webauthn = {
     return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   },
 
+  // Returns {ok:true} on a genuinely persisted credential, or {ok:false,
+  // reason, error?} — callers must check `.ok` rather than assume success,
+  // since a falsy/missing credential or a failed localStorage write should
+  // not be reported to the user as "enabled" when nothing was saved.
   async register(login) {
-    if (!login || !await this.canUse()) return false;
+    if (!login) return { ok: false, reason: 'no_login' };
+    if (!await this.canUse()) return { ok: false, reason: 'unavailable' };
     const challenge = crypto.getRandomValues(new Uint8Array(32));
     const rpId = this.rpId();
     const cred = await navigator.credentials.create({
@@ -2434,13 +2439,21 @@ const webauthn = {
         timeout: 60000
       }
     });
-    if (!cred) return false;
-    localStorage.setItem(this.storageKey(login), JSON.stringify({
-      id: cred.id,
-      rawId: this._bufToB64(cred.rawId),
-      rpId
-    }));
-    return true;
+    if (!cred) return { ok: false, reason: 'no_credential' };
+    try {
+      localStorage.setItem(this.storageKey(login), JSON.stringify({
+        id: cred.id,
+        rawId: this._bufToB64(cred.rawId),
+        rpId
+      }));
+    } catch (e) {
+      return { ok: false, reason: 'storage_failed', error: e };
+    }
+    // Belt-and-suspenders: some browsers (e.g. Safari private mode) can
+    // silently no-op a localStorage write instead of throwing — verify the
+    // credential actually reads back before telling the user it's enabled.
+    if (!this.hasCredential(login)) return { ok: false, reason: 'storage_failed' };
+    return { ok: true };
   },
 
   async authenticate(login) {
@@ -2848,15 +2861,24 @@ async function authSetup() {
   await authAfterSuccess(true);
 }
 
+function biometricFailureMessage(label, result, error) {
+  if (result?.reason === 'storage_failed') return `Не удалось сохранить ${label} на этом устройстве (возможно, приватный режим браузера)`;
+  if (error?.name === 'NotAllowedError') return `${label} отменена`;
+  if (error) return `Не удалось включить ${label}: ${error.name || error.message}`;
+  return `Не удалось включить ${label}`;
+}
+
 async function authOfferBiometric() {
   const login = auth.getLogin();
   if (!login || webauthn.hasCredential(login) || !await webauthn.canUse()) return;
   if (!confirm(`Включить ${webauthn.label()} для быстрого входа на этом устройстве?`)) return;
   try {
-    await webauthn.register(login);
+    const result = await webauthn.register(login);
+    if (!result.ok) { showToast(biometricFailureMessage(webauthn.label(), result), 'error'); return; }
     showToast(`✓ ${webauthn.label()} включён`, 'success');
-  } catch {
-    showToast(`Не удалось включить ${webauthn.label()}`, 'error');
+  } catch (e) {
+    console.error('Biometric enable failed:', e);
+    showToast(biometricFailureMessage(webauthn.label(), null, e), 'error');
   }
 }
 
@@ -2865,11 +2887,13 @@ async function authEnableBiometric() {
   if (!login) { showToast('Сначала войдите в аккаунт', 'error'); return; }
   if (!await webauthn.canUse()) { showToast(webauthn.label() + ' недоступен на этом устройстве', 'error'); return; }
   try {
-    await webauthn.register(login);
+    const result = await webauthn.register(login);
+    if (!result.ok) { showToast(biometricFailureMessage(webauthn.label(), result), 'error'); return; }
     showToast(`✓ ${webauthn.label()} включён`, 'success');
     renderPage();
-  } catch {
-    showToast(`Не удалось включить ${webauthn.label()}`, 'error');
+  } catch (e) {
+    console.error('Biometric enable failed:', e);
+    showToast(biometricFailureMessage(webauthn.label(), null, e), 'error');
   }
 }
 
