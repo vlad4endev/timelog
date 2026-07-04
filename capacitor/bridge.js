@@ -18,6 +18,14 @@ let currentTimer = null;
 let iosAppActive = true;
 let iosLastPaused = null;
 
+// updateNativeTimer is called once per second while a timer runs. Rebuilding
+// the Android foreground-service notification that often is unnecessary IPC
+// and battery drain, so throttle to this interval — except a real state
+// change (pause/resume, task/project switch) still updates immediately.
+const ANDROID_NOTIF_MIN_INTERVAL_MS = 20000;
+let androidLastNotifAt = 0;
+let androidLastSignature = null;
+
 export function isNativePlatform() {
   return Capacitor.isNativePlatform();
 }
@@ -143,6 +151,8 @@ export async function startNativeTimer(timer) {
   const { title, body } = buildContent(timer);
 
   if (Capacitor.getPlatform() === 'android') {
+    androidLastSignature = `${timer.paused}|${timer.task}|${timer.projectId}`;
+    androidLastNotifAt = Date.now();
     await ensureAndroidChannel();
     await ForegroundService.startForegroundService({
       id: TIMER_NOTIF_ID,
@@ -166,9 +176,15 @@ export async function startNativeTimer(timer) {
 export async function updateNativeTimer(timer) {
   if (!isNativePlatform() || !nativeActive || !timer?.running) return;
   currentTimer = timer;
-  const { title, body } = buildContent(timer);
 
   if (Capacitor.getPlatform() === 'android') {
+    const signature = `${timer.paused}|${timer.task}|${timer.projectId}`;
+    const now = Date.now();
+    const stateChanged = signature !== androidLastSignature;
+    if (!stateChanged && now - androidLastNotifAt < ANDROID_NOTIF_MIN_INTERVAL_MS) return;
+    androidLastSignature = signature;
+    androidLastNotifAt = now;
+    const { title, body } = buildContent(timer);
     await ForegroundService.updateForegroundService({
       id: TIMER_NOTIF_ID,
       title,
@@ -201,6 +217,8 @@ export async function stopNativeTimer() {
   nativeActive = false;
   currentTimer = null;
   iosLastPaused = null;
+  androidLastSignature = null;
+  androidLastNotifAt = 0;
 
   if (Capacitor.getPlatform() === 'android') {
     await ForegroundService.stopForegroundService();

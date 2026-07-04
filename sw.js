@@ -168,23 +168,35 @@ function buildTimerNotifContent(timer, now = Date.now()) {
 }
 
 let lastNotifSignature = null;
+// Desktop/Android web (non-iOS) redraws the notification every tick to keep
+// the live elapsed time visible, but doing that every single second is
+// unnecessary churn — throttle it, while still updating immediately on an
+// actual state change (pause/resume, task switch) instead of waiting it out.
+const NOTIF_MIN_INTERVAL_MS = 20000;
+let lastNotifAt = 0;
 
 async function updateTimerNotification(timer, force = false) {
   if (!self.registration?.showNotification) return;
   if (!timer?.running) {
     lastNotifSignature = null;
+    lastNotifAt = 0;
     const notifs = await self.registration.getNotifications({ tag: TIMER_NOTIF_TAG });
     notifs.forEach(n => n.close());
     return;
   }
   const { title, body } = buildTimerNotifContent(timer);
   const signature = `${timer.paused}|${timer.task}|${timer.projectName}`;
+  const now = Date.now();
+  const stateChanged = signature !== lastNotifSignature;
   if (IS_IOS) {
-    if (!force && signature === lastNotifSignature) return;
-    lastNotifSignature = signature;
+    if (!force && !stateChanged) return;
     const existing = await self.registration.getNotifications({ tag: TIMER_NOTIF_TAG });
     existing.forEach(n => n.close());
+  } else if (!force && !stateChanged && now - lastNotifAt < NOTIF_MIN_INTERVAL_MS) {
+    return;
   }
+  lastNotifSignature = signature;
+  lastNotifAt = now;
   await self.registration.showNotification(title, {
     body,
     tag: TIMER_NOTIF_TAG,
