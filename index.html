@@ -605,8 +605,11 @@ html.tl-show-auth #global-boot-splash{display:none!important}
 .mobile-more-quick-title{font-size:14px;font-weight:600;color:var(--text)}
 .mobile-more-quick-sub{font-size:12px;color:var(--text2);margin-top:2px}
 
-/* Mobile active timer strip */
-.mobile-timer-bar{position:fixed;left:var(--safe-left);right:var(--safe-right);bottom:calc(var(--bottom-nav-h) + var(--safe-bottom));z-index:199;background:linear-gradient(135deg,var(--accent3),var(--accent));color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 -2px 12px rgba(5,150,105,.25)}
+/* Mobile active timer strip — hidden by default, shown only under the mobile
+   breakpoint (see @media(max-width:768px) below); the sidebar's own timer
+   widget covers this on desktop, so without this guard the bar duplicated it
+   at every screen width. */
+.mobile-timer-bar{display:none;position:fixed;left:var(--safe-left);right:var(--safe-right);bottom:calc(var(--bottom-nav-h) + var(--safe-bottom));z-index:199;background:linear-gradient(135deg,var(--accent3),var(--accent));color:#fff;padding:10px 14px;align-items:center;gap:10px;box-shadow:0 -2px 12px rgba(5,150,105,.25)}
 .mobile-timer-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0;animation:pulse 1.5s infinite}
 .mobile-timer-info{flex:1;min-width:0;cursor:pointer}
 .mobile-timer-task{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -674,12 +677,18 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
 .dash-timer-running-right{text-align:right;flex-shrink:0}
 .dash-timer-running-actions{padding:14px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .dash-timer-running-meta{flex:1;font-size:13px;color:var(--text2);min-width:140px}
-.dash-timer-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;max-width:100%;overflow:hidden;box-sizing:border-box}
-.dash-timer-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-.dash-field{margin-bottom:12px;min-width:0;max-width:100%}
-.dash-field-label{font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
-.dash-timer-task-row{display:flex;gap:8px;align-items:flex-start;min-width:0;max-width:100%}
-.dash-timer-task-row .form-textarea{flex:1;min-width:0;max-width:100%}
+.dash-timer-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;max-width:100%;overflow:hidden;box-sizing:border-box}
+/* Compact one-line "start timer" bar — the sidebar/mobile bar already covers
+   full timer status everywhere, so this only needs to get a session going. */
+.dash-quickstart-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;max-width:100%}
+.dash-quickstart-project{flex:0 1 200px;min-width:120px}
+.dash-quickstart-task{flex:1;min-width:120px}
+.dash-quickstart-ai{width:38px;height:38px;flex-shrink:0;border-radius:var(--radius2);background:var(--accent-light);border:1px solid var(--accent-border);color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.dash-quickstart-ai:hover:not(:disabled){background:rgba(5,150,105,.16)}
+.dash-quickstart-btn{width:auto;flex:0 0 auto;white-space:nowrap;padding:0 20px;height:38px}
+.dash-quickstart-subrow{margin-top:8px;min-width:0;max-width:100%}
+.dash-quickstart-ai-preview{padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)}
+.dash-quickstart-meta{margin-top:10px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
 
 /* Report / payment mobile helpers */
@@ -724,6 +733,7 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .hamburger{display:none!important}
   .topbar-logo{display:block}
   .mobile-bottom-nav{display:grid}
+  .mobile-timer-bar{display:flex}
   .main{padding-top:calc(var(--topbar-h) + var(--safe-top))}
   .content{padding:12px 12px calc(12px + var(--bottom-nav-h) + var(--safe-bottom) + 4px)}
   body.timer-active-mobile .content{padding-bottom:calc(12px + var(--bottom-nav-h) + 48px + var(--safe-bottom))}
@@ -815,11 +825,10 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
   .dash-timer-running-actions{flex-direction:column;align-items:stretch}
   .dash-timer-running-actions button{width:100%;justify-content:center;min-height:var(--touch-min)}
   .dash-timer-panel{padding:16px}
-  .dash-timer-panel-head{flex-direction:column;gap:8px}
-  #dash-timer-panel{display:none!important}
-  .dash-field-label{font-size:12px}
-  .dash-timer-task-row{flex-direction:column}
-  .dash-timer-task-row #dash-ai-btn{align-self:flex-end;width:44px;height:44px}
+  /* Both timer states are already covered by the bottom mobile timer bar
+     (idle: bottom-nav's start FAB; running: .mobile-timer-bar) — showing the
+     full dashboard panel too would just duplicate it on a small screen. */
+  #dash-timer-panel,#dash-timer-running{display:none!important}
   .card,.stat-card,.dash-timer-panel{max-width:100%;box-sizing:border-box}
   .form-input,.form-select,.form-textarea{max-width:100%;box-sizing:border-box}
   .filter-bar-item{min-width:100%;flex:1 1 100%}
@@ -2032,12 +2041,17 @@ const auth = {
       const r = await fetch(`${base}/auth/session`, { credentials: 'same-origin', signal: ctrl.signal });
       clearTimeout(t);
       const data = await r.json().catch(() => ({}));
+      // The server actually answered and said no — a genuinely dead session.
       if (!r.ok || !data.ok || !data.login || !data.token) return false;
       this.persistSession(data.login, data.token);
       return true;
     } catch (e) {
       if (e?.name !== 'AbortError') console.error('Session restore failed:', e);
-      return false;
+      // fetch threw — offline/DNS/timeout. We couldn't ask the server at
+      // all, so this is NOT evidence the session is invalid; distinguish it
+      // from a confirmed `false` so callers don't force a re-login over a
+      // network blip (see boot sequence below).
+      return 'network';
     }
   },
 
@@ -2046,7 +2060,9 @@ const auth = {
     const l = login || this.getLogin();
     if (!l) return false;
     if (this.getApiToken()) return true;
-    if (await this.restoreSessionFromServer()) return true;
+    const restored = await this.restoreSessionFromServer();
+    if (restored === true) return true;
+    if (restored === 'network') return 'network';
     const pass = password || this._sessionPass;
     if (!pass) return false;
     if (await this.fetchApiToken(l, pass)) return true;
@@ -2730,7 +2746,10 @@ async function authBiometricUnlock() {
   try {
     const ok = await webauthn.authenticate(login);
     if (ok) {
-      if (auth.useServerAuth() && !(await auth.ensureSession(login))) {
+      // Only a confirmed `false` means the session is actually invalid —
+      // 'network' means we simply couldn't reach the server to check, which
+      // shouldn't block someone from unlocking with cached local data.
+      if (auth.useServerAuth() && (await auth.ensureSession(login)) === false) {
         authMsg('Сессия истекла. Войдите с паролем.', 'err');
         return;
       }
@@ -2881,6 +2900,7 @@ function authRevealLoginScreen() {
 
 function authSuccess() {
   appStarted = true;
+  sb._sessionExpiredWarned = false;
   document.documentElement.classList.add('tl-app-ready');
   document.documentElement.classList.remove('tl-restore', 'tl-auth-boot', 'tl-show-auth');
   updateTopbarUser();
@@ -2895,7 +2915,14 @@ function authSuccess() {
   }
 }
 
-function authLogout() {
+async function authLogout() {
+  if (sb.isEnabled() && sb._writeQueue.size) {
+    let flushed = false;
+    try { flushed = await sb.flushWrites(); } catch (_) { flushed = false; }
+    if (!flushed && sb._writeQueue.size) {
+      if (!confirm('Не удалось сохранить последние изменения на сервере. Выйти всё равно? Несинхронизированные правки будут потеряны.')) return;
+    }
+  }
   sb._writeQueue.clear();
   sb._dirtyKeys.clear();
   sb._suppressAutoFlush = false;
@@ -2950,7 +2977,11 @@ let state = {
     profile: { phone: '' }
   },
   currentPage: 'dashboard',
-  selectedColor: '#059669'
+  selectedColor: '#059669',
+  // Per-table map of deleted-id → deletedAt, kept around after a delete
+  // succeeds so a stale push from another device can't resurrect the row on
+  // a later pull (see mergeList). Persisted alongside the rest of state.
+  tombstones: {}
 };
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────
@@ -2975,6 +3006,30 @@ function hasPendingLocalEdit(table, id) {
   return !!entityLocalEdits[entityEditKey(table, id)];
 }
 
+const TOMBSTONE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+function addTombstone(table, id) {
+  if (!id) return;
+  if (!state.tombstones) state.tombstones = {};
+  if (!state.tombstones[table]) state.tombstones[table] = {};
+  state.tombstones[table][id] = Date.now();
+}
+function isTombstoned(table, id) {
+  return !!(state.tombstones?.[table]?.[id]);
+}
+// Bound how long we protect against a resurrected delete — a device that
+// hasn't synced in 90+ days is an edge case we accept, in exchange for not
+// growing this list forever.
+function pruneTombstones() {
+  if (!state.tombstones) { state.tombstones = {}; return; }
+  const cutoff = Date.now() - TOMBSTONE_MAX_AGE_MS;
+  for (const table of Object.keys(state.tombstones)) {
+    const ids = state.tombstones[table];
+    for (const id of Object.keys(ids)) {
+      if (ids[id] < cutoff) delete ids[id];
+    }
+  }
+}
+
 function applyLocalData(d) {
   state.projects = d.projects || [];
   state.entries  = d.entries  || [];
@@ -2995,6 +3050,8 @@ function applyLocalData(d) {
     else state.settings.profile = Object.assign({ phone: '' }, state.settings.profile);
   }
   entityLocalEdits = d.entityLocalEdits || {};
+  state.tombstones = d.tombstones || {};
+  pruneTombstones();
 }
 
 /** Import data from timelog_v1 / timelog_v1_default if current state is empty. */
@@ -3080,7 +3137,7 @@ function scheduleUserSettingsSync(immediate = false) {
 function save(opts = {}) {
   try {
     const login = auth.getLogin();
-    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings, entityLocalEdits };
+    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings, entityLocalEdits, tombstones: state.tombstones };
     localStorage.setItem(auth.dataKey(login), JSON.stringify(d));
     scheduleUserSettingsSync(!!opts.syncSettingsNow);
   } catch(e) {}
@@ -3110,6 +3167,12 @@ const sb = {
   _writeQueue: new Map(),
   _dirtyKeys: new Set(),
   _flushInFlight: null,
+  _sessionExpiredWarned: false,
+  _warnSessionExpired() {
+    if (this._sessionExpiredWarned) return;
+    this._sessionExpiredWarned = true;
+    showToast('Сессия истекла — новые данные сохраняются только на этом устройстве. Выйдите и войдите заново, чтобы возобновить синхронизацию.', 'error');
+  },
   _suppressAutoFlush: false,
   _flushScheduled: false,
 
@@ -3182,20 +3245,31 @@ const sb = {
     this._dirtyKeys.add(key);
     markEntityLocalEdit(table, id);
     this._writeQueue.set(key, { type: 'upsert', table, id, row });
+    // Persist the "needs sync" marker right away — if the flush never
+    // completes (offline, tab closed) before this, the data itself is
+    // already safe in localStorage via the caller's save(), but without this
+    // the fact that it still needs pushing would only survive in memory.
+    save();
     this._commitQueuedWrite();
   },
 
-  _queueDelete(table, id, extra = null) {
+  _queueDelete(table, id, extra = null, tombstone = false) {
     const entityKey = `${table}:${id || extra?.date}`;
     const queueKey = `del:${entityKey}`;
     this._dirtyKeys.add(entityKey);
     markEntityLocalEdit(table, id || extra?.date);
     this._writeQueue.set(queueKey, { type: 'delete', table, id, extra });
+    if (tombstone) addTombstone(table, id || extra?.date);
+    save();
     this._commitQueuedWrite();
   },
 
   _queueClearTimer() {
-    this._writeQueue.set('timer:clear', { type: 'clearTimer' });
+    // Carry the (already-stopped, freshly-timestamped) timer row along so the
+    // server can upsert a "not running" row instead of deleting it outright —
+    // a delete loses the updatedAt, which is what other devices rely on to
+    // tell a genuine stop apart from a stale cached "still running" state.
+    this._writeQueue.set('timer:clear', { type: 'clearTimer', row: this.timerToRow(state.timer) });
     this._commitQueuedWrite();
   },
 
@@ -3352,12 +3426,14 @@ const sb = {
           : { table: job.table, id: job.id });
       } else if (job.type === 'clearTimer') {
         clearTimer = true;
+        if (job.row) timer = job.row;
       }
     }
     for (const job of batch) {
       if (job.type === 'upsert' && job.table === 'active_timer') timer = job.row;
     }
     const res = await auth.authFetch('/auth/sync/push', { upserts, deletes, timer, clearTimer });
+    if (res?.status === 401) this._warnSessionExpired();
     return !!res?.ok;
   },
 
@@ -3377,7 +3453,7 @@ const sb = {
         return this.req('DELETE', this.scopedDelete(job.table, job.id));
       }
       if (job.type === 'clearTimer') {
-        return this.req('DELETE', `active_timer?id=eq.${encodeURIComponent(this.userId())}`);
+        return this.req('POST', 'active_timer', job.row || this.timerToRow(state.timer));
       }
       return Promise.resolve(true);
     });
@@ -3399,6 +3475,14 @@ const sb = {
 
       for (const sr of serverRows) {
         if (pendingDel.has(sr.id)) continue;
+        if (isTombstoned(table, sr.id)) {
+          // We deleted this locally before and the server still (or again)
+          // has it — likely a stale push from another device racing our
+          // delete. Don't let it back into local state; re-assert the delete
+          // instead of just hiding it, so the two devices actually converge.
+          this._queueDelete(table, sr.id, null, true);
+          continue;
+        }
         const serverItem = toLocal(sr);
         const localItem = localById.get(serverItem.id);
         if (shouldKeepLocal(table, serverItem.id)) {
@@ -3462,6 +3546,7 @@ const sb = {
 
   async pullViaAuth() {
     const res = await auth.authFetch('/auth/sync/pull');
+    if (res?.status === 401) this._warnSessionExpired();
     if (!res?.ok) return null;
     this.applyPullPayload(res);
     if (res.projects?.length === 0 && auth.useServerAuth() && auth.getApiToken()) {
@@ -3481,14 +3566,15 @@ const sb = {
       status: p.status||'active', description: p.desc||null, max_hours: p.maxHours > 0 ? p.maxHours : null,
       spec_text: p.specText || null, spec_file_name: p.specFileName || null,
       spec_file_mime: p.specFileMime || null, spec_file_data: p.specFileData || null,
-      created_at: new Date(p.createdAt||Date.now()).toISOString()
+      created_at: new Date(p.createdAt||Date.now()).toISOString(),
+      updated_at: new Date(p.updatedAt||p.createdAt||Date.now()).toISOString()
     });
   },
   entryToRow(e) {
-    return this.userRow({ id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, task_id: e.taskId||null, report_id: e.reportId||null, archived: !!e.archived, created_at: new Date(e.createdAt||Date.now()).toISOString() });
+    return this.userRow({ id: e.id, project_id: e.projectId, task: e.task, date: e.date, hours: e.hours, rate: e.rate ?? null, start_time: e.start||null, end_time: e.end||null, notes: e.notes||null, task_id: e.taskId||null, report_id: e.reportId||null, archived: !!e.archived, created_at: new Date(e.createdAt||Date.now()).toISOString() });
   },
   paymentToRow(p) {
-    return this.userRow({ id: p.id, project_id: p.projectId||null, amount: p.amount, date: p.date, period_from: p.from||null, period_to: p.to||null, note: p.note||null, created_at: new Date(p.createdAt||Date.now()).toISOString() });
+    return this.userRow({ id: p.id, project_id: p.projectId||null, amount: p.amount, date: p.date, period_from: p.from||null, period_to: p.to||null, note: p.note||null, report_id: p.reportId||null, created_at: new Date(p.createdAt||Date.now()).toISOString(), updated_at: new Date(p.updatedAt||p.createdAt||Date.now()).toISOString() });
   },
   boardTaskToRow(t) {
     return this.userRow({ id: t.id, project_id: t.projectId, title: t.title, description: t.desc||null, status: t.status||'todo', position: t.position||0, priority: t.priority||'medium', archived: !!t.archived, created_at: new Date(t.createdAt||Date.now()).toISOString(), updated_at: new Date(t.updatedAt||Date.now()).toISOString() });
@@ -3517,14 +3603,15 @@ const sb = {
       id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#059669',
       status: r.status||'active', desc: r.description||'', maxHours: r.max_hours > 0 ? Number(r.max_hours) : 0,
       specText: r.spec_text || '', specFileName: r.spec_file_name || '', specFileMime: r.spec_file_mime || '',
-      specFileData: r.spec_file_data || '', createdAt: new Date(r.created_at).getTime()
+      specFileData: r.spec_file_data || '', createdAt: new Date(r.created_at).getTime(),
+      updatedAt: new Date(r.updated_at || r.created_at).getTime()
     };
   },
   rowToEntry(r) {
-    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, reportId: r.report_id||null, archived: !!r.archived, createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, rate: r.rate ?? null, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, reportId: r.report_id||null, archived: !!r.archived, createdAt: new Date(r.created_at).getTime() };
   },
   rowToPayment(r) {
-    return { id: r.id, projectId: r.project_id||null, amount: r.amount, date: r.date, from: r.period_from||'', to: r.period_to||'', note: r.note||'', createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, projectId: r.project_id||null, amount: r.amount, date: r.date, from: r.period_from||'', to: r.period_to||'', note: r.note||'', reportId: r.report_id||null, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at || r.created_at).getTime() };
   },
   rowToBoardTask(r) {
     return { id: r.id, projectId: r.project_id, title: r.title, desc: r.description||'', status: r.status||'todo', position: r.position||0, priority: r.priority||'medium', archived: !!r.archived, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
@@ -3787,12 +3874,29 @@ function roundBillableHours(rawHours) {
   let h = roundMode === 'nearest'
     ? Math.round(steps) * increment
     : Math.ceil(steps - 1e-9) * increment;
-  if (minBillable > 0 && h > 0 && h < minBillable) h = minBillable;
+  // rawHours > 0 is already guaranteed above, so any rounded result below the
+  // minimum — including nearest-mode rounding a short session down to exactly
+  // 0 — should still be floored up to minBillable, not silently zeroed out.
+  if (minBillable > 0 && h < minBillable) h = minBillable;
   return Math.round(h * 100) / 100;
 }
 function calcEntryAmount(projectId, hours) {
   const p = getProject(projectId);
   return (p?.rate || 0) * hours;
+}
+// Amount for an already-saved entry: uses the rate frozen on the entry at
+// creation time, so later changes to the project's rate don't rewrite past
+// earnings. Falls back to the project's current rate for entries saved
+// before rate snapshotting existed.
+function calcSavedEntryAmount(e) {
+  const rate = e.rate != null ? e.rate : (getProject(e.projectId)?.rate || 0);
+  return rate * (e.hours || 0);
+}
+// Lifetime earnings for a project — deliberately includes archived entries
+// (paid/archived work is still money earned; only the payments ledger should
+// decide what's still outstanding, see calcUnpaid).
+function getProjectEarned(projectId) {
+  return sum(state.entries.filter(e => e.projectId === projectId).map(calcSavedEntryAmount));
 }
 function calcTimerLiveEarned() {
   const p = getProject(state.timer.projectId);
@@ -3907,8 +4011,16 @@ function syncTimerNotification() {
   if (state.timer.running) postTimerToServiceWorker();
 }
 function mergeTimers(local, remote) {
-  if (!remote?.running) return local;
-  if (!local?.running) return remote;
+  // The active timer is one shared resource across a user's devices, so
+  // whichever side has the freshest updatedAt wins outright — mixing fields
+  // from both (e.g. one device's startTime with another's pausedMs) would
+  // describe a session that never actually happened. Both "running" and
+  // "stopped" transitions always stamp a fresh updatedAt (see touchTimer/
+  // resetTimerState and the server-side clearTimer upsert), so a genuine
+  // stop from one device reliably overrides a stale "still running" cache
+  // on another instead of being ignored just because remote.running is false.
+  if (!remote) return local;
+  if (!local) return remote;
   return (remote.updatedAt || 0) >= (local.updatedAt || 0) ? remote : local;
 }
 function getTimerElapsedMs() {
@@ -3920,7 +4032,10 @@ function getTimerElapsedMs() {
 }
 function getTimerElapsedHours() { return getTimerElapsedMs() / 3600000; }
 function resetTimerState() {
-  state.timer = normalizeTimer({});
+  // A fresh updatedAt (not the normalizeTimer default of 0) so this stop is
+  // recognized as newer than a stale "still running" state cached on another
+  // device — see mergeTimers, which does plain last-write-wins by updatedAt.
+  state.timer = normalizeTimer({ updatedAt: Date.now() });
   clearInterval(timerInterval);
   closeMobileTimerScreen();
   save();
@@ -4292,8 +4407,9 @@ function confirmStopTimer() {
   const entry = {
     id: uid(), projectId: state.timer.projectId, task: state.timer.task,
     taskId: state.timer.taskId || null,
-    date: new Date().toISOString().slice(0, 10),
+    date: toDateStr(new Date(startMs)),
     hours: billH,
+    rate: getProject(state.timer.projectId)?.rate || 0,
     start: new Date(startMs).toTimeString().slice(0, 5),
     end: new Date(endMs).toTimeString().slice(0, 5),
     notes: rawH !== billH ? `Фактически: ${fmtDuration(rawH)}` : '',
@@ -4530,7 +4646,7 @@ function renderPage() {
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────
 function renderDashboard() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = toDateStr(new Date());
   const week = getWeekDates();
   const todayEntries = state.entries.filter(e => e.date === today && !e.archived);
   const weekEntries  = state.entries.filter(e => e.date >= week.start && e.date <= week.end && !e.archived);
@@ -4538,8 +4654,8 @@ function renderDashboard() {
   const todayH  = sum(todayEntries.map(e=>e.hours));
   const weekH   = sum(weekEntries.map(e=>e.hours));
   const monthH  = sum(monthEntries.map(e=>e.hours));
-  const todayEarned = sum(todayEntries.map(e => calcEntryAmount(e.projectId, e.hours)));
-  const weekEarned  = sum(weekEntries.map(e => calcEntryAmount(e.projectId, e.hours)));
+  const todayEarned = sum(todayEntries.map(e => calcSavedEntryAmount(e)));
+  const weekEarned  = sum(weekEntries.map(e => calcSavedEntryAmount(e)));
   const totalUnpaid = calcUnpaid();
   const activeProjects = state.projects.filter(p=>p.status==='active');
   const aiAvail = state.settings.openrouter.enabled && state.settings.openrouter.apiKey;
@@ -4583,49 +4699,33 @@ function renderDashboard() {
         </button>
       </div>
     </div>` : `
-    <div id="dash-timer-panel" class="dash-timer-panel">
-      <div class="dash-timer-panel-head">
-        <div>
-          <div style="font-size:16px;font-weight:700">Начать запись времени</div>
-          <div style="font-size:13px;color:var(--text2);margin-top:2px">${dateStr} · ${timeStr}</div>
-        </div>
-        ${activeProjects.length===0 ? `<div class="dash-warning"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Нет активных проектов — <span style="cursor:pointer;color:var(--accent)" onclick="showPage('projects')">создать</span></div>` : ''}
-      </div>
-
-      <div class="dash-field">
-        <div class="dash-field-label">Проект</div>
-        <select id="dash-project" class="form-select">
-          <option value="">— Выберите проект</option>
+    <div id="dash-timer-panel" class="dash-timer-panel dash-quickstart">
+      <div class="dash-quickstart-row">
+        <select id="dash-project" class="form-select dash-quickstart-project">
+          <option value="">— Проект</option>
           ${activeProjects.map(p=>`<option value="${p.id}" style="color:${p.color||'#059669'}">${escHtml(p.name)}${p.client?' · '+escHtml(p.client):''}</option>`).join('')}
         </select>
+        <input type="text" id="dash-task" class="form-input dash-quickstart-task" placeholder="Что буду делать?">
+        ${aiAvail ? `
+        <button id="dash-ai-btn" onclick="dashAIPolish()" title="Улучшить описание через AI" class="dash-quickstart-ai" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+          </svg>
+        </button>` : ''}
+        <button id="dash-start-btn" type="button" class="btn-start-main dash-quickstart-btn" onclick="dashStartTimer()" aria-disabled="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Старт
+        </button>
       </div>
 
-      <div id="dash-board-task-wrap" class="dash-field" style="display:none">
-        <div class="dash-field-label">Задача из Kanban</div>
+      <div id="dash-board-task-wrap" class="dash-quickstart-subrow" style="display:none">
         <select id="dash-board-task" class="form-select">
-          <option value="">— Новая задача (ввести текст ниже)</option>
+          <option value="">— Новая задача (ввести текст выше)</option>
         </select>
         <input type="hidden" id="dash-task-id" value="">
       </div>
 
-      <div class="dash-field">
-        <div class="dash-field-label">Что буду делать</div>
-        <div class="dash-timer-task-row">
-          <textarea id="dash-task" class="form-textarea" placeholder="Опишите задачу своими словами..." style="min-height:70px;resize:none"></textarea>
-          ${aiAvail ? `
-          <button id="dash-ai-btn" onclick="dashAIPolish()" title="Улучшить описание через AI"
-            style="width:42px;height:42px;border-radius:var(--radius2);background:var(--accent-light);border:1px solid var(--accent-border);color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"
-            onmouseenter="this.style.background='rgba(5,150,105,.16)'" onmouseleave="this.style.background='var(--accent-light)'"
-            disabled>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
-            </svg>
-          </button>` : ''}
-        </div>
-        ${aiAvail ? `<div id="dash-ai-hint" style="font-size:11px;color:var(--text2);margin-top:4px;opacity:0.7">Напишите задачу → нажмите звёздочку → AI сформулирует профессионально</div>` : `<div style="font-size:11px;color:var(--text2);margin-top:4px;opacity:0.7;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Включите OpenRouter в настройках для AI-формулировки</div>`}
-      </div>
-
-      <div id="dash-ai-preview" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius2)">
+      <div id="dash-ai-preview" style="display:none" class="dash-quickstart-subrow dash-quickstart-ai-preview">
         <div style="font-size:11px;color:var(--accent);margin-bottom:6px;font-weight:600;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg> AI сформулировал</div>
         <div id="dash-ai-text" style="font-size:14px;color:var(--text);line-height:1.5"></div>
         <div class="dash-ai-actions">
@@ -4634,10 +4734,10 @@ function renderDashboard() {
         </div>
       </div>
 
-      <button id="dash-start-btn" type="button" class="btn-start-main" onclick="dashStartTimer()" aria-disabled="true">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Запустить таймер
-      </button>
+      <div class="dash-quickstart-meta">
+        <span>${dateStr} · ${timeStr}</span>
+        ${activeProjects.length===0 ? `<span class="dash-warning"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Нет активных проектов — <span style="cursor:pointer;color:var(--accent)" onclick="showPage('projects')">создать</span></span>` : ''}
+      </div>
     </div>`;
 
   const recentEntries = state.entries.filter(e => !e.archived).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt).slice(0,10);
@@ -4817,7 +4917,11 @@ function entryItem(e) {
   const p = getProject(e.projectId);
   const color = p?.color || '#059669';
   const aiAvail = state.settings.openrouter.enabled && state.settings.openrouter.apiKey;
-  const amount = calcEntryAmount(e.projectId, e.hours);
+  const amount = calcSavedEntryAmount(e);
+  // The project's rate may have changed since this entry was billed (rate is
+  // frozen per-entry) — flag it so the money on this row doesn't look like a
+  // mismatch against the project's current rate shown elsewhere.
+  const rateChanged = e.rate != null && p && Number(e.rate) !== Number(p.rate || 0);
   return `<div class="entry-item">
     <div class="entry-dot" style="background:${color}"></div>
     <div class="entry-info">
@@ -4827,6 +4931,7 @@ function entryItem(e) {
     <div class="entry-time-block">
       <div class="entry-time">${fmtHours(e.hours)}</div>
       ${amount > 0 ? `<div class="text-xs text-green">${fmtMoney(amount)}</div>` : ''}
+      ${rateChanged ? `<div class="text-xs text-muted" title="Ставка на момент записи — ${fmtMoney(e.rate)}/ч, сейчас у проекта ${fmtMoney(p.rate)}/ч">по ${fmtMoney(e.rate)}/ч</div>` : ''}
     </div>
     <div class="entry-actions">
       ${aiAvail ? `<button class="btn-icon" onclick="aiPolishEntry('${e.id}')" title="Улучшить через AI" style="color:var(--accent)">
@@ -4844,7 +4949,7 @@ function entryItem(e) {
 
 function projectCard(p) {
   const hrs = sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
-  const earned = hrs * (p.rate || 0);
+  const earned = getProjectEarned(p.id);
   return `<div class="card-sm mb8" style="border-left:3px solid ${p.color||'#059669'}">
     <div class="flex items-center justify-between mb4">
       <div style="font-weight:600;font-size:14px;color:var(--text)">${escHtml(p.name)}</div>
@@ -4904,7 +5009,7 @@ function renderProjectFull(p) {
   const entries = state.entries.filter(e => e.projectId === p.id && !e.archived);
   const projectTasks = getProjectBoardTasks(p.id);
   const hrs = getProjectHours(p.id);
-  const earned = hrs * (p.rate || 0);
+  const earned = getProjectEarned(p.id);
   const statusMap = { active: ['badge-green','Активный'], paused: ['badge-amber','Пауза'], done: ['badge-gray','Завершён'] };
   const [badgeClass, statusLabel] = statusMap[p.status] || statusMap.active;
   const paidAmount = sum(state.payments.filter(pay=>pay.projectId===p.id).map(pay=>pay.amount));
@@ -4999,7 +5104,7 @@ function getTaskHours(taskId) {
   return sum(state.entries.filter(e => e.taskId === taskId && !e.archived).map(e => e.hours));
 }
 function getTaskEarned(taskId) {
-  return sum(state.entries.filter(e => e.taskId === taskId && !e.archived).map(e => calcEntryAmount(e.projectId, e.hours)));
+  return sum(state.entries.filter(e => e.taskId === taskId && !e.archived).map(e => calcSavedEntryAmount(e)));
 }
 function ensureBoardProject() {
   if (boardFilterProject && getProject(boardFilterProject)) return boardFilterProject;
@@ -5108,7 +5213,7 @@ function renderBoardTable(tasks) {
         <td data-label="Статус"><span class="badge ${statusBadge}">${BOARD_STATUS_LABELS[t.status]||t.status}</span></td>
         <td data-label="Приоритет"><span style="color:${BOARD_PRIORITY_COLORS[t.priority]||'var(--text2)'}">${BOARD_PRIORITY_LABELS[t.priority]||'—'}</span></td>
         <td data-label="Время" style="font-weight:600;color:var(--accent2);white-space:nowrap">${hours > 0 ? fmtHours(hours) + (earned > 0 ? `<div class="text-xs text-green">${fmtMoney(earned)}</div>` : '') : '—'}</td>
-        <td data-label="Обновлено" class="text-sm text-muted" style="white-space:nowrap">${fmtDate(new Date(t.updatedAt).toISOString().slice(0,10))}</td>
+        <td data-label="Обновлено" class="text-sm text-muted" style="white-space:nowrap">${fmtDate(toDateStr(new Date(t.updatedAt)))}</td>
         <td class="table-actions-cell"><div class="table-actions">
           ${!isActive ? `<button class="btn btn-success btn-sm" onclick="startBoardTimer('${t.id}')" title="Запустить таймер">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -5288,7 +5393,7 @@ function deleteBoardTask(id) {
   state.boardTasks = state.boardTasks.filter(x => x.id !== id);
   const affectedEntries = state.entries.filter(e => e.taskId === id);
   state.entries.forEach(e => { if (e.taskId === id) e.taskId = null; });
-  if (state.timer.taskId === id) state.timer.taskId = null;
+  if (state.timer.taskId === id) { state.timer.taskId = null; touchTimer(); }
   save();
   if (sb.isEnabled()) {
     sb.deleteBoardTask(id);
@@ -5296,6 +5401,72 @@ function deleteBoardTask(id) {
   }
   renderPage();
   showToast('Задача удалена');
+}
+
+function openTaskHoursModal(taskId) {
+  const t = getBoardTask(taskId);
+  if (!t) return;
+  const p = getProject(t.projectId);
+  document.getElementById('task-hours-task-id').value = taskId;
+  document.getElementById('task-hours-task-title').textContent = t.title;
+  document.getElementById('task-hours-project').textContent = p ? (p.name + (p.client ? ' · ' + p.client : '')) : '';
+  const logged = getTaskHours(taskId);
+  document.getElementById('task-hours-logged').textContent = logged > 0 ? `Уже залогировано: ${fmtHours(logged)}` : 'Пока нет записей по этой задаче';
+  document.getElementById('task-hours-date').value = toDateStr(new Date());
+  document.getElementById('task-hours-hours').value = '';
+  document.getElementById('task-hours-notes').value = '';
+  updateTaskHoursPreview();
+  openModal('modal-task-hours');
+}
+function addTaskHoursMinutes(m) {
+  const el = document.getElementById('task-hours-hours');
+  if (!el) return;
+  const cur = parseFloat(el.value) || 0;
+  el.value = Math.round((cur + m / 60) * 100) / 100;
+  updateTaskHoursPreview();
+}
+function updateTaskHoursPreview() {
+  const el = document.getElementById('task-hours-preview');
+  if (!el) return;
+  const hours = parseFloat(document.getElementById('task-hours-hours')?.value);
+  const t = getBoardTask(document.getElementById('task-hours-task-id')?.value);
+  if (!hours || hours <= 0 || !t) { el.style.display = 'none'; return; }
+  const billH = roundBillableHours(hours);
+  const amount = calcEntryAmount(t.projectId, billH);
+  let text = `К оплате: ${fmtHours(billH)}`;
+  if (Math.abs(billH - hours) > 0.001) text += ` (округлено с ${fmtHours(hours)})`;
+  if (amount > 0) text += ` · ${fmtMoney(amount)}`;
+  el.textContent = text;
+  el.style.display = '';
+}
+function saveTaskHours() {
+  const taskId = document.getElementById('task-hours-task-id').value;
+  const t = getBoardTask(taskId);
+  if (!t) { showToast('Задача не найдена', 'error'); return; }
+  const date = document.getElementById('task-hours-date').value;
+  let hours = parseFloat(document.getElementById('task-hours-hours').value);
+  if (!date) { showToast('Укажите дату', 'error'); return; }
+  if (!hours || hours <= 0) { showToast('Укажите время', 'error'); return; }
+  const rawHours = hours;
+  hours = roundBillableHours(hours);
+  if (hours <= 0) { showToast('Слишком мало времени', 'error'); return; }
+  let notes = document.getElementById('task-hours-notes').value;
+  if (rawHours !== hours && !notes.includes('Фактически:')) {
+    notes = (notes ? notes + ' · ' : '') + `Фактически: ${fmtDuration(rawHours)}`;
+  }
+  const entry = {
+    id: uid(), projectId: t.projectId, task: t.title, taskId: t.id,
+    date, hours, rate: getProject(t.projectId)?.rate || 0,
+    start: '', end: '', notes, createdAt: Date.now()
+  };
+  state.entries.unshift(entry);
+  if (t.status === 'todo') { t.status = 'in_progress'; t.updatedAt = Date.now(); if (sb.isEnabled()) sb.upsertBoardTask(t); }
+  save();
+  if (sb.isEnabled()) sb.upsertEntry(entry);
+  closeModal('modal-task-hours');
+  checkProjectHourLimit(t.projectId);
+  renderPage();
+  showToast('Время добавлено', 'success');
 }
 
 function startBoardTimer(taskId) {
@@ -5422,7 +5593,7 @@ function getDateRange(from, to) {
   const d = new Date(from + 'T00:00:00');
   const end = new Date(to + 'T00:00:00');
   while (d <= end) {
-    dates.push(d.toISOString().slice(0, 10));
+    dates.push(toDateStr(d));
     d.setDate(d.getDate() + 1);
   }
   return dates;
@@ -5461,7 +5632,7 @@ function renderAnalyticsDailyChart(entries) {
   const byDate = {};
   dates.forEach(d => { byDate[d] = 0; });
   entries.forEach(e => {
-    byDate[e.date] = (byDate[e.date] || 0) + calcEntryAmount(e.projectId, e.hours);
+    byDate[e.date] = (byDate[e.date] || 0) + calcSavedEntryAmount(e);
   });
   const values = dates.map(d => byDate[d]);
   const maxVal = Math.max(...values, 1);
@@ -5536,14 +5707,14 @@ function openAnalyticsBoard(status) {
 }
 
 function renderAnalytics() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   const monthStart = today.slice(0, 7) + '-01';
   if (!analyticsFrom) analyticsFrom = monthStart;
   if (!analyticsTo) analyticsTo = today;
 
   const entries = getAnalyticsEntries();
   const totalH = sum(entries.map(e => e.hours));
-  const totalEarned = sum(entries.map(e => calcEntryAmount(e.projectId, e.hours)));
+  const totalEarned = sum(entries.map(e => calcSavedEntryAmount(e)));
   const daysWithWork = new Set(entries.map(e => e.date)).size;
   const avgDaily = daysWithWork > 0 ? totalEarned / daysWithWork : 0;
 
@@ -5551,7 +5722,7 @@ function renderAnalytics() {
   entries.forEach(e => {
     if (!byProject[e.projectId]) byProject[e.projectId] = { hours: 0, earned: 0 };
     byProject[e.projectId].hours += e.hours;
-    byProject[e.projectId].earned += calcEntryAmount(e.projectId, e.hours);
+    byProject[e.projectId].earned += calcSavedEntryAmount(e);
   });
 
   let tasks = state.boardTasks;
@@ -5641,7 +5812,7 @@ function updateAnalytics() {
 }
 
 function setAnalyticsPeriod(period) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   const now = new Date();
   if (period === 'week') {
     const w = getWeekDates();
@@ -5652,7 +5823,7 @@ function setAnalyticsPeriod(period) {
     analyticsTo = today;
   } else if (period === 'quarter') {
     const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-    analyticsFrom = qStart.toISOString().slice(0, 10);
+    analyticsFrom = toDateStr(qStart);
     analyticsTo = today;
   } else if (period === 'year') {
     analyticsFrom = now.getFullYear() + '-01-01';
@@ -5716,7 +5887,7 @@ function shiftPlanningMonth(delta) {
 function setPlanningViewMode(mode) {
   planningViewMode = mode;
   if (mode === 'day' && !planningSelectedDate) {
-    planningSelectedDate = new Date().toISOString().slice(0, 10);
+    planningSelectedDate = toDateStr(new Date());
   }
   renderPage();
 }
@@ -5729,7 +5900,7 @@ function goToPlanningDay(dateStr) {
   renderPage();
 }
 function shiftPlanningDay(delta) {
-  const base = planningSelectedDate || new Date().toISOString().slice(0, 10);
+  const base = planningSelectedDate || toDateStr(new Date());
   const d = new Date(base + 'T12:00:00');
   d.setDate(d.getDate() + delta);
   goToPlanningDay(toDateStr(d));
@@ -5737,7 +5908,7 @@ function shiftPlanningDay(delta) {
 function resetPlanningToToday() {
   planningWeekOffset = 0;
   planningMonthOffset = 0;
-  planningSelectedDate = new Date().toISOString().slice(0, 10);
+  planningSelectedDate = toDateStr(new Date());
   planningViewMode = 'month';
   planningTab = 'calendar';
   renderPage();
@@ -5804,7 +5975,7 @@ function getWeekDatesFromOffset(offset) {
   for (let i = 0; i < 7; i++) {
     const d = new Date(mon);
     d.setDate(mon.getDate() + i);
-    dates.push(d.toISOString().slice(0, 10));
+    dates.push(toDateStr(d));
   }
   return { start: dates[0], end: dates[6], dates };
 }
@@ -5872,7 +6043,7 @@ function shiftPlanningWeek(delta) {
 function setPlanningTab(tab) {
   planningTab = tab;
   if (tab === 'calendar' && !planningSelectedDate) {
-    planningSelectedDate = new Date().toISOString().slice(0, 10);
+    planningSelectedDate = toDateStr(new Date());
   }
   renderPage();
 }
@@ -5980,7 +6151,7 @@ function clearScheduleDayOverride() {
   showToast('День сброшен к графику');
 }
 function openScheduleBlockModal(blockId) {
-  const dateStr = planningSelectedDate || new Date().toISOString().slice(0, 10);
+  const dateStr = planningSelectedDate || toDateStr(new Date());
   document.getElementById('schedule-block-date').value = dateStr;
   document.getElementById('schedule-block-id').value = blockId || '';
   const delBtn = document.getElementById('schedule-block-delete-btn');
@@ -6039,7 +6210,7 @@ function deleteScheduleBlock() {
   showToast('Блок удалён');
 }
 function renderPlanningDayCard(dateStr, compact) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   const planned = getPlannedHours(dateStr);
   const actual = getActualHours(dateStr);
   const delta = getScheduleDelta(dateStr);
@@ -6065,7 +6236,7 @@ function renderPlanningDayCard(dateStr, compact) {
   </div>`;
 }
 function renderPlanningMonthCell(dateStr, otherMonth) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   const planned = getPlannedHours(dateStr);
   const actual = getActualHours(dateStr);
   const delta = getScheduleDelta(dateStr);
@@ -6089,7 +6260,7 @@ function renderPlanningMonthCell(dateStr, otherMonth) {
 function renderPlanningMonthView() {
   const monthStr = getPlanningMonthStr();
   const grid = getMonthGrid(monthStr);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   const monthDates = getMonthDates(monthStr);
   let totalPlanned = 0, totalActual = 0, workDays = 0, offCount = 0;
   monthDates.forEach(d => {
@@ -6176,7 +6347,7 @@ function renderPlanningDayTimeline(dateStr) {
       ${escHtml((e.task || '').slice(0, 30))} · ${fmtHours(e.hours)}
     </div>`;
   }).join('');
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   let nowLine = '';
   if (dateStr === today) {
     const now = new Date();
@@ -6191,7 +6362,7 @@ function renderPlanningDayTimeline(dateStr) {
   </div>`;
 }
 function renderPlanningDayView() {
-  const dateStr = planningSelectedDate || new Date().toISOString().slice(0, 10);
+  const dateStr = planningSelectedDate || toDateStr(new Date());
   const planned = getPlannedHours(dateStr);
   const actual = getActualHours(dateStr);
   const delta = getScheduleDelta(dateStr);
@@ -6262,7 +6433,7 @@ function renderPlanningCalendarView() {
 }
 function renderPlanningWeekView() {
   const week = getWeekDatesFromOffset(planningWeekOffset);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   let totalPlanned = 0, totalActual = 0;
   week.dates.forEach(d => { totalPlanned += getPlannedHours(d); totalActual += getActualHours(d); });
   const totalDelta = Math.round((totalActual - totalPlanned) * 100) / 100;
@@ -6361,7 +6532,7 @@ function renderPlanningStatsView() {
   const week = getWeekDatesFromOffset(planningWeekOffset);
   const monthStr = getPlanningMonthStr();
   const monthDates = getMonthDates(monthStr);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   let weekPlanned = 0, weekActual = 0, monthPlanned = 0, monthActual = 0;
   let overDays = 0, underDays = 0, hitDays = 0, offDays = 0;
   week.dates.forEach(d => {
@@ -6511,7 +6682,7 @@ function getReportTitleInput() {
 function buildTelegramReportText(entries, title) {
   const groups = groupEntriesByProject(entries);
   const totalH = sum(entries.map(e => e.hours));
-  const totalAmount = entries.reduce((acc, e) => acc + calcEntryAmount(e.projectId, e.hours), 0);
+  const totalAmount = entries.reduce((acc, e) => acc + calcSavedEntryAmount(e), 0);
   const reportTitleLine = title || getDefaultReportTitle(reportProject || null);
   const lines = [];
 
@@ -6555,7 +6726,7 @@ function collectReport() {
   reportTitle = title;
   const text = buildTelegramReportText(entries, title);
   const totalHours = sum(entries.map(e => e.hours));
-  const totalAmount = entries.reduce((acc, e) => acc + calcEntryAmount(e.projectId, e.hours), 0);
+  const totalAmount = entries.reduce((acc, e) => acc + calcSavedEntryAmount(e), 0);
   const entryIds = entries.map(e => e.id);
   const report = {
     id: uid(),
@@ -6587,20 +6758,19 @@ function collectReport() {
 async function markReportPaid(reportId) {
   const report = state.reports.find(r => r.id === reportId);
   if (!report || report.status === 'paid') return;
-  if (!confirm('Отметить отчёт как оплаченный? Все записи и связанные задачи уйдут в архив.')) return;
+  if (!confirm('Отметить отчёт как оплаченный? Сумма отчёта будет зачтена как полученный платёж, записи и связанные задачи уйдут в архив.')) return;
 
   report.status = 'paid';
   report.paidAt = Date.now();
 
   const entryIds = new Set(report.entryIds || []);
   const taskIds = new Set();
+  const reportEntries = state.entries.filter(e => entryIds.has(e.id));
 
-  state.entries.forEach(e => {
-    if (entryIds.has(e.id)) {
-      e.archived = true;
-      if (e.taskId) taskIds.add(e.taskId);
-      if (sb.isEnabled()) sb.upsertEntry(e);
-    }
+  reportEntries.forEach(e => {
+    e.archived = true;
+    if (e.taskId) taskIds.add(e.taskId);
+    if (sb.isEnabled()) sb.upsertEntry(e);
   });
 
   state.boardTasks.forEach(t => {
@@ -6611,13 +6781,80 @@ async function markReportPaid(reportId) {
     }
   });
 
+  // Record the report's amount as a received payment, per project, so it's
+  // tracked instead of just vanishing from lifetime earnings when archived.
+  groupEntriesByProject(reportEntries).forEach(g => {
+    const amount = g.entries.reduce((acc, e) => acc + calcSavedEntryAmount(e), 0);
+    if (amount <= 0) return;
+    const payment = {
+      id: uid(),
+      projectId: g.projectId || null,
+      amount,
+      date: toDateStr(new Date(report.paidAt)),
+      from: report.from || null,
+      to: report.to || null,
+      note: `Оплата по отчёту${report.title ? ' «' + report.title + '»' : ''}`,
+      reportId: report.id,
+      createdAt: report.paidAt
+    };
+    state.payments.unshift(payment);
+    if (sb.isEnabled()) sb.upsertPayment(payment);
+  });
+
   save();
   if (sb.isEnabled()) {
     sb.upsertReport(report);
     await sb.flushWrites();
   }
   renderPage();
-  showToast('Отчёт оплачен, задачи в архиве');
+  showToast('Отчёт оплачен: сумма учтена в платежах, задачи в архиве');
+}
+
+async function unmarkReportPaid(reportId) {
+  const report = state.reports.find(r => r.id === reportId);
+  if (!report || report.status !== 'paid') return;
+  if (!confirm('Отменить отметку «оплачено»? Связанный платёж будет удалён, записи и задачи вернутся из архива.')) return;
+
+  report.status = 'unpaid';
+  report.paidAt = null;
+
+  const entryIds = new Set(report.entryIds || []);
+  const taskIds = new Set();
+  state.entries.forEach(e => {
+    if (entryIds.has(e.id)) {
+      e.archived = false;
+      if (e.taskId) taskIds.add(e.taskId);
+      if (sb.isEnabled()) sb.upsertEntry(e);
+    }
+  });
+
+  // Only bring a task back out of the archive if none of its other entries
+  // still belong to a different report that's still marked paid.
+  taskIds.forEach(taskId => {
+    const t = getBoardTask(taskId);
+    if (!t) return;
+    const stillPaidElsewhere = state.entries.some(e =>
+      e.taskId === taskId && e.archived && e.reportId && e.reportId !== reportId &&
+      state.reports.find(r => r.id === e.reportId)?.status === 'paid'
+    );
+    if (!stillPaidElsewhere) {
+      t.archived = false;
+      t.updatedAt = Date.now();
+      if (sb.isEnabled()) sb.upsertBoardTask(t);
+    }
+  });
+
+  const payments = state.payments.filter(p => p.reportId === reportId);
+  state.payments = state.payments.filter(p => p.reportId !== reportId);
+  payments.forEach(p => { if (sb.isEnabled()) sb.deletePayment(p.id); });
+
+  save();
+  if (sb.isEnabled()) {
+    sb.upsertReport(report);
+    await sb.flushWrites();
+  }
+  renderPage();
+  showToast('Отметка «оплачено» снята, записи и платёж возвращены');
 }
 
 async function deleteReport(reportId) {
@@ -6668,14 +6905,14 @@ async function copyReportText(reportId) {
 }
 
 function renderReports() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = toDateStr(new Date());
   const monthStart = today.slice(0,7)+'-01';
   if (!reportFrom) reportFrom = monthStart;
   if (!reportTo) reportTo = today;
 
   const pendingEntries = getReportableEntries(reportFrom, reportTo, reportProject || null);
   const pendingH = sum(pendingEntries.map(e => e.hours));
-  const pendingAmount = pendingEntries.reduce((acc, e) => acc + calcEntryAmount(e.projectId, e.hours), 0);
+  const pendingAmount = pendingEntries.reduce((acc, e) => acc + calcSavedEntryAmount(e), 0);
 
   const sortedReports = [...state.reports].sort((a, b) => b.createdAt - a.createdAt);
   const unpaidCount = sortedReports.filter(r => r.status === 'unpaid').length;
@@ -6739,7 +6976,7 @@ function renderReports() {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           Копировать
         </button>
-        ${selected.status === 'unpaid' ? `<button class="btn btn-ghost btn-sm" style="color:var(--green)" onclick="markReportPaid('${selected.id}')">Оплачено</button>` : ''}
+        ${selected.status === 'unpaid' ? `<button class="btn btn-ghost btn-sm" style="color:var(--green)" onclick="markReportPaid('${selected.id}')">Оплачено</button>` : `<button class="btn btn-ghost btn-sm" style="color:var(--amber)" onclick="unmarkReportPaid('${selected.id}')">Отменить оплату</button>`}
         ${selected.status === 'unpaid' ? `<button class="btn-icon" onclick="deleteReport('${selected.id}')" style="color:var(--red)" title="Удалить"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>` : ''}
       </div>
     </div>
@@ -6764,7 +7001,7 @@ function renderReports() {
           </div>
           <div class="report-card-actions" onclick="event.stopPropagation()">
             <button class="btn btn-ghost btn-sm" onclick="copyReportText('${r.id}')">Копировать</button>
-            ${r.status === 'unpaid' ? `<button class="btn btn-ghost btn-sm" style="color:var(--green)" onclick="markReportPaid('${r.id}')">Оплачено</button>` : ''}
+            ${r.status === 'unpaid' ? `<button class="btn btn-ghost btn-sm" style="color:var(--green)" onclick="markReportPaid('${r.id}')">Оплачено</button>` : `<button class="btn btn-ghost btn-sm" style="color:var(--amber)" onclick="unmarkReportPaid('${r.id}')">Отменить</button>`}
           </div>
         </div>
       </div>`;
@@ -6798,7 +7035,7 @@ function updateReport() {
   renderPage();
 }
 function setReportPeriod(period) {
-  const today = new Date().toISOString().slice(0,10);
+  const today = toDateStr(new Date());
   if (period==='week') { const w=getWeekDates(); reportFrom=w.start; reportTo=w.end; }
   else if (period==='month') { reportFrom=today.slice(0,7)+'-01'; reportTo=today; }
   else if (period==='all') { reportFrom='2020-01-01'; reportTo=today; }
@@ -6853,7 +7090,7 @@ function renderPayments() {
   <div class="card mb16">
     ${state.projects.filter(p=>p.rate).map(p=>{
       const hrs=sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
-      const earned=hrs*(p.rate||0);
+      const earned=getProjectEarned(p.id);
       const paid=sum(state.payments.filter(pay=>pay.projectId===p.id).map(pay=>pay.amount));
       const pct=earned>0?Math.min(100,Math.round(paid/earned*100)):0;
       return `<div style="margin-bottom:16px" class="payment-status-row">
@@ -6926,7 +7163,10 @@ function calcEntryHoursFromTimes() {
   if (mins < 0) mins += 24 * 60;
   const raw = mins / 60;
   const el = document.getElementById('entry-hours');
-  if (el) el.value = roundBillableHours(raw) || Math.round(raw * 100) / 100;
+  // roundBillableHours can legitimately return 0 (short duration, "nearest"
+  // rounding, no minimum set) — showing that honestly beats falling back to
+  // an unrounded value that implies billable time which won't actually be billed.
+  if (el) el.value = roundBillableHours(raw);
   updateEntryBillablePreview();
 }
 
@@ -6953,18 +7193,64 @@ function updateEntryBillablePreview() {
   el.style.display = '';
 }
 
+// Populates the "link to board task" select in the add/edit entry modal for
+// the given project, optionally pre-selecting an already-linked task (edit mode).
+function populateEntryBoardTasks(projectId, selectedTaskId) {
+  const wrap = document.getElementById('entry-board-task-wrap');
+  const select = document.getElementById('entry-board-task');
+  if (!select) return;
+  select.innerHTML = '<option value="">— Новая задача (ввести текст ниже)</option>';
+  if (projectId) {
+    getProjectBoardTasks(projectId).filter(t => t.status !== 'done').forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.title + (t.status === 'in_progress' ? ' (в работе)' : '');
+      select.appendChild(opt);
+    });
+  }
+  select.value = selectedTaskId || '';
+  if (wrap) wrap.style.display = projectId && select.options.length > 1 ? 'block' : 'none';
+}
+function entryProjectChanged() {
+  const projectId = document.getElementById('entry-project')?.value || '';
+  const taskIdEl = document.getElementById('entry-task-id');
+  if (taskIdEl) taskIdEl.value = '';
+  populateEntryBoardTasks(projectId, '');
+  updateEntryBillablePreview();
+}
+function entryBoardTaskSelected() {
+  const taskId = document.getElementById('entry-board-task')?.value || '';
+  const taskIdEl = document.getElementById('entry-task-id');
+  const taskEl = document.getElementById('entry-task');
+  if (taskIdEl) taskIdEl.value = taskId;
+  if (taskId) {
+    const t = getBoardTask(taskId);
+    if (t && taskEl) taskEl.value = t.title;
+  }
+}
+function entryTaskTextChanged() {
+  const task = document.getElementById('entry-task')?.value.trim();
+  const select = document.getElementById('entry-board-task');
+  const taskIdEl = document.getElementById('entry-task-id');
+  if (select?.value && task !== getBoardTask(select.value)?.title) {
+    select.value = '';
+    if (taskIdEl) taskIdEl.value = '';
+  }
+}
+
 function openAddEntryModal() {
   document.getElementById('entry-modal-title').textContent = 'Добавить запись';
   document.getElementById('entry-edit-id').value = '';
   document.getElementById('entry-task-id').value = '';
   document.getElementById('entry-project').value = '';
   document.getElementById('entry-task').value = '';
-  document.getElementById('entry-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('entry-date').value = toDateStr(new Date());
   document.getElementById('entry-hours').value = '';
   document.getElementById('entry-start').value = '';
   document.getElementById('entry-end').value = '';
   document.getElementById('entry-notes').value = '';
   populateProjectSelects();
+  populateEntryBoardTasks('', '');
   updateEntryBillablePreview();
   openModal('modal-add-entry');
 }
@@ -6972,6 +7258,11 @@ function openAddEntryModal() {
 function editEntry(id) {
   const e = state.entries.find(x=>x.id===id);
   if (!e) return;
+  if (e.archived) { showToast('Запись входит в оплаченный отчёт, редактирование недоступно', 'error'); return; }
+  if (e.reportId) {
+    const report = state.reports.find(r => r.id === e.reportId);
+    if (report && !confirm(`Эта запись уже включена в отчёт «${report.title || 'без названия'}». Правка не обновит текст и суммы отчёта автоматически. Продолжить?`)) return;
+  }
   document.getElementById('entry-modal-title').textContent = 'Редактировать запись';
   document.getElementById('entry-edit-id').value = id;
   document.getElementById('entry-task-id').value = e.taskId || '';
@@ -6999,18 +7290,23 @@ function saveEntry() {
   if (!hours || hours <= 0) { showToast('Укажите время', 'error'); return; }
   const rawHours = hours;
   hours = roundBillableHours(hours);
+  if (hours <= 0) { showToast('Слишком мало времени', 'error'); return; }
   const editId = document.getElementById('entry-edit-id').value;
   let notes = document.getElementById('entry-notes').value;
   if (rawHours !== hours && !notes.includes('Фактически:')) {
     notes = (notes ? notes + ' · ' : '') + `Фактически: ${fmtDuration(rawHours)}`;
   }
+  const existingEntry = editId ? state.entries.find(e=>e.id===editId) : null;
+  const rate = (existingEntry && existingEntry.projectId === projectId && existingEntry.rate != null)
+    ? existingEntry.rate
+    : (getProject(projectId)?.rate || 0);
   const entry = {
-    id: editId || uid(), projectId, task, date, hours,
+    id: editId || uid(), projectId, task, date, hours, rate,
     taskId: document.getElementById('entry-task-id')?.value || null,
     start: document.getElementById('entry-start').value,
     end: document.getElementById('entry-end').value,
     notes,
-    createdAt: editId ? (state.entries.find(e=>e.id===editId)?.createdAt||Date.now()) : Date.now()
+    createdAt: existingEntry ? (existingEntry.createdAt||Date.now()) : Date.now()
   };
   const linkedTask = entry.taskId ? getBoardTask(entry.taskId) : null;
   if (linkedTask && linkedTask.status === 'todo') {
@@ -7033,8 +7329,14 @@ function saveEntry() {
 }
 
 function deleteEntry(id) {
-  if (!confirm('Удалить запись?')) return;
   const entry = state.entries.find(e => e.id === id);
+  if (entry?.archived) { showToast('Запись входит в оплаченный отчёт, удаление недоступно', 'error'); return; }
+  let msg = 'Удалить запись?';
+  if (entry?.reportId) {
+    const report = state.reports.find(r => r.id === entry.reportId);
+    if (report) msg = `Эта запись уже включена в отчёт «${report.title || 'без названия'}». Удаление не обновит текст и суммы отчёта автоматически. Удалить запись?`;
+  }
+  if (!confirm(msg)) return;
   state.entries = state.entries.filter(e=>e.id!==id);
   save();
   if (sb.isEnabled()) sb.deleteEntry(id);
@@ -7096,7 +7398,8 @@ function saveProject() {
     specFileName: projectSpecDraft.fileName,
     specFileMime: projectSpecDraft.fileMime,
     specFileData: projectSpecDraft.fileData,
-    createdAt: editId ? (getProject(editId)?.createdAt||Date.now()) : Date.now()
+    createdAt: editId ? (getProject(editId)?.createdAt||Date.now()) : Date.now(),
+    updatedAt: Date.now()
   };
   if (editId) {
     const old = getProject(editId);
@@ -7283,7 +7586,7 @@ function viewProjectOverview(id) {
   const hrs = getProjectHours(p.id);
   const entries = state.entries.filter(e => e.projectId === p.id && !e.archived);
   const tasks = getProjectBoardTasks(p.id);
-  const earned = hrs * (p.rate || 0);
+  const earned = getProjectEarned(p.id);
   const statusMap = { active: ['badge-green', 'Активный'], paused: ['badge-amber', 'Пауза'], done: ['badge-gray', 'Завершён'] };
   const [badgeClass, statusLabel] = statusMap[p.status] || statusMap.active;
   const color = p.color || '#059669';
@@ -7345,7 +7648,7 @@ function closeProjectOverview() {
 function openPaymentModal() {
   document.getElementById('payment-edit-id').value = '';
   document.getElementById('payment-amount').value = '';
-  document.getElementById('payment-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('payment-date').value = toDateStr(new Date());
   document.getElementById('payment-from').value = '';
   document.getElementById('payment-to').value = '';
   document.getElementById('payment-note').value = '';
@@ -7374,6 +7677,7 @@ function savePayment() {
   if (!amount || amount<=0) { showToast('Укажите сумму','error'); return; }
   if (!date) { showToast('Укажите дату','error'); return; }
   const editId = document.getElementById('payment-edit-id').value;
+  const existingPayment = editId ? state.payments.find(p=>p.id===editId) : null;
   const payment = {
     id: editId||uid(),
     projectId: document.getElementById('payment-project').value||null,
@@ -7381,7 +7685,8 @@ function savePayment() {
     from: document.getElementById('payment-from').value,
     to: document.getElementById('payment-to').value,
     note: document.getElementById('payment-note').value,
-    createdAt: Date.now()
+    createdAt: existingPayment ? (existingPayment.createdAt||Date.now()) : Date.now(),
+    updatedAt: Date.now()
   };
   if (editId) { const idx=state.payments.findIndex(p=>p.id===editId); if(idx>=0)state.payments[idx]=payment; }
   else state.payments.unshift(payment);
@@ -7479,7 +7784,7 @@ function applyDefaultRateToProjects() {
   if (!rate) { showToast('Сначала укажите ставку', 'error'); return; }
   let count = 0;
   state.projects.forEach(p => {
-    if (!p.rate) { p.rate = rate; count++; }
+    if (!p.rate) { p.rate = rate; p.updatedAt = Date.now(); count++; }
   });
   if (!count) { showToast('У всех проектов уже есть ставка'); return; }
   save();
@@ -8178,7 +8483,7 @@ function exportData() {
   const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, settings: state.settings, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `timelog-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  a.download = `timelog-backup-${toDateStr(new Date())}.json`; a.click();
 }
 function importData(e) {
   const file = e.target.files[0]; if (!file) return;
@@ -8240,13 +8545,10 @@ function getWeekDates() {
   const now = new Date(); const day = now.getDay();
   const mon = new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1));
   const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-  return { start: mon.toISOString().slice(0,10), end: sun.toISOString().slice(0,10) };
+  return { start: toDateStr(mon), end: toDateStr(sun) };
 }
 function calcTotalEarned() {
-  return sum(state.projects.map(p=>{
-    const hrs=sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
-    return hrs*(p.rate||0);
-  }));
+  return sum(state.projects.map(p => getProjectEarned(p.id)));
 }
 function calcUnpaid() {
   return Math.max(0, calcTotalEarned() - sum(state.payments.map(p=>p.amount)));
@@ -8412,9 +8714,19 @@ applyDockerConfig();
 
     if (auth.isLoggedIn()) {
       let sessionOk = true;
+      let offline = false;
       if (auth.useServerAuth()) {
         const sessionResult = await bootWithTimeout(auth.ensureSession(auth.getLogin()), 8000);
-        sessionOk = sessionResult !== 'timeout' && !!sessionResult;
+        // A timeout or a network failure isn't proof the session is dead —
+        // just that we couldn't ask. Let the user in with cached local data
+        // instead of forcing a re-login that would fail anyway while offline;
+        // only a confirmed `false` (server actually said no) forces re-login.
+        if (sessionResult === 'timeout' || sessionResult === 'network') {
+          sessionOk = true;
+          offline = true;
+        } else {
+          sessionOk = !!sessionResult;
+        }
       }
       if (auth.useServerAuth() && !sessionOk) {
         if (!appStarted) {
@@ -8428,6 +8740,7 @@ applyDockerConfig();
         load();
         applyDockerConfig();
         authSuccess();
+        if (offline) showToast('Нет соединения с сервером — работаем с локальными данными', 'error');
       }
       return;
     }

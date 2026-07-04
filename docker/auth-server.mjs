@@ -554,10 +554,14 @@ async function applySyncPush(login, body) {
       }
     }
     if (body.timer) {
+      // Also covers the "clear timer" case: the client now sends the
+      // already-stopped row (running: false) with a fresh updated_at instead
+      // of relying on a bare delete, so other devices can tell a genuine stop
+      // apart from a stale cached "still running" state by timestamp alone.
       await upsertTimerRow(client, login, body.timer);
-    }
-    if (body.clearTimer) {
-      await client.query('DELETE FROM active_timer WHERE id = $1', [login]);
+    } else if (body.clearTimer) {
+      // Fallback for older clients that send clearTimer without a row.
+      await upsertTimerRow(client, login, { id: login, running: false, updated_at: new Date().toISOString() });
     }
     for (const del of body.deletes || []) {
       if (!del?.table || !UPSERT_HANDLERS[del.table]) continue;
@@ -587,6 +591,13 @@ async function claimLegacyData(login, legacyLogin = 'default') {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Serialize concurrent claims against the same legacy account: without
+    // this, two callers can both pass the "not claimed yet" checks below
+    // before either commits, and the second one gets told it succeeded even
+    // though the first already reassigned everything. The lock blocks the
+    // second transaction here until the first commits, so its checks below
+    // then correctly see the post-claim state.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [legacyLogin]);
     const hasOwn = await client.query(
       'SELECT 1 FROM projects WHERE user_login = $1 LIMIT 1',
       [login]
