@@ -6627,9 +6627,8 @@ function getReportableEntries(from, to, projectId) {
 }
 
 function fmtDateShort(d) {
-  if (!d) return '';
-  const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  const dt = parseDateOnly(d);
+  return dt ? dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '';
 }
 
 function pluralRu(n, one, few, many) {
@@ -8539,8 +8538,16 @@ function fmtMoneyLive(n) {
   const cur = state.settings?.currency || 'RUB';
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: cur, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
-function fmtDate(d) { if(!d) return ''; const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}); }
-function fmtDateLong(d) { if(!d) return ''; const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'}); }
+// Accepts a plain "YYYY-MM-DD" or a legacy full ISO timestamp stored as the
+// date (older/migrated data) — slicing to the first 10 chars handles both.
+// Falls back to '' instead of leaking a literal "Invalid Date" into the UI.
+function parseDateOnly(d) {
+  if (!d) return null;
+  const dt = new Date(String(d).slice(0, 10) + 'T00:00:00');
+  return isNaN(dt.getTime()) ? null : dt;
+}
+function fmtDate(d) { const dt = parseDateOnly(d); return dt ? dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}) : ''; }
+function fmtDateLong(d) { const dt = parseDateOnly(d); return dt ? dt.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'}) : ''; }
 function getWeekDates() {
   const now = new Date(); const day = now.getDay();
   const mon = new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1));
