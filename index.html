@@ -3042,6 +3042,43 @@ function coerceNumericFields() {
   state.boardTasks.forEach(t => { t.position = Number(t.position) || 0; });
 }
 
+// A report marked paid before markReportPaid() started auto-booking a
+// payment for it has no payment record — combined with lifetime-earnings
+// now correctly including archived entries, that money looks unpaid again
+// even though the report says "paid". Backfill the missing payment once.
+function backfillPaidReportPayments() {
+  let changed = false;
+  state.reports.forEach(r => {
+    if (r.status !== 'paid') return;
+    if (state.payments.some(p => p.reportId === r.id)) return;
+    const entryIds = new Set(r.entryIds || []);
+    const reportEntries = state.entries.filter(e => entryIds.has(e.id));
+    const paidAt = r.paidAt || r.createdAt || Date.now();
+    const bookPayment = (projectId, amount) => {
+      if (!(amount > 0)) return;
+      const payment = {
+        id: uid(), projectId: projectId || null, amount,
+        date: toDateStr(new Date(paidAt)), from: r.from || null, to: r.to || null,
+        note: `Оплата по отчёту${r.title ? ' «' + r.title + '»' : ''}`,
+        reportId: r.id, createdAt: paidAt
+      };
+      state.payments.unshift(payment);
+      if (sb.isEnabled()) sb.upsertPayment(payment);
+      changed = true;
+    };
+    if (reportEntries.length) {
+      groupEntriesByProject(reportEntries).forEach(g => {
+        bookPayment(g.projectId, g.entries.reduce((acc, e) => acc + calcSavedEntryAmount(e), 0));
+      });
+    } else {
+      // Entries are gone (deleted since) — fall back to the report's own
+      // frozen total so the payment still gets booked.
+      bookPayment(r.projectId, r.totalAmount || 0);
+    }
+  });
+  if (changed) save();
+}
+
 function applyLocalData(d) {
   state.projects = d.projects || [];
   state.entries  = d.entries  || [];
@@ -3049,6 +3086,7 @@ function applyLocalData(d) {
   state.boardTasks = d.boardTasks || [];
   state.reports = d.reports || [];
   coerceNumericFields();
+  backfillPaidReportPayments();
   state.schedule = normalizeSchedule(d.schedule);
   state.timer    = normalizeTimer(d.timer);
   if (d.settings) {
