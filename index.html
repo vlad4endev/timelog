@@ -3030,12 +3030,25 @@ function pruneTombstones() {
   }
 }
 
+// A past sync could have written numbers as strings into localStorage (see
+// rowToEntry/rowToProject/etc.) before that was fixed — coerce on load so
+// already-affected local data self-heals instead of staying broken until
+// every entry happens to get re-synced or re-edited.
+function coerceNumericFields() {
+  state.entries.forEach(e => { e.hours = Number(e.hours) || 0; if (e.rate != null) e.rate = Number(e.rate); });
+  state.projects.forEach(p => { p.rate = Number(p.rate) || 0; if (p.maxHours) p.maxHours = Number(p.maxHours) || 0; });
+  state.payments.forEach(p => { p.amount = Number(p.amount) || 0; });
+  state.reports.forEach(r => { r.totalHours = Number(r.totalHours) || 0; r.totalAmount = Number(r.totalAmount) || 0; });
+  state.boardTasks.forEach(t => { t.position = Number(t.position) || 0; });
+}
+
 function applyLocalData(d) {
   state.projects = d.projects || [];
   state.entries  = d.entries  || [];
   state.payments = d.payments || [];
   state.boardTasks = d.boardTasks || [];
   state.reports = d.reports || [];
+  coerceNumericFields();
   state.schedule = normalizeSchedule(d.schedule);
   state.timer    = normalizeTimer(d.timer);
   if (d.settings) {
@@ -3531,7 +3544,7 @@ const sb = {
       const overrides = { ...state.schedule.overrides };
       for (const r of payload.schedule_overrides) {
         if (!shouldKeepLocal('schedule_overrides', r.date)) {
-          overrides[r.date] = { type: r.type, hours: r.hours, note: r.note || '' };
+          overrides[r.date] = { type: r.type, hours: r.hours != null ? Number(r.hours) : null, note: r.note || '' };
         }
       }
       state.schedule.overrides = overrides;
@@ -3600,24 +3613,29 @@ const sb = {
   },
   rowToProject(r) {
     return {
-      id: r.id, name: r.name, client: r.client||'', rate: r.rate||0, color: r.color||'#059669',
+      id: r.id, name: r.name, client: r.client||'', rate: Number(r.rate)||0, color: r.color||'#059669',
       status: r.status||'active', desc: r.description||'', maxHours: r.max_hours > 0 ? Number(r.max_hours) : 0,
       specText: r.spec_text || '', specFileName: r.spec_file_name || '', specFileMime: r.spec_file_mime || '',
       specFileData: r.spec_file_data || '', createdAt: new Date(r.created_at).getTime(),
       updatedAt: new Date(r.updated_at || r.created_at).getTime()
     };
   },
+  // PostgREST serializes `numeric`/`bigint` columns as JSON strings (to avoid
+  // float precision loss), not JSON numbers — Number()/parseFloat() below are
+  // required, not decorative. Without them, `+`/reduce-based sums silently
+  // concatenate ("3"+"5"+"4" -> "354") while `*`/`-` happen to auto-coerce
+  // and mask the bug, which is why only totals broke and money looked fine.
   rowToEntry(r) {
-    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: r.hours, rate: r.rate ?? null, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, reportId: r.report_id||null, archived: !!r.archived, createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: Number(r.hours) || 0, rate: r.rate != null ? Number(r.rate) : null, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, reportId: r.report_id||null, archived: !!r.archived, createdAt: new Date(r.created_at).getTime() };
   },
   rowToPayment(r) {
-    return { id: r.id, projectId: r.project_id||null, amount: r.amount, date: r.date, from: r.period_from||'', to: r.period_to||'', note: r.note||'', reportId: r.report_id||null, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at || r.created_at).getTime() };
+    return { id: r.id, projectId: r.project_id||null, amount: Number(r.amount) || 0, date: r.date, from: r.period_from||'', to: r.period_to||'', note: r.note||'', reportId: r.report_id||null, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at || r.created_at).getTime() };
   },
   rowToBoardTask(r) {
-    return { id: r.id, projectId: r.project_id, title: r.title, desc: r.description||'', status: r.status||'todo', position: r.position||0, priority: r.priority||'medium', archived: !!r.archived, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
+    return { id: r.id, projectId: r.project_id, title: r.title, desc: r.description||'', status: r.status||'todo', position: Number(r.position)||0, priority: r.priority||'medium', archived: !!r.archived, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
   },
   rowToReport(r) {
-    return { id: r.id, title: r.title||'', from: r.period_from, to: r.period_to, projectId: r.project_id||null, entryIds: r.entry_ids||[], text: r.text||'', totalHours: r.total_hours||0, totalAmount: r.total_amount||0, status: r.status||'unpaid', paidAt: r.paid_at ? new Date(r.paid_at).getTime() : null, createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, title: r.title||'', from: r.period_from, to: r.period_to, projectId: r.project_id||null, entryIds: r.entry_ids||[], text: r.text||'', totalHours: Number(r.total_hours)||0, totalAmount: Number(r.total_amount)||0, status: r.status||'unpaid', paidAt: r.paid_at ? new Date(r.paid_at).getTime() : null, createdAt: new Date(r.created_at).getTime() };
   },
   rowToBlock(r) {
     return { id: r.id, date: r.date, start: r.start_time, end: r.end_time, title: r.title || '', note: r.note || '', createdAt: new Date(r.created_at).getTime() };
@@ -3633,9 +3651,9 @@ const sb = {
   rowToTimer(r) {
     if (!r) return normalizeTimer({});
     return normalizeTimer({
-      running: !!r.running, startTime: r.start_time || null, projectId: r.project_id || null,
+      running: !!r.running, startTime: r.start_time != null ? Number(r.start_time) : null, projectId: r.project_id || null,
       task: r.task || '', taskId: r.task_id || null, paused: !!r.paused,
-      pausedMs: r.paused_ms || 0, pauseStart: r.pause_start || null,
+      pausedMs: Number(r.paused_ms) || 0, pauseStart: r.pause_start != null ? Number(r.pause_start) : null,
       updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : 0
     });
   },
@@ -3913,6 +3931,13 @@ function normalizeTimer(timer) {
     running: false, startTime: null, projectId: null, task: '', taskId: null,
     paused: false, pausedMs: 0, pauseStart: null, updatedAt: 0
   }, timer || {});
+  // Guard against timestamps/durations persisted as strings (localStorage
+  // from before a fix, or a raw server row) — arithmetic on them should
+  // always be numeric, not string concatenation.
+  t.startTime = t.startTime != null ? Number(t.startTime) : null;
+  t.pausedMs = Number(t.pausedMs) || 0;
+  t.pauseStart = t.pauseStart != null ? Number(t.pauseStart) : null;
+  t.updatedAt = Number(t.updatedAt) || 0;
   if (t.running && !t.updatedAt) t.updatedAt = t.startTime || Date.now();
   return t;
 }
@@ -5955,9 +5980,14 @@ function getDefaultSchedule() {
 function normalizeSchedule(s) {
   const d = getDefaultSchedule();
   if (!s) return d;
+  const overrides = Object.assign({}, s.overrides || {});
+  for (const key of Object.keys(overrides)) {
+    const o = overrides[key];
+    if (o && o.hours != null) overrides[key] = { ...o, hours: Number(o.hours) };
+  }
   return {
     weekTemplate: Object.assign({}, d.weekTemplate, s.weekTemplate || {}),
-    overrides: Object.assign({}, s.overrides || {}),
+    overrides,
     blocks: Array.isArray(s.blocks) ? s.blocks.slice() : []
   };
 }
