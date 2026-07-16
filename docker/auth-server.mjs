@@ -381,7 +381,15 @@ async function upsertProjectRow(client, login, r) {
       color = EXCLUDED.color, status = EXCLUDED.status, description = EXCLUDED.description,
       max_hours = EXCLUDED.max_hours, spec_text = EXCLUDED.spec_text,
       spec_file_name = EXCLUDED.spec_file_name, spec_file_mime = EXCLUDED.spec_file_mime,
-      spec_file_data = EXCLUDED.spec_file_data, user_login = EXCLUDED.user_login`,
+      -- The client no longer keeps the base64 attachment in its localStorage
+      -- copy (it blew the quota), so after a reload it may push the project
+      -- with the attachment name still set but data null. Treat that as "keep
+      -- the existing blob"; a genuine removal clears the name too, so null
+      -- name + null data still nulls it.
+      spec_file_data = CASE
+        WHEN EXCLUDED.spec_file_name IS NOT NULL AND EXCLUDED.spec_file_data IS NULL
+        THEN projects.spec_file_data ELSE EXCLUDED.spec_file_data END,
+      user_login = EXCLUDED.user_login`,
     [
       r.id, r.name, r.client ?? null, r.rate ?? 0, r.color ?? '#059669',
       r.status ?? 'active', r.description ?? null, r.max_hours ?? null,

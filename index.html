@@ -3242,13 +3242,29 @@ function scheduleUserSettingsSync(immediate = false) {
   userSettingsSyncTimer = setTimeout(run, 0);
 }
 
+let saveQuotaWarned = false;
 function save(opts = {}) {
   try {
     const login = auth.getLogin();
-    const d = { projects: state.projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings, entityLocalEdits, tombstones: state.tombstones };
+    // ponytail: strip multi-MB base64 spec attachments from the localStorage
+    // copy — they're the only unbounded field, kept in memory this session and
+    // synced to the server, and inlining them here was blowing the ~5MB quota
+    // and silently failing EVERY save (root cause of "nothing saves / lost
+    // data"). Server pull rehydrates specFileData via rowToProject on reload.
+    const projects = state.projects.map(p => p.specFileData ? { ...p, specFileData: '' } : p);
+    const d = { projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings, entityLocalEdits, tombstones: state.tombstones };
     localStorage.setItem(auth.dataKey(login), JSON.stringify(d));
+    saveQuotaWarned = false;
     scheduleUserSettingsSync(!!opts.syncSettingsNow);
-  } catch(e) {}
+  } catch(e) {
+    console.error('save failed:', e);
+    // Never fail silently — a swallowed quota error meant the user kept
+    // working while nothing persisted. Warn once so they know to sync/free space.
+    if (!saveQuotaWarned) {
+      saveQuotaWarned = true;
+      try { showToast('Не удалось сохранить локально — данные могут не сохраниться. Проверьте синхронизацию.', 'error'); } catch(_) {}
+    }
+  }
 }
 function load() {
   try {
@@ -3490,6 +3506,8 @@ const sb = {
       for (const job of batch) {
         const key = job.type === 'delete'
           ? `del:${job.table}:${job.id || job.extra?.date}`
+          : job.type === 'clearTimer'
+          ? 'timer:clear'
           : `${job.table}:${job.id}`;
         this._writeQueue.set(key, job);
       }
