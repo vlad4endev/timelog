@@ -3355,47 +3355,46 @@ const sb = {
     } catch(e) { console.error('Supabase fetch error:', e); return null; }
   },
 
-  _commitQueuedWrite() {
-    if (this._suppressAutoFlush || this._flushScheduled) return;
-    this._flushScheduled = true;
-    queueMicrotask(() => {
-      this._flushScheduled = false;
-      void this.flushWrites().catch(e => console.error('sync flush failed', e));
-    });
+  // ─── Direct server writes — the server is the single source of truth ────
+  // No queue, no merge, no conflict resolution: each mutation is pushed
+  // straight to the server (atomic per-call via /auth/sync/push). The local
+  // state + localStorage are an optimistic mirror; the authoritative pull
+  // (on boot and on returning to the app) reconciles. A write the server
+  // rejects is surfaced honestly instead of silently vanishing — the whole
+  // class of "two writers disagree / queue drops it / quota eats it" is gone
+  // because there is only one writer path and one source of truth.
+  _serverWrites() { return auth.useServerAuth() && !!auth.getApiToken(); },
+
+  async _send(body) {
+    const res = await auth.authFetch('/auth/sync/push', body);
+    if (res?.status === 401) this._warnSessionExpired();
+    return !!res?.ok;
   },
 
-  _queueUpsert(table, id, row) {
-    const key = `${table}:${id}`;
-    this._dirtyKeys.add(key);
-    markEntityLocalEdit(table, id);
-    this._writeQueue.set(key, { type: 'upsert', table, id, row });
-    // Persist the "needs sync" marker right away — if the flush never
-    // completes (offline, tab closed) before this, the data itself is
-    // already safe in localStorage via the caller's save(), but without this
-    // the fact that it still needs pushing would only survive in memory.
-    save();
-    this._commitQueuedWrite();
+  _direct(body) {
+    save();                              // cache the optimistic change for instant boot
+    if (!this._serverWrites()) return;   // local-only mode (no server): the cache IS the truth
+    this._send(body)
+      .then(ok => { if (!ok) this._warnWriteFailed(); })
+      .catch(() => this._warnWriteFailed());
   },
 
-  _queueDelete(table, id, extra = null, tombstone = false) {
-    const entityKey = `${table}:${id || extra?.date}`;
-    const queueKey = `del:${entityKey}`;
-    this._dirtyKeys.add(entityKey);
-    markEntityLocalEdit(table, id || extra?.date);
-    this._writeQueue.set(queueKey, { type: 'delete', table, id, extra });
-    if (tombstone) addTombstone(table, id || extra?.date);
-    save();
-    this._commitQueuedWrite();
+  _warnWriteFailed() {
+    // Never silent: a write the server didn't accept must tell the user, so
+    // they know the change isn't safe yet. The next pull (focus/boot) shows
+    // authoritative server state. Debounced to one toast per burst.
+    clearTimeout(this._failTimer);
+    this._failTimer = setTimeout(() => {
+      showToast('Изменения не сохранены на сервере — проверьте связь.', 'error');
+    }, 400);
   },
 
-  _queueClearTimer() {
-    // Carry the (already-stopped, freshly-timestamped) timer row along so the
-    // server can upsert a "not running" row instead of deleting it outright —
-    // a delete loses the updatedAt, which is what other devices rely on to
-    // tell a genuine stop apart from a stale cached "still running" state.
-    this._writeQueue.set('timer:clear', { type: 'clearTimer', row: this.timerToRow(state.timer) });
-    this._commitQueuedWrite();
+  _queueUpsert(table, id, row) { this._direct({ upserts: { [table]: [row] } }); },
+  _queueDelete(table, id, extra = null) {
+    const del = extra?.date ? { table, date: extra.date } : { table, id };
+    this._direct({ deletes: [del] });
   },
+  _queueClearTimer() { this._direct({ timer: this.timerToRow(state.timer) }); },
 
   _pendingDeleteIds(table) {
     const ids = new Set();
@@ -3587,85 +3586,38 @@ const sb = {
     return results.every(r => r !== null);
   },
 
+  // Server is the single source of truth: replace local collections with what
+  // the server returns. No merge, no conflict resolution — the direct-write
+  // model means the server always holds the authoritative copy. (The caller,
+  // pullViaAuth/pull, guards against an RLS-misconfig empty response wiping
+  // real data BEFORE calling this.) The active timer is the one exception:
+  // it's merged by freshest updatedAt so a just-started-but-not-yet-pushed
+  // timer on this device isn't reverted by a racing pull.
   applyPullPayload(payload) {
-    const shouldKeepLocal = (table, id) => {
-      const key = `${table}:${id}`;
-      return this._dirtyKeys.has(key) || hasPendingLocalEdit(table, id);
-    };
-
-    const mergeList = (table, serverRows, toLocal, localArr, getTs = r => r.updatedAt || r.createdAt || 0) => {
-      if (serverRows === null || serverRows === undefined) return;
-      const pendingDel = this._pendingDeleteIds(table);
-      const localById = new Map(localArr.map(r => [r.id, r]));
-      const merged = new Map();
-
-      for (const sr of serverRows) {
-        if (pendingDel.has(sr.id)) continue;
-        if (isTombstoned(table, sr.id)) {
-          // We deleted this locally before and the server still (or again)
-          // has it — likely a stale push from another device racing our
-          // delete. Don't let it back into local state; re-assert the delete
-          // instead of just hiding it, so the two devices actually converge.
-          this._queueDelete(table, sr.id, null, true);
-          continue;
-        }
-        const serverItem = toLocal(sr);
-        const localItem = localById.get(serverItem.id);
-        if (shouldKeepLocal(table, serverItem.id)) {
-          if (localItem) merged.set(serverItem.id, localItem);
-          continue;
-        }
-        if (localItem && getTs(localItem) > getTs(serverItem)) {
-          merged.set(serverItem.id, localItem);
-        } else {
-          merged.set(serverItem.id, serverItem);
-        }
-      }
-
-      for (const localItem of localArr) {
-        if (pendingDel.has(localItem.id)) continue;
-        if (shouldKeepLocal(table, localItem.id) || !merged.has(localItem.id)) {
-          merged.set(localItem.id, localItem);
-        }
-      }
-
-      return [...merged.values()];
-    };
-
-    if (payload.projects !== undefined) {
-      state.projects = mergeList('projects', payload.projects, sb.rowToProject, state.projects) ?? state.projects;
+    if (payload.projects !== undefined) state.projects = (payload.projects || []).map(r => sb.rowToProject(r));
+    if (payload.time_entries !== undefined) state.entries = (payload.time_entries || []).map(r => sb.rowToEntry(r));
+    if (payload.payments !== undefined) state.payments = (payload.payments || []).map(r => sb.rowToPayment(r));
+    if (payload.board_tasks !== undefined) state.boardTasks = (payload.board_tasks || []).map(r => sb.rowToBoardTask(r));
+    if (payload.billing_reports !== undefined) state.reports = (payload.billing_reports || []).map(r => sb.rowToReport(r));
+    if (payload.active_timer !== undefined) {
+      state.timer = payload.active_timer ? mergeTimers(state.timer, sb.rowToTimer(payload.active_timer)) : state.timer;
     }
-    if (payload.time_entries !== undefined) {
-      state.entries = mergeList('time_entries', payload.time_entries, sb.rowToEntry, state.entries) ?? state.entries;
-    }
-    if (payload.payments !== undefined) {
-      state.payments = mergeList('payments', payload.payments, sb.rowToPayment, state.payments) ?? state.payments;
-    }
-    if (payload.board_tasks !== undefined) {
-      state.boardTasks = mergeList('board_tasks', payload.board_tasks, sb.rowToBoardTask, state.boardTasks) ?? state.boardTasks;
-    }
-    if (payload.billing_reports !== undefined) {
-      state.reports = mergeList('billing_reports', payload.billing_reports, sb.rowToReport, state.reports) ?? state.reports;
-    }
-    if (payload.active_timer !== undefined && payload.active_timer !== null && !this._dirtyKeys.has(`active_timer:${this.userId()}`)) {
-      state.timer = mergeTimers(state.timer, sb.rowToTimer(payload.active_timer));
-    }
-    if (payload.schedule_settings !== undefined && payload.schedule_settings?.week_template && !this._dirtyKeys.has(`schedule_settings:${this.userId()}`)) {
-      state.schedule.weekTemplate = Object.assign({}, getDefaultSchedule().weekTemplate, payload.schedule_settings.week_template);
+    if (payload.schedule_settings !== undefined) {
+      state.schedule.weekTemplate = payload.schedule_settings?.week_template
+        ? Object.assign({}, getDefaultSchedule().weekTemplate, payload.schedule_settings.week_template)
+        : getDefaultSchedule().weekTemplate;
     }
     if (payload.schedule_overrides !== undefined) {
-      const overrides = { ...state.schedule.overrides };
-      for (const r of payload.schedule_overrides) {
-        if (!shouldKeepLocal('schedule_overrides', r.date)) {
-          overrides[r.date] = { type: r.type, hours: r.hours != null ? Number(r.hours) : null, note: r.note || '' };
-        }
+      const overrides = {};
+      for (const r of (payload.schedule_overrides || [])) {
+        overrides[r.date] = { type: r.type, hours: r.hours != null ? Number(r.hours) : null, note: r.note || '' };
       }
       state.schedule.overrides = overrides;
     }
     if (payload.schedule_blocks !== undefined) {
-      state.schedule.blocks = mergeList('schedule_blocks', payload.schedule_blocks, sb.rowToBlock, state.schedule.blocks) ?? state.schedule.blocks;
+      state.schedule.blocks = (payload.schedule_blocks || []).map(r => sb.rowToBlock(r));
     }
-    if (payload.user_settings !== undefined && payload.user_settings?.settings && !this._dirtyKeys.has(`user_settings:${this.userId()}`)) {
+    if (payload.user_settings !== undefined && payload.user_settings?.settings) {
       applyRemoteUserSettings(payload.user_settings.settings);
     }
   },
@@ -3674,13 +3626,16 @@ const sb = {
     const res = await auth.authFetch('/auth/sync/pull');
     if (res?.status === 401) this._warnSessionExpired();
     if (!res?.ok) return null;
-    this.applyPullPayload(res);
-    if (res.projects?.length === 0 && auth.useServerAuth() && auth.getApiToken()) {
+    // Guard BEFORE replacing: an empty projects list from an RLS/proxy
+    // misconfig must not wipe real data. If the server actually holds rows,
+    // abort without touching local state.
+    if ((res.projects?.length || 0) === 0 && auth.getApiToken()) {
       const me = await auth.fetchSessionInfo();
       if (me && me.projectsInDb > 0) {
         return { ok: false, reason: 'rls_or_proxy', serverProjects: me.projectsInDb };
       }
     }
+    this.applyPullPayload(res);
     save();
     return { ok: true };
   },
@@ -3793,6 +3748,14 @@ const sb = {
     if (projects === null && auth.useServerAuth()) {
       return { ok: false, reason: 'api_error' };
     }
+    // Guard BEFORE replacing (server-wins): don't let an RLS/proxy empty
+    // response wipe real local data.
+    if (projects !== null && projects.length === 0 && auth.useServerAuth() && auth.getApiToken()) {
+      const me = await auth.fetchSessionInfo();
+      if (me && me.projectsInDb > 0) {
+        return { ok: false, reason: 'rls_or_proxy', serverProjects: me.projectsInDb };
+      }
+    }
     this.applyPullPayload({
       projects,
       time_entries: entries,
@@ -3805,12 +3768,6 @@ const sb = {
       schedule_blocks: scheduleBlocks,
       user_settings: userSettingsRow?.[0] || null,
     });
-    if (projects !== null && projects.length === 0 && auth.useServerAuth() && auth.getApiToken()) {
-      const me = await auth.fetchSessionInfo();
-      if (me && me.projectsInDb > 0) {
-        return { ok: false, reason: 'rls_or_proxy', serverProjects: me.projectsInDb };
-      }
-    }
     save();
     return { ok: true };
   },
@@ -3849,28 +3806,27 @@ const sb = {
   },
 
   async syncSchedule() {
-    this._suppressAutoFlush = true;
-    sb.upsertScheduleSettings(state.schedule);
-    Object.entries(state.schedule.overrides).forEach(([d, o]) => sb.upsertScheduleOverride(d, o));
-    state.schedule.blocks.forEach(b => sb.upsertScheduleBlock(b));
-    this._suppressAutoFlush = false;
-    return sb.flushWrites();
+    return this._send({ upserts: {
+      schedule_settings: [this.scheduleSettingsToRow(state.schedule)],
+      schedule_overrides: Object.entries(state.schedule.overrides).map(([d, o]) => this.overrideToRow(d, o)),
+      schedule_blocks: state.schedule.blocks.map(b => this.blockToRow(b)),
+    } });
   },
 
-  // Push all local data to Supabase (migration)
+  // Push the entire local dataset to the server in one atomic call — used only
+  // for the one-time legacy/local → server seed (see syncWithServer).
   async pushAll() {
-    this._suppressAutoFlush = true;
-    state.projects.forEach(p => sb.upsertProject(p));
-    state.entries.forEach(e => sb.upsertEntry(e));
-    state.payments.forEach(p => sb.upsertPayment(p));
-    state.boardTasks.forEach(t => sb.upsertBoardTask(t));
-    state.reports.forEach(r => sb.upsertReport(r));
-    sb.upsertScheduleSettings(state.schedule);
-    sb.upsertUserSettings();
-    Object.entries(state.schedule.overrides).forEach(([d, o]) => sb.upsertScheduleOverride(d, o));
-    state.schedule.blocks.forEach(b => sb.upsertScheduleBlock(b));
-    this._suppressAutoFlush = false;
-    return sb.flushWrites();
+    return this._send({ upserts: {
+      projects: state.projects.map(p => this.projectToRow(p)),
+      time_entries: state.entries.map(e => this.entryToRow(e)),
+      payments: state.payments.map(p => this.paymentToRow(p)),
+      board_tasks: state.boardTasks.map(t => this.boardTaskToRow(t)),
+      billing_reports: state.reports.map(r => this.reportToRow(r)),
+      schedule_settings: [this.scheduleSettingsToRow(state.schedule)],
+      user_settings: [this.userSettingsToRow()],
+      schedule_overrides: Object.entries(state.schedule.overrides).map(([d, o]) => this.overrideToRow(d, o)),
+      schedule_blocks: state.schedule.blocks.map(b => this.blockToRow(b)),
+    } });
   },
 
   isEnabled() { return state.settings.supabase.enabled && state.settings.supabase.url && state.settings.supabase.anonKey; }
@@ -3904,8 +3860,6 @@ async function refreshFromServer(options = {}) {
 
   serverSyncInFlight = (async () => {
     try {
-      sb.replayPendingEditsToQueue();
-      await sb.flushWrites();
       const pullResult = await sb.pull();
       lastServerSyncAt = Date.now();
       if (pullResult?.ok === false) {
@@ -3946,15 +3900,10 @@ function startBackgroundSync() {
   });
   window.addEventListener('focus', onAppResumeSync);
   window.addEventListener('pageshow', onAppResumeSync);
-  window.addEventListener('pagehide', () => {
-    if (sb.isEnabled()) sb.flushWrites().catch(() => {});
-  });
-  if (!serverSyncPollTimer) {
-    serverSyncPollTimer = setInterval(() => {
-      if (document.visibilityState !== 'visible' || !appStarted || !sb.isEnabled()) return;
-      refreshFromServer({ silent: true });
-    }, SERVER_SYNC_POLL_MS);
-  }
+  // No periodic poll: with direct writes the server is always authoritative,
+  // and a background poll would replace state mid-edit (flicker, and it could
+  // drop an optimistic change still in flight). We refresh only when the user
+  // returns to the app — focus/visibility/pageshow above.
 }
 
 async function syncWithServer(options = {}) {
@@ -8641,6 +8590,9 @@ function importData(e) {
       state.reports = d.reports || state.reports;
       state.schedule = normalizeSchedule(d.schedule);
       save(); renderPage(); showToast('Данные импортированы');
+      // Server is the source of truth — push the imported set up, else the
+      // next pull would replace it with the old server data.
+      if (sb.isEnabled()) sb.pushAll().then(ok => { if (!ok) showToast('Импорт не отправлен на сервер — проверьте связь', 'error'); });
     } catch { showToast('Ошибка формата файла', 'error'); }
   };
   r.readAsText(file);
@@ -8648,9 +8600,21 @@ function importData(e) {
 function clearAllData() {
   if (!confirm('Удалить ВСЕ данные? Это действие нельзя отменить.')) return;
   if (!confirm('Вы уверены? Все проекты, записи и платежи будут удалены.')) return;
+  // Capture ids BEFORE emptying so we can delete them on the server too —
+  // otherwise the next pull would re-populate everything from the server.
+  const dels = [
+    ...state.projects.map(p => ({ table: 'projects', id: p.id })),
+    ...state.reports.map(r => ({ table: 'billing_reports', id: r.id })),
+    ...state.payments.map(p => ({ table: 'payments', id: p.id })),
+    ...state.boardTasks.map(t => ({ table: 'board_tasks', id: t.id })),
+    ...state.entries.map(e => ({ table: 'time_entries', id: e.id })),
+    ...state.schedule.blocks.map(b => ({ table: 'schedule_blocks', id: b.id })),
+    ...Object.keys(state.schedule.overrides).map(date => ({ table: 'schedule_overrides', date })),
+  ];
   state.projects = []; state.entries = []; state.payments = []; state.boardTasks = []; state.reports = [];
   state.schedule = getDefaultSchedule();
   save(); renderPage(); showToast('Все данные удалены');
+  if (sb.isEnabled() && dels.length) sb._send({ deletes: dels }).then(ok => { if (!ok) showToast('Не удалось удалить на сервере — проверьте связь', 'error'); });
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────
