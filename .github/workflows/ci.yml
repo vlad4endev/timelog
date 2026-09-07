@@ -18,6 +18,8 @@ jobs:
           cache: npm
 
       - run: npm ci
+      # These regression suites existed but nothing ran them.
+      - run: npm test
       - run: cp .env.example .env && ./scripts/setup.sh
       - run: test -f apple-touch-icon.png && test -f icon-192.png && test -f icon-512.png && test -f native-bridge.js
       - run: grep -q '^ANON_KEY=eyJ' .env
@@ -47,4 +49,92 @@ jobs:
             -H "Authorization: Bearer ${ANON_KEY}")
           test "$code" = "401" -o "$code" = "403" -o "$code" = "200"
 
+      - name: Sync path — register, push, pull, cross-tenant write
+        run: |
+          set -euo pipefail
+          BASE=http://localhost:8080
+          reg() { curl -s -X POST "$BASE/auth/register" \
+            -H 'Content-Type: application/json' \
+            -d "{\"login\":\"$1\",\"password\":\"$2\"}"; }
+
+          A=$(reg ci-alice ci-password-1 | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          B=$(reg ci-bob   ci-password-2 | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          test -n "$A" && test -n "$B"
+
+          # A push that lists time_entries BEFORE its project. This used to
+          # abort on the FK and 500; the server now orders by dependency.
+          code=$(curl -s -o /tmp/push.json -w '%{http_code}' -X POST "$BASE/auth/sync/push" \
+            -H "Authorization: Bearer $A" -H 'Content-Type: application/json' \
+            -d '{"upserts":{"time_entries":[{"id":"e1","project_id":"p1","task":"t","date":"2026-01-05","hours":2}],"projects":[{"id":"p1","name":"P","rate":100}]}}')
+          echo "push=$code $(cat /tmp/push.json)"
+          test "$code" = "200"
+
+          curl -s "$BASE/auth/sync/pull" -H "Authorization: Bearer $A" > /tmp/pull.json
+          grep -q '"id":"p1"' /tmp/pull.json
+          grep -q '"id":"e1"' /tmp/pull.json
+
+          # Bob claims Alice's login on his own rows, and tries to overwrite
+          # her project by id. Neither may touch her data.
+          curl -s -o /dev/null -X POST "$BASE/auth/sync/push" \
+            -H "Authorization: Bearer $B" -H 'Content-Type: application/json' \
+            -d '{"upserts":{"projects":[{"id":"p1","name":"HIJACKED","rate":0,"user_login":"ci-alice"},{"id":"p2","name":"bob-owned","user_login":"ci-alice"}],"user_settings":[{"id":"ci-alice","settings":{"stolen":true}}]}}'
+
+          curl -s "$BASE/auth/sync/pull" -H "Authorization: Bearer $A" > /tmp/after.json
+          grep -q '"name":"P"' /tmp/after.json
+          ! grep -q 'HIJACKED' /tmp/after.json
+          ! grep -q 'bob-owned' /tmp/after.json
+          ! grep -q 'stolen'   /tmp/after.json
+          echo "✓ cross-tenant writes rejected"
+
+      - name: Attachments are excluded from the bulk pull, fetched per project
+        run: |
+          set -euo pipefail
+          BASE=http://localhost:8080
+          A=$(curl -s -X POST "$BASE/auth/token" -H 'Content-Type: application/json' \
+            -d '{"login":"ci-alice","password":"ci-password-1"}' \
+            | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          curl -s -o /dev/null -X POST "$BASE/auth/sync/push" \
+            -H "Authorization: Bearer $A" -H 'Content-Type: application/json' \
+            -d '{"upserts":{"projects":[{"id":"p1","name":"P","rate":100,"spec_file_name":"a.txt","spec_file_mime":"text/plain","spec_file_data":"SEVMTE8="}]}}'
+
+          curl -s "$BASE/auth/sync/pull" -H "Authorization: Bearer $A" > /tmp/p.json
+          grep -q '"spec_file_name":"a.txt"' /tmp/p.json
+          ! grep -q 'SEVMTE8=' /tmp/p.json          # bytes must NOT ride along
+          curl -s "$BASE/auth/sync/spec?project=p1" -H "Authorization: Bearer $A" | grep -q 'SEVMTE8='
+
+          # A push with the name set and the data empty must keep the blob.
+          curl -s -o /dev/null -X POST "$BASE/auth/sync/push" \
+            -H "Authorization: Bearer $A" -H 'Content-Type: application/json' \
+            -d '{"upserts":{"projects":[{"id":"p1","name":"P2","rate":100,"spec_file_name":"a.txt","spec_file_data":null}]}}'
+          curl -s "$BASE/auth/sync/spec?project=p1" -H "Authorization: Bearer $A" | grep -q 'SEVMTE8='
+
+          # Bob must not be able to read it by id.
+          B=$(curl -s -X POST "$BASE/auth/token" -H 'Content-Type: application/json' \
+            -d '{"login":"ci-bob","password":"ci-password-2"}' \
+            | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/auth/sync/spec?project=p1" -H "Authorization: Bearer $B")
+          test "$code" = "404"
+          echo "✓ attachment is lazy and owner-scoped"
+
+      - name: Oversized body is refused as JSON, not an nginx HTML page
+        run: |
+          head -c 20000000 /dev/zero | tr '\0' 'x' > /tmp/big.txt
+          python3 -c "import json;print(json.dumps({'upserts':{'projects':[{'id':'big','name':open('/tmp/big.txt').read()}]}}))" > /tmp/big.json
+          code=$(curl -s -o /tmp/big.out -w '%{http_code}' -X POST http://localhost:8080/auth/sync/push \
+            -H 'Content-Type: application/json' --data-binary @/tmp/big.json)
+          echo "code=$code body=$(head -c 200 /tmp/big.out)"
+          test "$code" = "413"
+
+      - name: Auth service survives a Postgres restart
+        run: |
+          docker compose restart postgres
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/auth/has-users && break || sleep 2; done
+          curl -sf http://localhost:8080/auth/has-users
+          test "$(docker compose ps auth --format '{{.State}}')" = "running"
+          docker compose logs auth | grep -v 'unhandled error' > /dev/null
+
+      - run: docker compose logs auth postgres | tail -50
+        if: always()
+
       - run: docker compose down -v
+        if: always()

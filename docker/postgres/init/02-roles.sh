@@ -19,6 +19,10 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   GRANT USAGE ON SCHEMA public TO anon;
   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon;
   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon;
+  -- Deliberately NO 'ALTER DEFAULT PRIVILEGES ... TO anon' here. Default
+  -- privileges apply to every table created LATER, so they quietly undid
+  -- 10-rls-isolation.sql's 'REVOKE ALL ... FROM anon' for anything a later
+  -- migration added (user_settings in 12- came back writable by the
+  -- unauthenticated PostgREST role). The grants above cover the tables that
+  -- exist during init; 10- revokes them once RLS is in place.
 EOSQL

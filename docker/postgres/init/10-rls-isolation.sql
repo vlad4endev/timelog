@@ -90,15 +90,25 @@ CREATE POLICY schedule_settings_user_isolation ON schedule_settings
 
 -- ─── app_users: only via auth service (direct DB), not PostgREST anon ───
 
+-- ENABLE with no policy is already "no rows for anyone but the owner", which
+-- is exactly what we want: PostgREST (anon / timelog_user) sees nothing, the
+-- auth service connects as the owner over DATABASE_URL and reads normally.
+-- NOT forced on purpose — FORCE subjects the owner to RLS too, so the auth
+-- service could only ever read this table by virtue of POSTGRES_USER being a
+-- superuser in the postgres image. Point DATABASE_URL at a non-superuser
+-- owner and every login silently became "invalid credentials".
 ALTER TABLE app_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE app_users FORCE ROW LEVEL SECURITY;
+ALTER TABLE app_users NO FORCE ROW LEVEL SECURITY;
 
 -- Legacy single-user table — block API access
 DO $$ BEGIN
   ALTER TABLE app_auth ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE app_auth FORCE ROW LEVEL SECURITY;
+  ALTER TABLE app_auth NO FORCE ROW LEVEL SECURITY;
 EXCEPTION WHEN undefined_table THEN NULL;
 END $$;
 
 -- Revoke direct anon access to all data (auth service uses DB owner connection)
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon;
+-- ...and make sure nothing re-grants it to tables added by later migrations.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon;

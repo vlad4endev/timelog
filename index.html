@@ -2036,11 +2036,20 @@ const auth = {
       const token = this.getApiToken();
       if (token) headers['Authorization'] = `Bearer ${token}`;
     }
+    // A request with no deadline is how the write path used to WEDGE. On a
+    // flaky mobile link fetch() can hang on a half-open socket indefinitely;
+    // flushWrites() stores that promise in _flushInFlight and every later
+    // flush returns the same never-settling promise, so nothing is ever
+    // pushed again until a reload — silently, with the UI reporting nothing
+    // wrong. Abort instead, so the outbox retry loop gets its turn.
+    const ctl = new AbortController();
+    const timeout = setTimeout(() => ctl.abort(), opts.timeoutMs || 30000);
     try {
       const r = await fetch(`${base}${path}`, {
         method: body !== undefined ? 'POST' : 'GET',
         headers,
         credentials: 'same-origin',
+        signal: ctl.signal,
         body: body !== undefined ? JSON.stringify(body) : undefined
       });
       const data = await r.json().catch(() => ({}));
@@ -2049,6 +2058,8 @@ const auth = {
     } catch (e) {
       console.error('Auth API error:', e);
       return null;
+    } finally {
+      clearTimeout(timeout);
     }
   },
 
@@ -3463,6 +3474,11 @@ const sb = {
   // "not sent yet" forever. Back off past the limiter's window instead.
   _retryDelayFor(status) { return status === 429 ? 60000 : 5000; },
 
+  // 413 is the one failure retrying cannot fix: the body is too big and will
+  // be too big again next time. Left in the generic 5s retry loop it pinned
+  // the outbox forever behind a batch that can never land.
+  _isPermanentFailure(status) { return status === 413; },
+
   _direct() {
     save();                              // cache the optimistic change for instant boot
     if (!this._serverWrites()) {         // local-only mode: localStorage IS the truth
@@ -3552,6 +3568,12 @@ const sb = {
           this._writeFailWarned = false;
           showToast('✓ Изменения сохранены на сервере', 'success');
         }
+      } else if (this._isPermanentFailure(this._lastSendStatus)) {
+        // Drop it from the outbox — it stays in localStorage via save() and
+        // the user is told plainly, rather than the app retrying a body the
+        // server will reject every time and blocking every later write.
+        this._removeSent(batch);
+        showToast('Изменение слишком велико для отправки на сервер (вложение?) — сохранено только на устройстве.', 'error');
       } else {
         this._warnWriteFailed(this._lastSendStatus);
         this._scheduleFlush(this._retryDelayFor(this._lastSendStatus));
@@ -3662,7 +3684,10 @@ const sb = {
       id: r.id, name: r.name, client: r.client||'', rate: Number(r.rate)||0, color: r.color||'#059669',
       status: r.status||'active', desc: r.description||'', maxHours: r.max_hours > 0 ? Number(r.max_hours) : 0,
       specText: r.spec_text || '', specFileName: r.spec_file_name || '', specFileMime: r.spec_file_mime || '',
-      specFileData: r.spec_file_data || '', createdAt: new Date(r.created_at).getTime(),
+      // Absent from the bulk pull by design — keep any copy this session
+      // already fetched rather than blanking it on every refresh.
+      specFileData: r.spec_file_data || getProject(r.id)?.specFileData || '',
+      createdAt: new Date(r.created_at).getTime(),
       updatedAt: new Date(r.updated_at || r.created_at).getTime()
     };
   },
@@ -7320,6 +7345,24 @@ function setReportPeriod(period) {
   renderPage();
 }
 // ─── PAYMENTS ─────────────────────────────────────────────────────────────
+// Rows for "Статус по проектам". Deliberately keyed off money rather than
+// `p.rate`: a project whose rate was later cleared still has earnings frozen
+// on its entries, and payments booked to no project (or to one since deleted)
+// are real received money. Filtering those out made the rows sum to less than
+// the "Получено оплат" / "Заработано всего" cards right above them.
+function paymentStatusRows() {
+  const rows = state.projects.map(p => ({
+    name: p.name,
+    color: p.color || '#059669',
+    earned: getProjectEarned(p.id),
+    paid: sum(state.payments.filter(pay => pay.projectId === p.id).map(pay => pay.amount))
+  })).filter(r => r.earned > 0 || r.paid > 0);
+  const known = new Set(state.projects.map(p => p.id));
+  const unassigned = sum(state.payments.filter(pay => !known.has(pay.projectId)).map(pay => pay.amount));
+  if (unassigned > 0) rows.push({ name: 'Все проекты', color: 'var(--text2)', earned: 0, paid: unassigned });
+  return rows;
+}
+
 function renderPayments() {
   const totalEarned = calcTotalEarned();
   const totalPaid = sum(state.payments.map(p=>p.amount));
@@ -7351,26 +7394,24 @@ function renderPayments() {
 
   <div class="section-title" style="margin-top:0">Статус по проектам</div>
   <div class="card mb16">
-    ${state.projects.filter(p=>p.rate).map(p=>{
-      const hrs=sum(state.entries.filter(e=>e.projectId===p.id && !e.archived).map(e=>e.hours));
-      const earned=getProjectEarned(p.id);
-      const paid=sum(state.payments.filter(pay=>pay.projectId===p.id).map(pay=>pay.amount));
-      const pct=earned>0?Math.min(100,Math.round(paid/earned*100)):0;
+    ${paymentStatusRows().map(row=>{
+      const {name, color, earned, paid} = row;
+      const pct=earned>0?Math.min(100,Math.round(paid/earned*100)):(paid>0?100:0);
       return `<div style="margin-bottom:16px" class="payment-status-row">
         <div class="payment-status-top">
           <div class="flex items-center gap8">
-            <div style="width:8px;height:8px;border-radius:50%;background:${p.color||'#059669'}"></div>
-            <span style="font-size:14px;font-weight:500">${escHtml(p.name)}</span>
+            <div style="width:8px;height:8px;border-radius:50%;background:${color}"></div>
+            <span style="font-size:14px;font-weight:500">${escHtml(name)}</span>
           </div>
           <div class="payment-status-amounts">
             <span class="text-sm text-green">${fmtMoney(paid)}</span>
-            <span class="text-xs text-muted">из ${fmtMoney(earned)}</span>
+            ${earned>0?`<span class="text-xs text-muted">из ${fmtMoney(earned)}</span>`:''}
             <span class="badge ${pct>=100?'badge-green':pct>0?'badge-amber':'badge-red'}">${pct}%</span>
           </div>
         </div>
         <div class="progress"><div class="progress-bar" style="width:${pct}%;background:${pct>=100?'var(--green)':pct>0?'var(--amber)':'var(--red)'}"></div></div>
       </div>`;
-    }).join('') || '<div class="text-muted text-sm">Нет проектов со ставкой</div>'}
+    }).join('') || '<div class="text-muted text-sm">Нет заработка и платежей</div>'}
   </div>
 
   <div class="section-title">История платежей</div>
@@ -7692,6 +7733,11 @@ function deleteProject(id) {
   state.projects = state.projects.filter(p=>p.id!==id);
   state.entries  = state.entries.filter(e=>e.projectId!==id);
   state.boardTasks = state.boardTasks.filter(t=>t.projectId!==id);
+  // The payments FK is ON DELETE SET NULL, so the server keeps these rows
+  // as "Все проекты". Mirror that locally instead of leaving them pointing
+  // at a dead project id, where they vanished from the per-project section
+  // yet still counted in "Получено оплат" until a reload changed the answer.
+  state.payments.forEach(pay => { if (pay.projectId === id) pay.projectId = null; });
   if (state.timer.projectId === id) resetTimerState();
   save();
   if (sb.isEnabled()) sb.deleteProject(id); // cascade deletes entries in DB
@@ -7786,6 +7832,35 @@ function isTextSpecMime(mime, name) {
   return ['txt', 'md', 'markdown', 'json', 'xml', 'csv', 'html', 'htm', 'log', 'yml', 'yaml'].includes(ext);
 }
 
+// The bulk pull no longer carries spec_file_data (it re-sent every
+// attachment on every app focus). The bytes arrive here, once, the first
+// time something actually needs them, and stay on the in-memory project for
+// the rest of the session. save() already strips the field from the
+// localStorage copy, and the server's upsert keeps the stored blob when a
+// push arrives with the name set but data empty — so a project whose
+// attachment was never loaded cannot push a null over it.
+const specFetchInFlight = new Map();
+async function ensureProjectSpecData(p) {
+  if (!p || !p.specFileName || p.specFileData) return p?.specFileData || '';
+  if (!auth.useServerAuth() || !auth.getApiToken()) return '';
+  if (specFetchInFlight.has(p.id)) return specFetchInFlight.get(p.id);
+  const job = (async () => {
+    const res = await auth.authFetch(`/auth/sync/spec?project=${encodeURIComponent(p.id)}`);
+    const data = res?.ok ? (res.spec_file_data || '') : '';
+    // Write back onto the live project object so the sync decode below and
+    // any later open both find it without another round-trip.
+    const live = getProject(p.id);
+    if (live) {
+      live.specFileData = data;
+      if (!live.specFileMime && res?.spec_file_mime) live.specFileMime = res.spec_file_mime;
+    }
+    if (p !== live) p.specFileData = data;
+    return data;
+  })().finally(() => specFetchInFlight.delete(p.id));
+  specFetchInFlight.set(p.id, job);
+  return job;
+}
+
 function decodeProjectSpecFile(p) {
   if (!p?.specFileData) return null;
   try {
@@ -7811,7 +7886,8 @@ function revokeProjectOverviewBlob() {
   }
 }
 
-function downloadProjectSpecFile(p) {
+async function downloadProjectSpecFile(p) {
+  await ensureProjectSpecData(p);
   const blob = decodeProjectSpecFile(p);
   if (!blob) { showToast('Файл недоступен', 'error'); return; }
   const url = URL.createObjectURL(blob);
@@ -7845,11 +7921,18 @@ function renderProjectSpecFilePreview(p) {
   return `<div class="text-sm text-muted">Предпросмотр недоступен для этого формата. Скачайте файл.</div>`;
 }
 
-function viewProjectOverview(id) {
+async function viewProjectOverview(id) {
   const p = getProject(id);
   if (!p) return;
   projectOverviewProjectId = id;
   revokeProjectOverviewBlob();
+
+  // The preview below is built as one synchronous HTML string, so the
+  // attachment has to be in hand before we start.
+  if (p.specFileName && !p.specFileData) {
+    try { await ensureProjectSpecData(p); } catch (_) {}
+    if (projectOverviewProjectId !== id) return;   // user moved on meanwhile
+  }
 
   const hrs = getProjectHours(p.id);
   const entries = state.entries.filter(e => e.projectId === p.id && !e.archived);
@@ -7889,7 +7972,7 @@ function viewProjectOverview(id) {
   const dlBtn = document.getElementById('project-overview-download-btn');
   if (dlBtn) {
     dlBtn.style.display = p.specFileName ? '' : 'none';
-    dlBtn.onclick = () => downloadProjectSpecFile(p);
+    dlBtn.onclick = () => { void downloadProjectSpecFile(p).catch(() => showToast('Файл недоступен', 'error')); };
   }
   const editBtn = document.getElementById('project-overview-edit-btn');
   if (editBtn) editBtn.onclick = () => { closeProjectOverview(); editProject(id); };
@@ -7947,6 +8030,10 @@ function savePayment() {
   const editId = document.getElementById('payment-edit-id').value;
   const existingPayment = editId ? state.payments.find(p=>p.id===editId) : null;
   const payment = {
+    // Merge onto the existing record: the form has no input for reportId, so
+    // rebuilding from scratch unlinked report-booked payments — and the next
+    // reload's backfill then booked a second one, doubling the money.
+    ...(existingPayment || {}),
     id: editId||uid(),
     projectId: document.getElementById('payment-project').value||null,
     amount, date,

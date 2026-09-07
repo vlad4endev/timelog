@@ -41,7 +41,32 @@ if (!DATABASE_URL) {
 // value got pushed back on the next write, walking the stored date backwards.
 pg.types.setTypeParser(1082, v => v);   // date
 
-const pool = new pg.Pool({ connectionString: DATABASE_URL });
+// Bounded, self-healing pool. Every knob here fixes a way the service used
+// to fall over:
+//   max        — one sync/pull used to fire 10 queries in parallel against a
+//                default max-10 pool, so a single pull starved every other
+//                request (including /auth/token) until it finished.
+//   *_timeout  — without these a wedged query or a half-open socket to
+//                Postgres held a connection forever; the pool drained and the
+//                service hung with no error anywhere.
+const pool = new pg.Pool({
+  connectionString: DATABASE_URL,
+  max: Number(process.env.PG_POOL_MAX || 12),
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
+  statement_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS || 20_000),
+  query_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS || 20_000),
+  idle_in_transaction_session_timeout: 30_000,
+  application_name: 'timelog-auth',
+});
+
+// An idle client whose backend goes away (Postgres restart, network blip)
+// emits 'error' on the POOL. Unhandled, that is an unhandled 'error' event —
+// which takes the whole auth service down with it. Log and let the pool
+// discard the client; the next query opens a fresh one.
+pool.on('error', (err) => {
+  console.error('pg pool error (client discarded):', err.message);
+});
 const key = new TextEncoder().encode(JWT_SECRET);
 const rateBuckets = new Map();
 const syncRateBuckets = new Map();
@@ -115,15 +140,37 @@ function normalizeLogin(raw) {
 }
 
 function clientIp(req) {
+  // nginx sets X-Real-IP from $remote_addr AFTER real_ip processing, so it is
+  // the address nginx itself trusts. X-Forwarded-For is built with
+  // $proxy_add_x_forwarded_for, which APPENDS to whatever the client sent —
+  // its first hop is attacker-chosen. Keying the rate limiter on that made
+  // the limiter both bypassable (a fresh fake IP per attempt) and a memory
+  // leak (one unbounded bucket per fake IP). Prefer X-Real-IP, then the LAST
+  // forwarded hop (the one our own proxy appended), then the socket.
+  const real = req.headers['x-real-ip'];
+  if (typeof real === 'string' && real.trim()) return real.trim();
   const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
+  if (typeof fwd === 'string' && fwd.trim()) {
+    const hops = fwd.split(',').map((h) => h.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
+  }
   return req.socket.remoteAddress || 'unknown';
+}
+
+// Sweeping every bucket on every request was O(distinct IPs) per request.
+// Sweep at most once per window instead — same memory behaviour, no per-
+// request scan.
+const lastSweep = new WeakMap();
+function sweepBuckets(buckets, now) {
+  if (now - (lastSweep.get(buckets) || 0) < RATE_WINDOW_MS) return;
+  lastSweep.set(buckets, now);
+  for (const [k, b] of buckets) if (now >= b.resetAt) buckets.delete(k);
 }
 
 function checkRateLimit(req, buckets = rateBuckets, max = RATE_MAX) {
   const ip = clientIp(req);
   const now = Date.now();
-  for (const [k, b] of buckets) if (now >= b.resetAt) buckets.delete(k);
+  sweepBuckets(buckets, now);
   let bucket = buckets.get(ip);
   if (!bucket || now >= bucket.resetAt) {
     bucket = { count: 0, resetAt: now + RATE_WINDOW_MS };
@@ -186,9 +233,33 @@ async function verifyRequestSession(req) {
   }
 }
 
+// A push body was read with no ceiling at all: any client — or anything
+// replaying a token — could stream gigabytes into memory and OOM the
+// service. Cap it and say so, rather than dying.
+const MAX_BODY_BYTES = Number(process.env.AUTH_MAX_BODY_BYTES || 12 * 1024 * 1024);
+const BODY_TOO_LARGE = Symbol('body-too-large');
+
 async function readBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let size = 0;
+  let oversize = false;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_BODY_BYTES) {
+      // Keep draining but stop buffering: memory stays bounded, and the
+      // connection stays alive long enough to actually deliver the 413.
+      // Destroying the socket here (the obvious move) means the client sees
+      // a transport error instead of a status it can act on — so a client
+      // whose batch is simply too big retries it forever rather than being
+      // told to stop.
+      oversize = true;
+      chunks.length = 0;
+      if (size > MAX_BODY_BYTES * 4) { req.destroy(); break; }
+      continue;
+    }
+    chunks.push(chunk);
+  }
+  if (oversize) return BODY_TOO_LARGE;
   if (!chunks.length) return {};
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -327,62 +398,65 @@ async function migrateLogin(oldLogin, newLogin) {
 }
 
 async function pullUserData(login) {
-  const [
-    projects,
-    entries,
-    payments,
-    boardTasks,
-    reports,
-    timerRow,
-    scheduleSettings,
-    scheduleOverrides,
-    scheduleBlocks,
-    userSettings,
-  ] = await Promise.all([
-    pool.query(
-      'SELECT * FROM projects WHERE user_login = $1 ORDER BY created_at ASC',
-      [login]
-    ),
-    pool.query(
-      'SELECT * FROM time_entries WHERE user_login = $1 ORDER BY created_at DESC',
-      [login]
-    ),
-    pool.query(
-      'SELECT * FROM payments WHERE user_login = $1 ORDER BY created_at DESC',
-      [login]
-    ),
-    pool.query(
-      'SELECT * FROM board_tasks WHERE user_login = $1 ORDER BY position ASC',
-      [login]
-    ),
-    pool.query(
-      'SELECT * FROM billing_reports WHERE user_login = $1 ORDER BY created_at DESC',
-      [login]
-    ),
-    pool.query('SELECT * FROM active_timer WHERE id = $1 LIMIT 1', [login]),
-    pool.query('SELECT * FROM schedule_settings WHERE id = $1 LIMIT 1', [login]),
-    pool.query(
-      'SELECT * FROM schedule_overrides WHERE user_login = $1 ORDER BY date ASC',
-      [login]
-    ),
-    pool.query(
-      'SELECT * FROM schedule_blocks WHERE user_login = $1 ORDER BY date ASC',
-      [login]
-    ),
-    pool.query('SELECT * FROM user_settings WHERE id = $1 LIMIT 1', [login]),
-  ]);
-  return {
-    projects: projects.rows,
-    time_entries: entries.rows,
-    payments: payments.rows,
-    board_tasks: boardTasks.rows,
-    billing_reports: reports.rows,
-    active_timer: timerRow.rows[0] || null,
-    schedule_settings: scheduleSettings.rows[0] || null,
-    schedule_overrides: scheduleOverrides.rows,
-    schedule_blocks: scheduleBlocks.rows,
-    user_settings: userSettings.rows[0] || null,
-  };
+  // Two problems, one fix.
+  //
+  // 1. Pool starvation: these ten reads used to run through Promise.all on
+  //    the shared pool. The pg default is max 10 clients, so ONE pull took
+  //    every connection in the pool — /auth/token, /auth/register and every
+  //    other user's push queued behind it. Ten short reads on a single
+  //    client are faster in practice than ten parallel round-trips fighting
+  //    for connections, and they cost exactly one.
+  //
+  // 2. Torn reads: run separately, the reads could straddle a concurrent
+  //    push — projects from before it, time_entries from after — handing the
+  //    client entries whose project_id it has never heard of. The client
+  //    replaces its state wholesale from this payload, so those entries land
+  //    in the UI orphaned. A REPEATABLE READ transaction pins one snapshot
+  //    for all ten.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+    const q = (sql) => client.query(sql, [login]);
+    // Deliberately NOT `SELECT *`: spec_file_data holds base64 project
+    // attachments, the only unbounded column in the schema. The pull runs on
+    // every app focus with Cache-Control: no-store, so every focus
+    // re-downloaded every attachment the user has ever added — megabytes, to
+    // populate a field the UI reads only when someone opens one project's
+    // spec. spec_file_name still comes through, which is all the client needs
+    // to know a file exists; the bytes are fetched on demand via
+    // /auth/sync/spec.
+    const projects = await q(`SELECT id, name, client, rate, color, status,
+        description, max_hours, spec_text, spec_file_name, spec_file_mime,
+        created_at, updated_at, user_login
+      FROM projects WHERE user_login = $1 ORDER BY created_at ASC`);
+    const entries = await q('SELECT * FROM time_entries WHERE user_login = $1 ORDER BY created_at DESC');
+    const payments = await q('SELECT * FROM payments WHERE user_login = $1 ORDER BY created_at DESC');
+    const boardTasks = await q('SELECT * FROM board_tasks WHERE user_login = $1 ORDER BY position ASC');
+    const reports = await q('SELECT * FROM billing_reports WHERE user_login = $1 ORDER BY created_at DESC');
+    const timerRow = await q('SELECT * FROM active_timer WHERE id = $1 LIMIT 1');
+    const scheduleSettings = await q('SELECT * FROM schedule_settings WHERE id = $1 LIMIT 1');
+    const scheduleOverrides = await q('SELECT * FROM schedule_overrides WHERE user_login = $1 ORDER BY date ASC');
+    const scheduleBlocks = await q('SELECT * FROM schedule_blocks WHERE user_login = $1 ORDER BY date ASC');
+    const userSettings = await q('SELECT * FROM user_settings WHERE id = $1 LIMIT 1');
+    await client.query('COMMIT');
+    return {
+      projects: projects.rows,
+      time_entries: entries.rows,
+      payments: payments.rows,
+      board_tasks: boardTasks.rows,
+      billing_reports: reports.rows,
+      active_timer: timerRow.rows[0] || null,
+      schedule_settings: scheduleSettings.rows[0] || null,
+      schedule_overrides: scheduleOverrides.rows,
+      schedule_blocks: scheduleBlocks.rows,
+      user_settings: userSettings.rows[0] || null,
+    };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 async function upsertProjectRow(client, login, r) {
@@ -405,14 +479,14 @@ async function upsertProjectRow(client, login, r) {
       spec_file_data = CASE
         WHEN EXCLUDED.spec_file_name IS NOT NULL AND EXCLUDED.spec_file_data IS NULL
         THEN projects.spec_file_data ELSE EXCLUDED.spec_file_data END,
-      updated_at = EXCLUDED.updated_at,
-      user_login = EXCLUDED.user_login`,
+      updated_at = EXCLUDED.updated_at
+    WHERE projects.user_login = $15`,
     [
       r.id, r.name, r.client ?? null, r.rate ?? 0, r.color ?? '#059669',
       r.status ?? 'active', r.description ?? null, r.max_hours ?? null,
       r.spec_text ?? null, r.spec_file_name ?? null, r.spec_file_mime ?? null,
       r.spec_file_data ?? null, r.created_at ?? new Date().toISOString(),
-      r.updated_at ?? new Date().toISOString(), r.user_login || login,
+      r.updated_at ?? new Date().toISOString(), login,
     ]
   );
 }
@@ -428,11 +502,12 @@ async function upsertEntryRow(client, login, r) {
       hours = EXCLUDED.hours, rate = EXCLUDED.rate,
       start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time,
       notes = EXCLUDED.notes, task_id = EXCLUDED.task_id, report_id = EXCLUDED.report_id,
-      archived = EXCLUDED.archived, user_login = EXCLUDED.user_login`,
+      archived = EXCLUDED.archived
+    WHERE time_entries.user_login = $14`,
     [
       r.id, r.project_id, r.task, r.date, r.hours, r.rate ?? null, r.start_time ?? null,
       r.end_time ?? null, r.notes ?? null, r.task_id ?? null, r.report_id ?? null,
-      !!r.archived, r.created_at ?? new Date().toISOString(), r.user_login || login,
+      !!r.archived, r.created_at ?? new Date().toISOString(), login,
     ]
   );
 }
@@ -447,12 +522,13 @@ async function upsertPaymentRow(client, login, r) {
       project_id = EXCLUDED.project_id, amount = EXCLUDED.amount, date = EXCLUDED.date,
       period_from = EXCLUDED.period_from, period_to = EXCLUDED.period_to,
       note = EXCLUDED.note, report_id = EXCLUDED.report_id,
-      updated_at = EXCLUDED.updated_at, user_login = EXCLUDED.user_login`,
+      updated_at = EXCLUDED.updated_at
+    WHERE payments.user_login = $11`,
     [
       r.id, r.project_id ?? null, r.amount, r.date, r.period_from ?? null,
       r.period_to ?? null, r.note ?? null, r.report_id ?? null,
       r.created_at ?? new Date().toISOString(),
-      r.updated_at ?? new Date().toISOString(), r.user_login || login,
+      r.updated_at ?? new Date().toISOString(), login,
     ]
   );
 }
@@ -466,12 +542,13 @@ async function upsertBoardTaskRow(client, login, r) {
     ON CONFLICT (id) DO UPDATE SET
       project_id = EXCLUDED.project_id, title = EXCLUDED.title, description = EXCLUDED.description,
       status = EXCLUDED.status, position = EXCLUDED.position, priority = EXCLUDED.priority,
-      archived = EXCLUDED.archived, updated_at = EXCLUDED.updated_at, user_login = EXCLUDED.user_login`,
+      archived = EXCLUDED.archived, updated_at = EXCLUDED.updated_at
+    WHERE board_tasks.user_login = $11`,
     [
       r.id, r.project_id, r.title, r.description ?? null, r.status ?? 'todo',
       r.position ?? 0, r.priority ?? 'medium', !!r.archived,
       r.created_at ?? new Date().toISOString(), r.updated_at ?? new Date().toISOString(),
-      r.user_login || login,
+      login,
     ]
   );
 }
@@ -486,12 +563,13 @@ async function upsertReportRow(client, login, r) {
       title = EXCLUDED.title, period_from = EXCLUDED.period_from, period_to = EXCLUDED.period_to,
       project_id = EXCLUDED.project_id, entry_ids = EXCLUDED.entry_ids, text = EXCLUDED.text,
       total_hours = EXCLUDED.total_hours, total_amount = EXCLUDED.total_amount,
-      status = EXCLUDED.status, paid_at = EXCLUDED.paid_at, user_login = EXCLUDED.user_login`,
+      status = EXCLUDED.status, paid_at = EXCLUDED.paid_at
+    WHERE billing_reports.user_login = $13`,
     [
       r.id, r.title ?? null, r.period_from, r.period_to, r.project_id ?? null,
       r.entry_ids ?? [], r.text, r.total_hours ?? 0, r.total_amount ?? 0,
       r.status ?? 'unpaid', r.paid_at ?? null, r.created_at ?? new Date().toISOString(),
-      r.user_login || login,
+      login,
     ]
   );
 }
@@ -502,7 +580,7 @@ async function upsertScheduleSettingsRow(client, login, r) {
      VALUES ($1, $2::jsonb, $3)
      ON CONFLICT (id) DO UPDATE SET
        week_template = EXCLUDED.week_template, updated_at = EXCLUDED.updated_at`,
-    [r.id || login, JSON.stringify(r.week_template || {}), r.updated_at ?? new Date().toISOString()]
+    [login, JSON.stringify(r.week_template || {}), r.updated_at ?? new Date().toISOString()]
   );
 }
 
@@ -512,7 +590,7 @@ async function upsertUserSettingsRow(client, login, r) {
      VALUES ($1, $2::jsonb, $3)
      ON CONFLICT (id) DO UPDATE SET
        settings = EXCLUDED.settings, updated_at = EXCLUDED.updated_at`,
-    [r.id || login, JSON.stringify(r.settings || {}), r.updated_at ?? new Date().toISOString()]
+    [login, JSON.stringify(r.settings || {}), r.updated_at ?? new Date().toISOString()]
   );
 }
 
@@ -522,7 +600,7 @@ async function upsertScheduleOverrideRow(client, login, r) {
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (user_login, date) DO UPDATE SET
        type = EXCLUDED.type, hours = EXCLUDED.hours, note = EXCLUDED.note`,
-    [r.date, r.type, r.hours ?? null, r.note ?? null, r.user_login || login]
+    [r.date, r.type, r.hours ?? null, r.note ?? null, login]
   );
 }
 
@@ -533,10 +611,11 @@ async function upsertScheduleBlockRow(client, login, r) {
     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
     ON CONFLICT (id) DO UPDATE SET
       date = EXCLUDED.date, start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time,
-      title = EXCLUDED.title, note = EXCLUDED.note, user_login = EXCLUDED.user_login`,
+      title = EXCLUDED.title, note = EXCLUDED.note
+    WHERE schedule_blocks.user_login = $8`,
     [
       r.id, r.date, r.start_time, r.end_time, r.title ?? null, r.note ?? null,
-      r.created_at ?? new Date().toISOString(), r.user_login || login,
+      r.created_at ?? new Date().toISOString(), login,
     ]
   );
 }
@@ -554,7 +633,7 @@ async function upsertTimerRow(client, login, r) {
       idle_ms = EXCLUDED.idle_ms, idle_since = EXCLUDED.idle_since,
       updated_at = EXCLUDED.updated_at`,
     [
-      r.id || login, !!r.running, r.start_time ?? null, r.project_id ?? null,
+      login, !!r.running, r.start_time ?? null, r.project_id ?? null,
       r.task ?? '', r.task_id ?? null, !!r.paused, r.paused_ms ?? 0,
       r.pause_start ?? null, r.idle_ms ?? 0, r.idle_since ?? null,
       r.updated_at ?? new Date().toISOString(),
@@ -562,6 +641,18 @@ async function upsertTimerRow(client, login, r) {
   );
 }
 
+// ─── SYNC OWNERSHIP CONTRACT ─────────────────────────────────────────────
+// The `login` argument threaded through every upsert above comes from the
+// verified JWT and NOTHING else. It used to fall back to the row the client
+// sent (`r.user_login || login`, `r.id || login`), which meant any holder of
+// any valid token could POST
+//     {"upserts":{"user_settings":[{"id":"victim@example.com","settings":…}]}}
+// and write straight into another account — no RLS in the way, because the
+// auth service connects to Postgres as the superuser owner and superusers
+// bypass row-level security (FORCE included). The `WHERE <table>.user_login
+// = $n` guards on the DO UPDATE branches close the other half: a push whose
+// row id happens to belong to someone else is now a no-op instead of a
+// silent overwrite.
 const UPSERT_HANDLERS = {
   projects: upsertProjectRow,
   time_entries: upsertEntryRow,
@@ -575,15 +666,47 @@ const UPSERT_HANDLERS = {
   active_timer: upsertTimerRow,
 };
 
+// Foreign keys make the order of these inserts load-bearing:
+//   time_entries.project_id  → projects.id
+//   time_entries.task_id     → board_tasks.id
+//   board_tasks.project_id   → projects.id
+//   billing_reports/payments.project_id → projects.id
+// The push used to iterate Object.entries(body.upserts), i.e. whatever order
+// the client's outbox happened to have queued its tables in. Edit an existing
+// entry and then create a new project in the same 400 ms burst and the batch
+// arrived as {time_entries, projects} — the entry insert hit
+// time_entries_project_id_fkey, the whole transaction rolled back, and the
+// client retried the identical body every 5 s forever. The write never
+// landed and the app just kept saying "not sent to the server yet".
+const UPSERT_ORDER = [
+  'projects',
+  'board_tasks',
+  'billing_reports',
+  'payments',
+  'time_entries',
+  'schedule_settings',
+  'user_settings',
+  'schedule_overrides',
+  'schedule_blocks',
+  'active_timer',
+];
+
+// These three key rows by `id` = the login; they have no user_login column,
+// so a delete scoped with `AND user_login = $2` raised
+// "column user_login does not exist" and took the whole push down with it.
+const ID_KEYED_TABLES = new Set(['active_timer', 'schedule_settings', 'user_settings']);
+
 async function applySyncPush(login, body) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    for (const [table, rows] of Object.entries(body.upserts || {})) {
+    const upserts = body.upserts || {};
+    for (const table of UPSERT_ORDER) {
+      const rows = upserts[table];
+      if (!Array.isArray(rows)) continue;
       const handler = UPSERT_HANDLERS[table];
-      if (!handler || !Array.isArray(rows)) continue;
       for (const row of rows) {
-        await handler(client, login, row);
+        if (row && typeof row === 'object') await handler(client, login, row);
       }
     }
     if (body.timer) {
@@ -603,6 +726,9 @@ async function applySyncPush(login, body) {
           'DELETE FROM schedule_overrides WHERE user_login = $1 AND date = $2',
           [login, del.date]
         );
+      } else if (ID_KEYED_TABLES.has(del.table)) {
+        // id IS the owner here — never accept the client's id for these.
+        await client.query(`DELETE FROM ${del.table} WHERE id = $1`, [login]);
       } else if (del.id) {
         await client.query(
           `DELETE FROM ${del.table} WHERE id = $1 AND user_login = $2`,
@@ -658,7 +784,23 @@ async function claimLegacyData(login, legacyLogin = 'default') {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+// Every route below awaits the database. Half of them (/auth/token,
+// /auth/register, /auth/has-users, /auth/exists, /auth/me,
+// /auth/change-password) had no try/catch of their own — and an async throw
+// inside an http.createServer callback is an UNHANDLED REJECTION, which Node
+// 22 answers by killing the process. One transient DB error on a login took
+// the entire auth service down and dropped every request in flight with it.
+// This wrapper is the backstop: the request gets a 500, the service lives.
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((e) => {
+    console.error(`unhandled error on ${req.method} ${req.url}:`, e);
+    if (res.headersSent) { res.destroy(); return; }
+    try { json(res, 500, { error: 'internal error' }, req); }
+    catch { res.destroy(); }
+  });
+});
+
+async function handleRequest(req, res) {
   if (handleCors(req, res)) return;
 
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -703,6 +845,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/auth/token') {
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      json(res, 413, { error: 'payload too large' }, req);
+      return;
+    }
     if (body === null) {
       json(res, 400, { error: 'invalid json' }, req);
       return;
@@ -747,6 +893,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/auth/register') {
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      json(res, 413, { error: 'payload too large' }, req);
+      return;
+    }
     if (body === null) {
       json(res, 400, { error: 'invalid json' }, req);
       return;
@@ -781,6 +931,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/auth/change-login') {
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      json(res, 413, { error: 'payload too large' }, req);
+      return;
+    }
     if (body === null) {
       json(res, 400, { error: 'invalid json' }, req);
       return;
@@ -833,6 +987,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      json(res, 413, { error: 'payload too large' }, req);
+      return;
+    }
     if (body === null) {
       json(res, 400, { error: 'invalid json' }, req);
       return;
@@ -882,6 +1040,32 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Fetches one project's attachment bytes. Scoped to the session login, so
+  // a guessed project id from another account returns 404, not the file.
+  if (req.method === 'GET' && url.pathname === '/auth/sync/spec') {
+    const session = await verifyRequestSession(req);
+    if (!session) {
+      json(res, 401, { error: 'unauthorized' }, req);
+      return;
+    }
+    const id = url.searchParams.get('project') || '';
+    if (!id) {
+      json(res, 400, { error: 'project required' }, req);
+      return;
+    }
+    const r = await pool.query(
+      `SELECT spec_file_name, spec_file_mime, spec_file_data
+         FROM projects WHERE id = $1 AND user_login = $2 LIMIT 1`,
+      [id, session.login]
+    );
+    if (!r.rows.length) {
+      json(res, 404, { error: 'not found' }, req);
+      return;
+    }
+    json(res, 200, { ok: true, ...r.rows[0] }, req);
+    return;
+  }
+
   if (req.method === 'POST' && url.pathname === '/auth/sync/push') {
     const session = await verifyRequestSession(req);
     if (!session) {
@@ -889,6 +1073,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      json(res, 413, { error: 'payload too large' }, req);
+      return;
+    }
     if (body === null) {
       json(res, 400, { error: 'invalid json' }, req);
       return;
@@ -905,6 +1093,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/auth/change-password') {
     const body = await readBody(req);
+    if (body === BODY_TOO_LARGE) {
+      json(res, 413, { error: 'payload too large' }, req);
+      return;
+    }
     if (body === null) {
       json(res, 400, { error: 'invalid json' }, req);
       return;
@@ -937,8 +1129,26 @@ const server = http.createServer(async (req, res) => {
   }
 
   json(res, 404, { error: 'not found' }, req);
-});
+}
 
 server.listen(PORT, () => {
   console.log(`TimeLog auth server listening on :${PORT}`);
 });
+
+// Docker sends SIGTERM and waits 10s before SIGKILL. Without this the process
+// died mid-transaction: a sync push could be half-applied from the client's
+// point of view (it saw a dropped connection, kept the batch, retried) while
+// Postgres was left rolling back a connection that vanished.
+let shuttingDown = false;
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`${sig} received — draining`);
+    server.close(async () => {
+      await pool.end().catch(() => {});
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 8000).unref();
+  });
+}
