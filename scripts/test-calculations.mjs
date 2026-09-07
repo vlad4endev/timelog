@@ -42,14 +42,20 @@ function extractFunction(name) {
   const braceStart = html.indexOf('{', startMatch.index);
   let depth = 0;
   let inString = null; // ', ", or `
+  // Line comments must be skipped like scanBlock does: an apostrophe inside
+  // one ("what's outstanding") otherwise opens a phantom string and the brace
+  // count runs past the function's end, swallowing whatever follows it.
+  let inLine = false;
   let i = braceStart;
   for (; i < html.length; i++) {
     const c = html[i];
     const prev = html[i - 1];
+    if (inLine) { if (c === '\n') inLine = false; continue; }
     if (inString) {
       if (c === inString && prev !== '\\') inString = null;
       continue;
     }
+    if (c === '/' && html[i + 1] === '/') { inLine = true; continue; }
     if (c === '"' || c === "'" || c === '`') { inString = c; continue; }
     if (c === '{') depth++;
     else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
@@ -372,6 +378,74 @@ globalThis.__state = state;
   }
 }
 
+
+// ── Страница «Оплата»: цифры в карточках и в «Статусе по проектам» ─────────
+// Regression: строки статуса считались только по проектам со ставкой и только
+// по платежам с projectId, поэтому их сумма не сходилась с карточкой
+// «Получено оплат»; правка платежа по отчёту теряла reportId и backfill
+// на следующей загрузке заводил второй платёж, удваивая деньги.
+{
+  const payNames = ['sum', 'getProject', 'calcSavedEntryAmount', 'getProjectEarned',
+    'calcTotalEarned', 'dateOnly', 'toDateStr', 'pad', 'uid', 'groupEntriesByProject',
+    'backfillPaidReportPayments', 'paymentStatusRows'];
+  const mkPay = (st) => {
+    const fn = new Function('state', 'sb', 'save',
+      payNames.map(extractFunction).join('\n') +
+      '; return { paymentStatusRows, calcTotalEarned, sum, backfillPaidReportPayments };');
+    return fn(st, { isEnabled: () => false }, () => {});
+  };
+
+  {
+    const st = {
+      projects: [{ id: 'p1', name: 'Альфа', rate: 1000 }],
+      entries: [{ id: 'e1', projectId: 'p1', hours: 10, rate: 1000 }],
+      // «Все проекты» + платёж по проекту, удалённому ранее (projectId уже null)
+      payments: [{ id: 'a', projectId: null, amount: 4000, date: '2026-01-10' },
+                 { id: 'b', projectId: 'p1', amount: 6000, date: '2026-01-11' }],
+      reports: []
+    };
+    const a = mkPay(st);
+    const rows = a.paymentStatusRows();
+    check('строки статуса сходятся с карточкой «Получено оплат»',
+      a.sum(rows.map(r => r.paid)), a.sum(st.payments.map(p => p.amount)));
+    check('платёж без проекта показан отдельной строкой',
+      rows.map(r => [r.name, r.paid]), [['Альфа', 6000], ['Все проекты', 4000]]);
+  }
+
+  {
+    // Проект без ставки, но с замороженной ставкой на записях, всё равно виден.
+    const st = {
+      projects: [{ id: 'p1', name: 'Архивный', rate: 0 }],
+      entries: [{ id: 'e1', projectId: 'p1', hours: 2, rate: 1500 }],
+      payments: [], reports: []
+    };
+    const a = mkPay(st);
+    check('проект со снятой ставкой не исчезает из статуса',
+      a.paymentStatusRows().map(r => [r.name, r.earned]), [['Архивный', 3000]]);
+    check('строки статуса сходятся с карточкой «Заработано всего»',
+      a.sum(a.paymentStatusRows().map(r => r.earned)), a.calcTotalEarned());
+  }
+
+  {
+    // Правка платежа по отчёту (savePayment мержит на существующую запись).
+    const st = {
+      projects: [{ id: 'p1', name: 'Альфа', rate: 1000 }],
+      entries: [{ id: 'e1', projectId: 'p1', hours: 10, rate: 1000, archived: true }],
+      reports: [{ id: 'r1', title: 'Январь', status: 'paid', paidAt: Date.parse('2026-02-01'),
+                  entryIds: ['e1'], from: '2026-01-01', to: '2026-01-31', totalAmount: 10000, projectId: 'p1' }],
+      payments: [{ id: 'pay1', projectId: 'p1', amount: 10000, date: '2026-02-01',
+                   note: 'Оплата по отчёту «Январь»', reportId: 'r1', createdAt: 1 }]
+    };
+    const a = mkPay(st);
+    // savePayment пересобирает объект поверх существующего — reportId должен уцелеть
+    st.payments[0] = { ...st.payments[0], id: 'pay1', projectId: 'p1', amount: 10000,
+      date: '2026-02-01', from: '', to: '', note: 'на карту', createdAt: 1, updatedAt: 2 };
+    check('правка платежа сохраняет связь с отчётом', st.payments[0].reportId, 'r1');
+    a.backfillPaidReportPayments();
+    check('перезагрузка не заводит второй платёж по тому же отчёту', st.payments.length, 1);
+    check('сумма полученного не удваивается', a.sum(st.payments.map(p => p.amount)), 10000);
+  }
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
