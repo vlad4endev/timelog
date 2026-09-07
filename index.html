@@ -4970,9 +4970,9 @@ function renderPage() {
 function renderDashboard() {
   const today = toDateStr(new Date());
   const week = getWeekDates();
-  const todayEntries = state.entries.filter(e => e.date === today && !e.archived);
-  const weekEntries  = state.entries.filter(e => e.date >= week.start && e.date <= week.end && !e.archived);
-  const monthEntries = state.entries.filter(e => e.date.slice(0,7) === today.slice(0,7) && !e.archived);
+  const todayEntries = state.entries.filter(e => e.date === today && isUnbilledEntry(e));
+  const weekEntries  = state.entries.filter(e => e.date >= week.start && e.date <= week.end && isUnbilledEntry(e));
+  const monthEntries = state.entries.filter(e => e.date.slice(0,7) === today.slice(0,7) && isUnbilledEntry(e));
   const todayH  = sum(todayEntries.map(e=>e.hours));
   const weekH   = sum(weekEntries.map(e=>e.hours));
   const monthH  = sum(monthEntries.map(e=>e.hours));
@@ -5062,7 +5062,7 @@ function renderDashboard() {
       </div>
     </div>`;
 
-  const recentEntries = state.entries.filter(e => !e.archived).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt).slice(0,10);
+  const recentEntries = state.entries.filter(isUnbilledEntry).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt).slice(0,10);
 
   return `
   <style>
@@ -6949,11 +6949,15 @@ function renderPlanning() {
 let reportFrom = '', reportTo = '', reportProject = '', reportTitle = '', selectedReportId = '';
 
 function isActiveEntry(e) { return !e.archived; }
+// Work that's still the freelancer's to bill: not archived by a paid report,
+// and not already sitting in a report waiting to be paid. The dashboard shows
+// exactly this — an entry collected into a report has left the "to do about
+// it" pile, so counting it there reads as unbilled work that isn't.
+function isUnbilledEntry(e) { return isActiveEntry(e) && !e.reportId; }
 
 function getReportableEntries(from, to, projectId) {
   return state.entries.filter(e =>
-    isActiveEntry(e) &&
-    !e.reportId &&
+    isUnbilledEntry(e) &&
     e.date >= from &&
     e.date <= to &&
     (!projectId || e.projectId === projectId)

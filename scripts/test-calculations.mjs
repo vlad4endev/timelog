@@ -302,12 +302,13 @@ globalThis.__state = state;
 // from reports and day stats while still rendering correctly (the formatters
 // slice the tail off). dateOnly() normalizes at the boundary.
 {
-  const src = ['dateOnly', 'toDateStr', 'pad', 'isActiveEntry', 'getReportableEntries']
+  const src = ['dateOnly', 'toDateStr', 'pad', 'isActiveEntry', 'isUnbilledEntry', 'getReportableEntries']
     .map(extractFunction).join('\n\n');
   // eslint-disable-next-line no-eval
   const d = (0, eval)(`(() => { let state = { entries: [] };\n${src}\n`
-    + `return { dateOnly, reportable: (entries, from, to) => { state.entries = entries; `
+    + `return { dateOnly, isUnbilledEntry, reportable: (entries, from, to) => { state.entries = entries; `
     + `return getReportableEntries(from, to, null).map(e => e.id); } }; })()`);
+  d.unbilled = d.isUnbilledEntry;
 
   check('ISO timestamp collapses to a plain date', d.dateOnly('2026-09-30T00:00:00.000Z'), '2026-09-30');
   check('a plain date passes through', d.dateOnly('2026-09-30'), '2026-09-30');
@@ -320,6 +321,14 @@ globalThis.__state = state;
     d.reportable([entry('e2', d.dateOnly('2026-09-30T00:00:00.000Z'))], '2026-09-01', '2026-09-30'), ['e2']);
   check('an entry outside the period still is not',
     d.reportable([entry('e3', '2026-10-01')], '2026-09-01', '2026-09-30'), []);
+
+  // Тот же предикат фильтрует главную: запись, уже собранную в отчёт (даже
+  // неоплаченный), дашборд не показывает и в «Сегодня/Неделя/Месяц» не считает.
+  check('запись в неоплаченном отчёте — не «свои» часы',
+    d.unbilled({ ...entry('e4', '2026-09-30'), reportId: 'r1' }), false);
+  check('запись, закрытая оплаченным отчётом, — тоже нет',
+    d.unbilled({ ...entry('e5', '2026-09-30'), archived: true }), false);
+  check('запись без отчёта считается', d.unbilled(entry('e6', '2026-09-30')), true);
 }
 
 // ── buildTelegramReportText: что реально уходит в Telegram ───────────────
