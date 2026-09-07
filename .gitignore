@@ -13,3 +13,9 @@ ios/App/Pods/
 ios/DerivedData/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+
+# Служебные артефакты инструментов: состояние демона, метрики, логи.
+# Меняются на каждом запуске и не относятся к проекту.
+.claude-flow/
+.claude/proven-config.json
+.claude/.proven-config-version
