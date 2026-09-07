@@ -74,6 +74,13 @@ elif [[ "$MODE" != "prod" ]]; then
   exit 1
 fi
 
+# Build BEFORE stopping anything: set -e aborts here on a failure, leaving the
+# running stack untouched. Building after the shutdown once took the site down
+# for as long as the fix took — an unreachable registry (a base image that
+# isn't cached locally) is enough to fail the build.
+echo "→ Building images ($MODE)..."
+"${COMPOSE[@]}" build
+
 echo "→ Stopping existing timelog containers..."
 docker compose down --remove-orphans 2>/dev/null || true
 docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
@@ -81,8 +88,8 @@ if ids=$(docker ps -aq --filter name='^timelog-' 2>/dev/null); then
   [[ -n "$ids" ]] && docker rm -f $ids 2>/dev/null || true
 fi
 
-echo "→ Building and starting ($MODE)..."
-"${COMPOSE[@]}" up -d --build --wait
+echo "→ Starting ($MODE)..."
+"${COMPOSE[@]}" up -d --wait
 
 if docker compose ps postgres --status running -q 2>/dev/null | grep -q .; then
   echo "→ Database migrations..."
