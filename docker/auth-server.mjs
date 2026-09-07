@@ -21,6 +21,7 @@ const TOKEN_TTL = process.env.AUTH_TOKEN_TTL || '14d';
 const SESSION_COOKIE = 'tl_token';
 const RATE_WINDOW_MS = Number(process.env.AUTH_RATE_WINDOW_MS || 60_000);
 const RATE_MAX = Number(process.env.AUTH_RATE_MAX || 30);
+const SYNC_RATE_MAX = Number(process.env.AUTH_SYNC_RATE_MAX || 600);
 
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
   console.error('JWT_SECRET must be at least 32 characters');
@@ -31,9 +32,19 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
+// DATE columns must come back as the text Postgres gives us. Left alone, pg
+// turns them into JS Date objects at LOCAL midnight, which JSON-serialize as
+// full timestamps ("2026-09-30T00:00:00.000Z", or the previous day on a
+// non-UTC host) — and the client compares e.date lexically against
+// "YYYY-MM-DD" period bounds, so every entry on a period's end date silently
+// fell out of reports, day/week stats and the calendar. Worse, that mangled
+// value got pushed back on the next write, walking the stored date backwards.
+pg.types.setTypeParser(1082, v => v);   // date
+
 const pool = new pg.Pool({ connectionString: DATABASE_URL });
 const key = new TextEncoder().encode(JWT_SECRET);
 const rateBuckets = new Map();
+const syncRateBuckets = new Map();
 
 function parseTokenTtlSeconds(ttl) {
   const m = /^(\d+)([smhd])$/.exec(String(ttl || '14d'));
@@ -109,16 +120,17 @@ function clientIp(req) {
   return req.socket.remoteAddress || 'unknown';
 }
 
-function checkRateLimit(req) {
+function checkRateLimit(req, buckets = rateBuckets, max = RATE_MAX) {
   const ip = clientIp(req);
   const now = Date.now();
-  let bucket = rateBuckets.get(ip);
+  for (const [k, b] of buckets) if (now >= b.resetAt) buckets.delete(k);
+  let bucket = buckets.get(ip);
   if (!bucket || now >= bucket.resetAt) {
     bucket = { count: 0, resetAt: now + RATE_WINDOW_MS };
-    rateBuckets.set(ip, bucket);
+    buckets.set(ip, bucket);
   }
   bucket.count += 1;
-  if (bucket.count > RATE_MAX) return false;
+  if (bucket.count > max) return false;
   return true;
 }
 
@@ -196,6 +208,9 @@ function json(res, status, data, req) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(body),
+    // No API response may ever be cached — a cached /auth/sync/pull hands the
+    // client a pre-edit dataset, which it then persists over the real one.
+    'Cache-Control': 'no-store',
   });
   res.end(body);
 }
@@ -374,8 +389,9 @@ async function upsertProjectRow(client, login, r) {
   await client.query(
     `INSERT INTO projects (
       id, name, client, rate, color, status, description, max_hours,
-      spec_text, spec_file_name, spec_file_mime, spec_file_data, created_at, user_login
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      spec_text, spec_file_name, spec_file_mime, spec_file_data, created_at,
+      updated_at, user_login
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
     ON CONFLICT (id) DO UPDATE SET
       name = EXCLUDED.name, client = EXCLUDED.client, rate = EXCLUDED.rate,
       color = EXCLUDED.color, status = EXCLUDED.status, description = EXCLUDED.description,
@@ -389,13 +405,14 @@ async function upsertProjectRow(client, login, r) {
       spec_file_data = CASE
         WHEN EXCLUDED.spec_file_name IS NOT NULL AND EXCLUDED.spec_file_data IS NULL
         THEN projects.spec_file_data ELSE EXCLUDED.spec_file_data END,
+      updated_at = EXCLUDED.updated_at,
       user_login = EXCLUDED.user_login`,
     [
       r.id, r.name, r.client ?? null, r.rate ?? 0, r.color ?? '#059669',
       r.status ?? 'active', r.description ?? null, r.max_hours ?? null,
       r.spec_text ?? null, r.spec_file_name ?? null, r.spec_file_mime ?? null,
       r.spec_file_data ?? null, r.created_at ?? new Date().toISOString(),
-      r.user_login || login,
+      r.updated_at ?? new Date().toISOString(), r.user_login || login,
     ]
   );
 }
@@ -403,16 +420,17 @@ async function upsertProjectRow(client, login, r) {
 async function upsertEntryRow(client, login, r) {
   await client.query(
     `INSERT INTO time_entries (
-      id, project_id, task, date, hours, start_time, end_time, notes,
+      id, project_id, task, date, hours, rate, start_time, end_time, notes,
       task_id, report_id, archived, created_at, user_login
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
     ON CONFLICT (id) DO UPDATE SET
       project_id = EXCLUDED.project_id, task = EXCLUDED.task, date = EXCLUDED.date,
-      hours = EXCLUDED.hours, start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time,
+      hours = EXCLUDED.hours, rate = EXCLUDED.rate,
+      start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time,
       notes = EXCLUDED.notes, task_id = EXCLUDED.task_id, report_id = EXCLUDED.report_id,
       archived = EXCLUDED.archived, user_login = EXCLUDED.user_login`,
     [
-      r.id, r.project_id, r.task, r.date, r.hours, r.start_time ?? null,
+      r.id, r.project_id, r.task, r.date, r.hours, r.rate ?? null, r.start_time ?? null,
       r.end_time ?? null, r.notes ?? null, r.task_id ?? null, r.report_id ?? null,
       !!r.archived, r.created_at ?? new Date().toISOString(), r.user_login || login,
     ]
@@ -422,16 +440,19 @@ async function upsertEntryRow(client, login, r) {
 async function upsertPaymentRow(client, login, r) {
   await client.query(
     `INSERT INTO payments (
-      id, project_id, amount, date, period_from, period_to, note, created_at, user_login
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      id, project_id, amount, date, period_from, period_to, note, report_id,
+      created_at, updated_at, user_login
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
     ON CONFLICT (id) DO UPDATE SET
       project_id = EXCLUDED.project_id, amount = EXCLUDED.amount, date = EXCLUDED.date,
       period_from = EXCLUDED.period_from, period_to = EXCLUDED.period_to,
-      note = EXCLUDED.note, user_login = EXCLUDED.user_login`,
+      note = EXCLUDED.note, report_id = EXCLUDED.report_id,
+      updated_at = EXCLUDED.updated_at, user_login = EXCLUDED.user_login`,
     [
       r.id, r.project_id ?? null, r.amount, r.date, r.period_from ?? null,
-      r.period_to ?? null, r.note ?? null, r.created_at ?? new Date().toISOString(),
-      r.user_login || login,
+      r.period_to ?? null, r.note ?? null, r.report_id ?? null,
+      r.created_at ?? new Date().toISOString(),
+      r.updated_at ?? new Date().toISOString(), r.user_login || login,
     ]
   );
 }
@@ -523,16 +544,20 @@ async function upsertScheduleBlockRow(client, login, r) {
 async function upsertTimerRow(client, login, r) {
   await client.query(
     `INSERT INTO active_timer (
-      id, running, start_time, project_id, task, task_id, paused, paused_ms, pause_start, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      id, running, start_time, project_id, task, task_id, paused, paused_ms, pause_start,
+      idle_ms, idle_since, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     ON CONFLICT (id) DO UPDATE SET
       running = EXCLUDED.running, start_time = EXCLUDED.start_time, project_id = EXCLUDED.project_id,
       task = EXCLUDED.task, task_id = EXCLUDED.task_id, paused = EXCLUDED.paused,
-      paused_ms = EXCLUDED.paused_ms, pause_start = EXCLUDED.pause_start, updated_at = EXCLUDED.updated_at`,
+      paused_ms = EXCLUDED.paused_ms, pause_start = EXCLUDED.pause_start,
+      idle_ms = EXCLUDED.idle_ms, idle_since = EXCLUDED.idle_since,
+      updated_at = EXCLUDED.updated_at`,
     [
       r.id || login, !!r.running, r.start_time ?? null, r.project_id ?? null,
       r.task ?? '', r.task_id ?? null, !!r.paused, r.paused_ms ?? 0,
-      r.pause_start ?? null, r.updated_at ?? new Date().toISOString(),
+      r.pause_start ?? null, r.idle_ms ?? 0, r.idle_since ?? null,
+      r.updated_at ?? new Date().toISOString(),
     ]
   );
 }
@@ -637,10 +662,18 @@ const server = http.createServer(async (req, res) => {
   if (handleCors(req, res)) return;
 
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const isSyncRoute = url.pathname.startsWith('/auth/sync/');
   const isAuthRoute = url.pathname.startsWith('/auth/')
-    && url.pathname !== '/auth/health';
+    && url.pathname !== '/auth/health'
+    && !isSyncRoute;
 
   if (isAuthRoute && !checkRateLimit(req)) {
+    json(res, 429, { error: 'too many requests' }, req);
+    return;
+  }
+  // Sync needs its own, much larger budget: it is token-gated, and a single
+  // legitimate action (marking a big report paid) is many rows.
+  if (isSyncRoute && !checkRateLimit(req, syncRateBuckets, SYNC_RATE_MAX)) {
     json(res, 429, { error: 'too many requests' }, req);
     return;
   }

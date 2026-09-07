@@ -1766,9 +1766,26 @@ body.mts-open .mobile-bottom-nav{opacity:0;pointer-events:none}
       <div id="stop-timer-task" style="font-size:15px;font-weight:600;margin-bottom:4px"></div>
       <div id="stop-timer-project" class="text-sm text-muted mb16"></div>
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:14px 16px;margin-bottom:12px">
-        <div class="flex items-center justify-between mb8">
+        <div class="flex items-center justify-between mb8" style="gap:8px">
           <span class="text-sm text-muted">Фактически</span>
-          <span id="stop-timer-raw" style="font-weight:600;font-variant-numeric:tabular-nums"></span>
+          <div class="flex items-center" style="gap:6px">
+            <input type="number" class="form-input" id="stop-timer-h" min="0" max="99" step="1"
+                   inputmode="numeric" style="width:60px;text-align:right;padding:6px 8px"
+                   oninput="updateStopTimerPreview()">
+            <span class="text-sm text-muted">ч</span>
+            <input type="number" class="form-input" id="stop-timer-m" min="0" max="59" step="1"
+                   inputmode="numeric" style="width:60px;text-align:right;padding:6px 8px"
+                   oninput="updateStopTimerPreview()">
+            <span class="text-sm text-muted">м</span>
+          </div>
+        </div>
+        <div id="stop-timer-raw" class="text-xs text-muted mb8" style="text-align:right"></div>
+        <div id="stop-timer-idle-row" class="flex items-center justify-between mb8" style="display:none;gap:8px">
+          <label class="text-sm" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="stop-timer-idle-sub" checked onchange="applyStopTimerIdle()">
+            <span>Вычесть простой</span>
+          </label>
+          <span id="stop-timer-idle-val" class="text-sm" style="font-weight:600;font-variant-numeric:tabular-nums"></span>
         </div>
         <div class="flex items-center justify-between mb8">
           <span class="text-sm text-muted">К оплате (округлено)</span>
@@ -3020,17 +3037,14 @@ function authSuccess() {
 }
 
 async function authLogout() {
-  if (sb.isEnabled() && sb._writeQueue.size) {
+  if (sb.isEnabled() && sb.hasPendingWrites()) {
     let flushed = false;
     try { flushed = await sb.flushWrites(); } catch (_) { flushed = false; }
-    if (!flushed && sb._writeQueue.size) {
+    if (!flushed && sb.hasPendingWrites()) {
       if (!confirm('Не удалось сохранить последние изменения на сервере. Выйти всё равно? Несинхронизированные правки будут потеряны.')) return;
     }
   }
-  sb._writeQueue.clear();
-  sb._dirtyKeys.clear();
-  sb._suppressAutoFlush = false;
-  entityLocalEdits = {};
+  sb.clearOutbox();
   auth.logout().finally(() => {
     state.projects = [];
     state.entries = [];
@@ -3067,13 +3081,15 @@ let state = {
     overrides: {},
     blocks: []
   },
-  timer: { running: false, startTime: null, projectId: null, task: '', taskId: null, paused: false, pausedMs: 0, pauseStart: null, updatedAt: 0 },
+  timer: { running: false, startTime: null, projectId: null, task: '', taskId: null, paused: false, pausedMs: 0, pauseStart: null, idleMs: 0, idleSince: null, updatedAt: 0 },
   settings: {
     defaultRate: 0,
     currency: 'RUB',
     billableIncrement: 0.25,
     roundMode: 'up',
     minBillable: 0,
+    idleDetection: false,
+    idleThresholdMin: 10,
     openrouter: { apiKey: '', model: 'anthropic/claude-3.5-haiku', enabled: false },
     aiPrompt: 'Ты помощник разработчика. Перефразируй описание задачи профессионально и лаконично для технического отчёта на русском языке. Сохрани суть, добавь технические детали если уместно. Верни только переформулированный текст без объяснений.',
     supabase: { url: '', anonKey: '', enabled: false },
@@ -3081,68 +3097,32 @@ let state = {
     profile: { phone: '' }
   },
   currentPage: 'dashboard',
-  selectedColor: '#059669',
-  // Per-table map of deleted-id → deletedAt, kept around after a delete
-  // succeeds so a stale push from another device can't resurrect the row on
-  // a later pull (see mergeList). Persisted alongside the rest of state.
-  tombstones: {}
+  selectedColor: '#059669'
 };
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────
-/** Tracks entities edited locally but not yet confirmed on server (persisted in localStorage). */
-let entityLocalEdits = {};
-
-function entityEditKey(table, id) {
-  return `${table}:${id}`;
-}
-
-function markEntityLocalEdit(table, id) {
-  if (!id) return;
-  entityLocalEdits[entityEditKey(table, id)] = Date.now();
-}
-
-function clearEntityLocalEdit(table, id) {
-  if (!id) return;
-  delete entityLocalEdits[entityEditKey(table, id)];
-}
-
-function hasPendingLocalEdit(table, id) {
-  return !!entityLocalEdits[entityEditKey(table, id)];
-}
-
-const TOMBSTONE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
-function addTombstone(table, id) {
-  if (!id) return;
-  if (!state.tombstones) state.tombstones = {};
-  if (!state.tombstones[table]) state.tombstones[table] = {};
-  state.tombstones[table][id] = Date.now();
-}
-function isTombstoned(table, id) {
-  return !!(state.tombstones?.[table]?.[id]);
-}
-// Bound how long we protect against a resurrected delete — a device that
-// hasn't synced in 90+ days is an edge case we accept, in exchange for not
-// growing this list forever.
-function pruneTombstones() {
-  if (!state.tombstones) { state.tombstones = {}; return; }
-  const cutoff = Date.now() - TOMBSTONE_MAX_AGE_MS;
-  for (const table of Object.keys(state.tombstones)) {
-    const ids = state.tombstones[table];
-    for (const id of Object.keys(ids)) {
-      if (ids[id] < cutoff) delete ids[id];
-    }
-  }
-}
-
 // A past sync could have written numbers as strings into localStorage (see
 // rowToEntry/rowToProject/etc.) before that was fixed — coerce on load so
 // already-affected local data self-heals instead of staying broken until
 // every entry happens to get re-synced or re-edited.
+// Every date in state is a plain 'YYYY-MM-DD' string that gets compared
+// lexically ("e.date >= from", "e.date === today"). A DATE column can arrive
+// as a full ISO timestamp instead (a pg Date object that got JSON-serialized),
+// and "2026-09-30T00:00:00.000Z" is NOT <= "2026-09-30" — such entries fell
+// out of reports and day stats while still rendering fine, because the
+// formatters already sliced the tail off. Normalize at every boundary.
+function dateOnly(v) {
+  if (!v) return '';
+  if (v instanceof Date) return toDateStr(v);
+  const s = String(v);
+  return s.length > 10 ? s.slice(0, 10) : s;
+}
+
 function coerceNumericFields() {
-  state.entries.forEach(e => { e.hours = Number(e.hours) || 0; if (e.rate != null) e.rate = Number(e.rate); });
+  state.entries.forEach(e => { e.hours = Number(e.hours) || 0; if (e.rate != null) e.rate = Number(e.rate); e.date = dateOnly(e.date); });
   state.projects.forEach(p => { p.rate = Number(p.rate) || 0; if (p.maxHours) p.maxHours = Number(p.maxHours) || 0; });
-  state.payments.forEach(p => { p.amount = Number(p.amount) || 0; });
-  state.reports.forEach(r => { r.totalHours = Number(r.totalHours) || 0; r.totalAmount = Number(r.totalAmount) || 0; });
+  state.payments.forEach(p => { p.amount = Number(p.amount) || 0; p.date = dateOnly(p.date); p.from = dateOnly(p.from); p.to = dateOnly(p.to); });
+  state.reports.forEach(r => { r.totalHours = Number(r.totalHours) || 0; r.totalAmount = Number(r.totalAmount) || 0; r.from = dateOnly(r.from); r.to = dateOnly(r.to); });
   state.boardTasks.forEach(t => { t.position = Number(t.position) || 0; });
 }
 
@@ -3155,6 +3135,19 @@ function backfillPaidReportPayments() {
   state.reports.forEach(r => {
     if (r.status !== 'paid') return;
     if (state.payments.some(p => p.reportId === r.id)) return;
+    // Re-link payments that lost their reportId in transit rather than
+    // booking a second one — otherwise every reload doubled the money.
+    const note = `Оплата по отчёту${r.title ? ' «' + r.title + '»' : ''}`;
+    const orphans = state.payments.filter(p => !p.reportId && p.note === note);
+    if (orphans.length) {
+      orphans.forEach(p => {
+        p.reportId = r.id;
+        p.updatedAt = Date.now();
+        if (sb.isEnabled()) sb.upsertPayment(p);
+      });
+      changed = true;
+      return;
+    }
     const entryIds = new Set(r.entryIds || []);
     const reportEntries = state.entries.filter(e => entryIds.has(e.id));
     const paidAt = r.paidAt || r.createdAt || Date.now();
@@ -3200,13 +3193,11 @@ function applyLocalData(d) {
     if (d.settings.billableIncrement == null) state.settings.billableIncrement = 0.25;
     if (!d.settings.roundMode) state.settings.roundMode = 'up';
     if (d.settings.minBillable == null) state.settings.minBillable = 0;
+    if (d.settings.idleThresholdMin == null) state.settings.idleThresholdMin = 10;
     if (!state.settings.projectHourAlerts) state.settings.projectHourAlerts = {};
     if (!state.settings.profile) state.settings.profile = { phone: '' };
     else state.settings.profile = Object.assign({ phone: '' }, state.settings.profile);
   }
-  entityLocalEdits = d.entityLocalEdits || {};
-  state.tombstones = d.tombstones || {};
-  pruneTombstones();
 }
 
 /** Import data from timelog_v1 / timelog_v1_default if current state is empty. */
@@ -3241,6 +3232,8 @@ function userSettingsForRemote() {
     billableIncrement: s.billableIncrement,
     roundMode: s.roundMode,
     minBillable: s.minBillable,
+    idleDetection: !!s.idleDetection,
+    idleThresholdMin: s.idleThresholdMin,
     aiPrompt: s.aiPrompt,
     profile: s.profile,
     projectHourAlerts: s.projectHourAlerts,
@@ -3259,6 +3252,8 @@ function applyRemoteUserSettings(remote) {
   if (remote.billableIncrement != null) state.settings.billableIncrement = remote.billableIncrement;
   if (remote.roundMode) state.settings.roundMode = remote.roundMode;
   if (remote.minBillable != null) state.settings.minBillable = remote.minBillable;
+  if (remote.idleDetection != null) state.settings.idleDetection = !!remote.idleDetection;
+  if (remote.idleThresholdMin != null) state.settings.idleThresholdMin = remote.idleThresholdMin;
   if (remote.aiPrompt) state.settings.aiPrompt = remote.aiPrompt;
   if (remote.profile) state.settings.profile = Object.assign({ phone: '' }, state.settings.profile, remote.profile);
   if (remote.projectHourAlerts) state.settings.projectHourAlerts = Object.assign({}, state.settings.projectHourAlerts, remote.projectHourAlerts);
@@ -3274,19 +3269,26 @@ function applyRemoteUserSettings(remote) {
 }
 
 let userSettingsSyncTimer = null;
+let lastSyncedUserSettings = null;
+function markUserSettingsSynced() {
+  try { lastSyncedUserSettings = JSON.stringify(userSettingsForRemote()); } catch (_) {}
+}
 function scheduleUserSettingsSync(immediate = false) {
   if (!sb.isEnabled()) return;
   if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) return;
+  // Only push when the settings actually CHANGED. Without this guard every
+  // save() scheduled a settings push, and that push calls sb._direct() →
+  // save() again — an endless save↔push loop (~250 POSTs/s) that tripped the
+  // server's rate limiter and made every genuine write fail. Root cause of
+  // "nothing saves / everything breaks".
+  let snapshot;
+  try { snapshot = JSON.stringify(userSettingsForRemote()); } catch (_) { return; }
+  if (snapshot === lastSyncedUserSettings) return;
+  lastSyncedUserSettings = snapshot;
   clearTimeout(userSettingsSyncTimer);
-  const run = () => {
-    sb.upsertUserSettings();
-    void sb.flushWrites().catch(e => console.error('user settings sync failed', e));
-  };
-  if (immediate) {
-    run();
-    return;
-  }
-  userSettingsSyncTimer = setTimeout(run, 0);
+  const run = () => { sb.upsertUserSettings(); };
+  if (immediate) { run(); return; }
+  userSettingsSyncTimer = setTimeout(run, 300);
 }
 
 let saveQuotaWarned = false;
@@ -3299,7 +3301,7 @@ function save(opts = {}) {
     // and silently failing EVERY save (root cause of "nothing saves / lost
     // data"). Server pull rehydrates specFileData via rowToProject on reload.
     const projects = state.projects.map(p => p.specFileData ? { ...p, specFileData: '' } : p);
-    const d = { projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings, entityLocalEdits, tombstones: state.tombstones };
+    const d = { projects, entries: state.entries, payments: state.payments, boardTasks: state.boardTasks, reports: state.reports, schedule: state.schedule, timer: state.timer, settings: state.settings };
     localStorage.setItem(auth.dataKey(login), JSON.stringify(d));
     saveQuotaWarned = false;
     scheduleUserSettingsSync(!!opts.syncSettingsNow);
@@ -3335,17 +3337,12 @@ function load() {
 
 // ─── SUPABASE LAYER ──────────────────────────────────────────────────────
 const sb = {
-  _writeQueue: new Map(),
-  _dirtyKeys: new Set(),
-  _flushInFlight: null,
   _sessionExpiredWarned: false,
   _warnSessionExpired() {
     if (this._sessionExpiredWarned) return;
     this._sessionExpiredWarned = true;
     showToast('Сессия истекла — новые данные сохраняются только на этом устройстве. Выйдите и войдите заново, чтобы возобновить синхронизацию.', 'error');
   },
-  _suppressAutoFlush: false,
-  _flushScheduled: false,
 
   userLogin() { return auth.getLogin() || ''; },
 
@@ -3402,14 +3399,55 @@ const sb = {
     } catch(e) { console.error('Supabase fetch error:', e); return null; }
   },
 
-  // ─── Direct server writes — the server is the single source of truth ────
-  // No queue, no merge, no conflict resolution: each mutation is pushed
-  // straight to the server (atomic per-call via /auth/sync/push). The local
-  // state + localStorage are an optimistic mirror; the authoritative pull
-  // (on boot and on returning to the app) reconciles. A write the server
-  // rejects is surfaced honestly instead of silently vanishing — the whole
-  // class of "two writers disagree / queue drops it / quota eats it" is gone
-  // because there is only one writer path and one source of truth.
+  // ─── OUTBOX ────────────────────────────────────────────────────────────
+  // Every mutation lands here and leaves as ONE batched /auth/sync/push per
+  // burst. Three properties matter, and each one fixes a real way data was
+  // being lost:
+  //   1. batched — a "mark report paid" over 40 entries used to fire 40+
+  //      separate POSTs and trip the server's rate limiter mid-way, leaving
+  //      the report paid but half its entries un-archived;
+  //   2. retried + persisted — a write the server didn't take stays here
+  //      (across reloads) until it does, instead of being fire-and-forget;
+  //   3. pull-blocking — refreshFromServer() refuses to replace local state
+  //      with the server copy while this is non-empty, so the authoritative
+  //      pull can't overwrite a change that never made it up.
+  _out: { upserts: {}, deletes: {}, timer: null },
+  _outTimer: null,
+  _flushInFlight: null,
+
+  _outKey() { return `tl_outbox_${this.userLogin() || 'local'}`; },
+  _outEmpty() {
+    if (this._out.timer) return false;
+    if (Object.keys(this._out.deletes).length) return false;
+    return Object.values(this._out.upserts).every(rows => !Object.keys(rows).length);
+  },
+  hasPendingWrites() { return !this._outEmpty(); },
+  _persistOut() {
+    try {
+      if (this._outEmpty()) localStorage.removeItem(this._outKey());
+      else localStorage.setItem(this._outKey(), JSON.stringify(this._out));
+    } catch (_) {}
+  },
+  restoreOutbox() {
+    try {
+      const raw = localStorage.getItem(this._outKey());
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        this._out = {
+          upserts: parsed.upserts || {},
+          deletes: parsed.deletes || {},
+          timer: parsed.timer || null,
+        };
+      }
+    } catch (_) { this._out = { upserts: {}, deletes: {}, timer: null }; }
+    if (!this._outEmpty()) this._scheduleFlush(1000);
+  },
+  clearOutbox() {
+    this._out = { upserts: {}, deletes: {}, timer: null };
+    clearTimeout(this._outTimer);
+    this._persistOut();
+  },
+
   _serverWrites() { return auth.useServerAuth() && !!auth.getApiToken(); },
 
   async _send(body) {
@@ -3418,219 +3456,100 @@ const sb = {
     return !!res?.ok;
   },
 
-  _direct(body) {
+  _direct() {
     save();                              // cache the optimistic change for instant boot
-    if (!this._serverWrites()) return;   // local-only mode (no server): the cache IS the truth
-    this._send(body)
-      .then(ok => { if (!ok) this._warnWriteFailed(); })
-      .catch(() => this._warnWriteFailed());
+    if (!this._serverWrites()) {         // local-only mode: localStorage IS the truth
+      this.clearOutbox();
+      return;
+    }
+    this._persistOut();
+    this._scheduleFlush();
   },
 
+  _scheduleFlush(delay = 400) {
+    clearTimeout(this._outTimer);
+    this._outTimer = setTimeout(() => { void this.flushWrites().catch(() => {}); }, delay);
+  },
+
+  _writeFailWarned: false,
   _warnWriteFailed() {
-    // Never silent: a write the server didn't accept must tell the user, so
-    // they know the change isn't safe yet. The next pull (focus/boot) shows
-    // authoritative server state. Debounced to one toast per burst.
-    clearTimeout(this._failTimer);
-    this._failTimer = setTimeout(() => {
-      showToast('Изменения не сохранены на сервере — проверьте связь.', 'error');
-    }, 400);
+    // Never silent: a write the server didn't accept must tell the user. It
+    // stays in the outbox and is retried, so this is "not yet", not "gone" —
+    // and the retry loop must not toast on every attempt.
+    if (this._writeFailWarned) return;
+    this._writeFailWarned = true;
+    showToast('Изменения пока не отправлены на сервер — повторим при связи.', 'error');
   },
 
-  _queueUpsert(table, id, row) { this._direct({ upserts: { [table]: [row] } }); },
+  _queueUpsert(table, id, row) {
+    if (!this._out.upserts[table]) this._out.upserts[table] = {};
+    this._out.upserts[table][id] = row;
+    delete this._out.deletes[`${table}:${id}`];
+    this._direct();
+  },
   _queueDelete(table, id, extra = null) {
-    const del = extra?.date ? { table, date: extra.date } : { table, id };
-    this._direct({ deletes: [del] });
+    const key = `${table}:${id || extra?.date}`;
+    if (this._out.upserts[table]) delete this._out.upserts[table][id];
+    this._out.deletes[key] = extra?.date ? { table, date: extra.date } : { table, id };
+    this._direct();
   },
-  _queueClearTimer() { this._direct({ timer: this.timerToRow(state.timer) }); },
-
-  _pendingDeleteIds(table) {
-    const ids = new Set();
-    for (const job of this._writeQueue.values()) {
-      if (job.type === 'delete' && job.table === table && job.id) ids.add(job.id);
-    }
-    return ids;
+  _queueClearTimer() {
+    this._queueUpsert('active_timer', this.userId(), this.timerToRow(state.timer));
   },
 
-  replayPendingEditsToQueue() {
-    this._suppressAutoFlush = true;
-    try {
-      for (const key of Object.keys(entityLocalEdits)) {
-        const sep = key.indexOf(':');
-        if (sep <= 0) continue;
-        const table = key.slice(0, sep);
-        const id = key.slice(sep + 1);
-        if (this._writeQueue.has(key) || this._writeQueue.has(`del:${key}`)) continue;
-        const queueUpsert = (row) => {
-          const k = `${table}:${id}`;
-          this._dirtyKeys.add(k);
-          markEntityLocalEdit(table, id);
-          this._writeQueue.set(k, { type: 'upsert', table, id, row });
-        };
-        const queueDelete = () => {
-          const entityKey = `${table}:${id}`;
-          const queueKey = `del:${entityKey}`;
-          this._dirtyKeys.add(entityKey);
-          markEntityLocalEdit(table, id);
-          this._writeQueue.set(queueKey, {
-            type: 'delete', table, id,
-            extra: table === 'schedule_overrides' ? { date: id } : null,
-          });
-        };
-        switch (table) {
-          case 'projects': {
-            const p = state.projects.find(x => x.id === id);
-            if (p) queueUpsert(this.projectToRow(p)); else queueDelete();
-            break;
-          }
-          case 'time_entries': {
-            const e = state.entries.find(x => x.id === id);
-            if (e) queueUpsert(this.entryToRow(e)); else queueDelete();
-            break;
-          }
-          case 'payments': {
-            const p = state.payments.find(x => x.id === id);
-            if (p) queueUpsert(this.paymentToRow(p)); else queueDelete();
-            break;
-          }
-          case 'board_tasks': {
-            const t = state.boardTasks.find(x => x.id === id);
-            if (t) queueUpsert(this.boardTaskToRow(t)); else queueDelete();
-            break;
-          }
-          case 'billing_reports': {
-            const r = state.reports.find(x => x.id === id);
-            if (r) queueUpsert(this.reportToRow(r)); else queueDelete();
-            break;
-          }
-          case 'schedule_blocks': {
-            const b = state.schedule.blocks.find(x => x.id === id);
-            if (b) queueUpsert(this.blockToRow(b)); else queueDelete();
-            break;
-          }
-          case 'schedule_overrides': {
-            const o = state.schedule.overrides[id];
-            if (o) queueUpsert(this.overrideToRow(id, o)); else queueDelete();
-            break;
-          }
-          case 'schedule_settings':
-            queueUpsert(this.scheduleSettingsToRow(state.schedule));
-            break;
-          case 'user_settings':
-            queueUpsert(this.userSettingsToRow());
-            break;
-          case 'active_timer':
-            queueUpsert(this.timerToRow(state.timer));
-            break;
-          default:
-            break;
-        }
-      }
-    } finally {
-      this._suppressAutoFlush = false;
+  // Shallow copy that keeps row object identity, so _removeSent can tell
+  // "this is exactly what I sent" from "this was overwritten while in flight".
+  _snapshotOut() {
+    const upserts = {};
+    for (const [t, rows] of Object.entries(this._out.upserts)) {
+      if (Object.keys(rows).length) upserts[t] = { ...rows };
     }
+    return { upserts, deletes: { ...this._out.deletes }, timer: this._out.timer };
   },
-
-  async _executeFlush(batch) {
-    let ok = true;
-    if (auth.useServerAuth() && auth.getApiToken()) {
-      ok = await this._flushViaAuth(batch);
-    } else {
-      ok = await this._flushViaRest(batch);
-    }
-    if (ok) {
-      for (const job of batch) {
-        if (job.type === 'upsert') {
-          this._dirtyKeys.delete(`${job.table}:${job.id}`);
-          clearEntityLocalEdit(job.table, job.id);
-        } else if (job.type === 'delete') {
-          this._dirtyKeys.delete(`${job.table}:${job.id || job.extra?.date}`);
-          clearEntityLocalEdit(job.table, job.id || job.extra?.date);
-        }
-      }
-      save();
-    } else {
-      for (const job of batch) {
-        const key = job.type === 'delete'
-          ? `del:${job.table}:${job.id || job.extra?.date}`
-          : job.type === 'clearTimer'
-          ? 'timer:clear'
-          : `${job.table}:${job.id}`;
-        this._writeQueue.set(key, job);
+  _removeSent(batch) {
+    for (const [t, rows] of Object.entries(batch.upserts)) {
+      for (const [id, row] of Object.entries(rows)) {
+        if (this._out.upserts[t]?.[id] === row) delete this._out.upserts[t][id];
       }
     }
-    return ok;
+    for (const [key, del] of Object.entries(batch.deletes)) {
+      if (this._out.deletes[key] === del) delete this._out.deletes[key];
+    }
+    if (batch.timer && this._out.timer === batch.timer) this._out.timer = null;
   },
 
   async flushWrites() {
     if (!this.isEnabled()) return true;
-    if (auth.useServerAuth() && auth.isLoggedIn() && !auth.getApiToken()) return false;
+    if (this._outEmpty()) return true;
+    if (!this._serverWrites()) { this._warnSessionExpired(); return false; }
+    if (this._flushInFlight) return this._flushInFlight;
 
-    while (this._writeQueue.size) {
-      if (this._flushInFlight) {
-        const ok = await this._flushInFlight;
-        if (!ok) return false;
-        continue;
-      }
-
-      const batch = [...this._writeQueue.values()];
-      this._writeQueue.clear();
-
-      this._flushInFlight = this._executeFlush(batch);
-      const ok = await this._flushInFlight;
-      this._flushInFlight = null;
-      if (!ok) return false;
-    }
-    return true;
-  },
-
-  async _flushViaAuth(batch) {
+    clearTimeout(this._outTimer);
+    const batch = this._snapshotOut();
     const upserts = {};
-    const deletes = [];
-    let timer = null;
-    let clearTimer = false;
-    for (const job of batch) {
-      if (job.type === 'upsert') {
-        if (!upserts[job.table]) upserts[job.table] = [];
-        upserts[job.table].push(job.row);
-      } else if (job.type === 'delete') {
-        deletes.push(job.extra?.date
-          ? { table: job.table, date: job.extra.date }
-          : { table: job.table, id: job.id });
-      } else if (job.type === 'clearTimer') {
-        clearTimer = true;
-        if (job.row) timer = job.row;
-      }
+    for (const [t, rows] of Object.entries(batch.upserts)) {
+      const list = Object.values(rows);
+      if (list.length) upserts[t] = list;
     }
-    for (const job of batch) {
-      if (job.type === 'upsert' && job.table === 'active_timer') timer = job.row;
-    }
-    const res = await auth.authFetch('/auth/sync/push', { upserts, deletes, timer, clearTimer });
-    if (res?.status === 401) this._warnSessionExpired();
-    return !!res?.ok;
-  },
+    const body = { upserts, deletes: Object.values(batch.deletes), timer: batch.timer };
 
-  async _flushViaRest(batch) {
-    const tasks = batch.map(job => {
-      if (job.type === 'upsert') {
-        return this.req('POST', job.table, job.row);
-      }
-      if (job.type === 'delete') {
-        if (job.table === 'schedule_overrides' && job.extra?.date) {
-          const login = this.userLogin();
-          const q = login
-            ? `schedule_overrides?date=eq.${job.extra.date}&user_login=eq.${encodeURIComponent(login)}`
-            : `schedule_overrides?date=eq.${job.extra.date}`;
-          return this.req('DELETE', q);
+    this._flushInFlight = (async () => {
+      const ok = await this._send(body);
+      if (ok) {
+        this._removeSent(batch);
+        if (this._writeFailWarned) {
+          this._writeFailWarned = false;
+          showToast('✓ Изменения сохранены на сервере', 'success');
         }
-        return this.req('DELETE', this.scopedDelete(job.table, job.id));
+      } else {
+        this._warnWriteFailed();
+        this._scheduleFlush(5000);
       }
-      if (job.type === 'clearTimer') {
-        return this.req('POST', 'active_timer', job.row || this.timerToRow(state.timer));
-      }
-      return Promise.resolve(true);
-    });
-    const results = await Promise.all(tasks);
-    return results.every(r => r !== null);
+      this._persistOut();
+      return ok;
+    })();
+    try { return await this._flushInFlight; }
+    finally { this._flushInFlight = null; }
   },
 
   // Server is the single source of truth: replace local collections with what
@@ -3657,7 +3576,7 @@ const sb = {
     if (payload.schedule_overrides !== undefined) {
       const overrides = {};
       for (const r of (payload.schedule_overrides || [])) {
-        overrides[r.date] = { type: r.type, hours: r.hours != null ? Number(r.hours) : null, note: r.note || '' };
+        overrides[dateOnly(r.date)] = { type: r.type, hours: r.hours != null ? Number(r.hours) : null, note: r.note || '' };
       }
       state.schedule.overrides = overrides;
     }
@@ -3666,6 +3585,7 @@ const sb = {
     }
     if (payload.user_settings !== undefined && payload.user_settings?.settings) {
       applyRemoteUserSettings(payload.user_settings.settings);
+      markUserSettingsSynced();   // came FROM the server — don't push it back
     }
   },
 
@@ -3741,25 +3661,26 @@ const sb = {
   // concatenate ("3"+"5"+"4" -> "354") while `*`/`-` happen to auto-coerce
   // and mask the bug, which is why only totals broke and money looked fine.
   rowToEntry(r) {
-    return { id: r.id, projectId: r.project_id, task: r.task, date: r.date, hours: Number(r.hours) || 0, rate: r.rate != null ? Number(r.rate) : null, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, reportId: r.report_id||null, archived: !!r.archived, createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, projectId: r.project_id, task: r.task, date: dateOnly(r.date), hours: Number(r.hours) || 0, rate: r.rate != null ? Number(r.rate) : null, start: r.start_time||'', end: r.end_time||'', notes: r.notes||'', taskId: r.task_id||null, reportId: r.report_id||null, archived: !!r.archived, createdAt: new Date(r.created_at).getTime() };
   },
   rowToPayment(r) {
-    return { id: r.id, projectId: r.project_id||null, amount: Number(r.amount) || 0, date: r.date, from: r.period_from||'', to: r.period_to||'', note: r.note||'', reportId: r.report_id||null, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at || r.created_at).getTime() };
+    return { id: r.id, projectId: r.project_id||null, amount: Number(r.amount) || 0, date: dateOnly(r.date), from: dateOnly(r.period_from), to: dateOnly(r.period_to), note: r.note||'', reportId: r.report_id||null, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at || r.created_at).getTime() };
   },
   rowToBoardTask(r) {
     return { id: r.id, projectId: r.project_id, title: r.title, desc: r.description||'', status: r.status||'todo', position: Number(r.position)||0, priority: r.priority||'medium', archived: !!r.archived, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
   },
   rowToReport(r) {
-    return { id: r.id, title: r.title||'', from: r.period_from, to: r.period_to, projectId: r.project_id||null, entryIds: r.entry_ids||[], text: r.text||'', totalHours: Number(r.total_hours)||0, totalAmount: Number(r.total_amount)||0, status: r.status||'unpaid', paidAt: r.paid_at ? new Date(r.paid_at).getTime() : null, createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, title: r.title||'', from: dateOnly(r.period_from), to: dateOnly(r.period_to), projectId: r.project_id||null, entryIds: r.entry_ids||[], text: r.text||'', totalHours: Number(r.total_hours)||0, totalAmount: Number(r.total_amount)||0, status: r.status||'unpaid', paidAt: r.paid_at ? new Date(r.paid_at).getTime() : null, createdAt: new Date(r.created_at).getTime() };
   },
   rowToBlock(r) {
-    return { id: r.id, date: r.date, start: r.start_time, end: r.end_time, title: r.title || '', note: r.note || '', createdAt: new Date(r.created_at).getTime() };
+    return { id: r.id, date: dateOnly(r.date), start: r.start_time, end: r.end_time, title: r.title || '', note: r.note || '', createdAt: new Date(r.created_at).getTime() };
   },
   timerToRow(t) {
     return {
       id: this.userId(), running: !!t.running, start_time: t.startTime || null,
       project_id: t.projectId || null, task: t.task || '', task_id: t.taskId || null,
       paused: !!t.paused, paused_ms: t.pausedMs || 0, pause_start: t.pauseStart || null,
+      idle_ms: t.idleMs || 0, idle_since: t.idleSince || null,
       updated_at: new Date(t.updatedAt || Date.now()).toISOString()
     };
   },
@@ -3769,6 +3690,7 @@ const sb = {
       running: !!r.running, startTime: r.start_time != null ? Number(r.start_time) : null, projectId: r.project_id || null,
       task: r.task || '', taskId: r.task_id || null, paused: !!r.paused,
       pausedMs: Number(r.paused_ms) || 0, pauseStart: r.pause_start != null ? Number(r.pause_start) : null,
+      idleMs: Number(r.idle_ms) || 0, idleSince: r.idle_since != null ? Number(r.idle_since) : null,
       updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : 0
     });
   },
@@ -3852,12 +3774,17 @@ const sb = {
     await sb.req('PATCH', `user_settings?id=eq.${encodeURIComponent(oldLogin)}`, { id: newLogin });
   },
 
-  async syncSchedule() {
-    return this._send({ upserts: {
-      schedule_settings: [this.scheduleSettingsToRow(state.schedule)],
-      schedule_overrides: Object.entries(state.schedule.overrides).map(([d, o]) => this.overrideToRow(d, o)),
-      schedule_blocks: state.schedule.blocks.map(b => this.blockToRow(b)),
-    } });
+  // Through the outbox, not a bare _send: a schedule edit that the server
+  // refuses must be retried like any other write, not dropped on the floor.
+  syncSchedule() {
+    const put = (table, id, row) => {
+      if (!this._out.upserts[table]) this._out.upserts[table] = {};
+      this._out.upserts[table][id] = row;
+    };
+    put('schedule_settings', this.userId(), this.scheduleSettingsToRow(state.schedule));
+    Object.entries(state.schedule.overrides).forEach(([d, o]) => put('schedule_overrides', d, this.overrideToRow(d, o)));
+    state.schedule.blocks.forEach(b => put('schedule_blocks', b.id, this.blockToRow(b)));
+    this._direct();
   },
 
   // Push the entire local dataset to the server in one atomic call — used only
@@ -3907,6 +3834,17 @@ async function refreshFromServer(options = {}) {
 
   serverSyncInFlight = (async () => {
     try {
+      // Push BEFORE pull. The pull replaces local collections wholesale, so
+      // an unconfirmed local write that hasn't reached the server yet would
+      // simply be overwritten — that was the "I changed it, then it came
+      // back old" data loss. If it still can't be pushed, skip the pull.
+      if (sb.hasPendingWrites()) {
+        const flushed = await sb.flushWrites();
+        if (!flushed) {
+          if (!silent) showToast('Есть несохранённые изменения — синхронизация отложена', 'error');
+          return { ok: false, reason: 'pending_writes' };
+        }
+      }
       const pullResult = await sb.pull();
       lastServerSyncAt = Date.now();
       if (pullResult?.ok === false) {
@@ -4038,8 +3976,10 @@ function fmtTimerEarnedUI() {
 function normalizeTimer(timer) {
   const t = Object.assign({
     running: false, startTime: null, projectId: null, task: '', taskId: null,
-    paused: false, pausedMs: 0, pauseStart: null, updatedAt: 0
+    paused: false, pausedMs: 0, pauseStart: null, idleMs: 0, idleSince: null, updatedAt: 0
   }, timer || {});
+  t.idleMs = Number(t.idleMs) || 0;
+  t.idleSince = t.idleSince != null ? Number(t.idleSince) : null;
   // Guard against timestamps/durations persisted as strings (localStorage
   // from before a fix, or a raw server row) — arithmetic on them should
   // always be numeric, not string concatenation.
@@ -4157,6 +4097,94 @@ function mergeTimers(local, remote) {
   if (!local) return remote;
   return (remote.updatedAt || 0) >= (local.updatedAt || 0) ? remote : local;
 }
+// ─── ОПРЕДЕЛЕНИЕ ПРОСТОЯ ─────────────────────────────────────────────────
+// Ловим «человека не было ЗА КОМПЬЮТЕРОМ», а не «ушёл из вкладки». Это
+// разные вещи: таймлог запускают и уходят работать в IDE, поэтому blur и
+// visibilitychange здесь дают гарантированно ложный простой. Единственный
+// честный сигнал в вебе — Idle Detection API (Chrome/Edge, по разрешению):
+// он смотрит на ввод и блокировку экрана на уровне ОС. Где его нет — ничего
+// не выдумываем и молчим, ручная правка длительности при остановке остаётся.
+const idleWatch = {
+  _detector: null,
+  _controller: null,
+
+  supported() { return 'IdleDetector' in window; },
+  thresholdMs() {
+    const min = Number(state.settings.idleThresholdMin) || 10;
+    return Math.max(60, min * 60) * 1000;   // API требует минимум 60 секунд
+  },
+  async permission() {
+    if (!this.supported()) return 'unsupported';
+    try { return (await navigator.permissions.query({ name: 'idle-detection' })).state; }
+    catch (_) { return 'prompt'; }
+  },
+  /** Требует жеста пользователя — вызывается только из переключателя настроек. */
+  async requestPermission() {
+    if (!this.supported()) return false;
+    try { return (await IdleDetector.requestPermission()) === 'granted'; }
+    catch (_) { return false; }
+  },
+
+  async start() {
+    this.stop();
+    if (!state.settings.idleDetection || !this.supported()) return;
+    if (!state.timer.running) return;
+    if (await this.permission() !== 'granted') return;
+    try {
+      this._controller = new AbortController();
+      const d = new IdleDetector();
+      d.addEventListener('change', () => {
+        if (d.userState === 'idle' || d.screenState === 'locked') this.markAway();
+        else this.markBack();
+      });
+      await d.start({ threshold: this.thresholdMs(), signal: this._controller.signal });
+      this._detector = d;
+    } catch (e) {
+      console.warn('idle detection unavailable', e);
+      this.stop();
+    }
+  },
+  stop() {
+    try { this._controller?.abort(); } catch (_) {}
+    this._controller = null;
+    this._detector = null;
+  },
+
+  markAway() {
+    const t = state.timer;
+    if (!t.running || t.paused || t.idleSince) return;
+    // API сообщает о простое только ПОСЛЕ порога, значит человека нет уже
+    // как минимум threshold — отсчёт ведём оттуда, а не с «сейчас».
+    t.idleSince = Math.max(t.startTime || 0, Date.now() - this.thresholdMs());
+    save();
+  },
+  /** Закрывает открытый отрезок простоя без уведомления. */
+  settle() {
+    const t = state.timer;
+    if (!t.idleSince) return 0;
+    const away = Math.max(0, Date.now() - t.idleSince);
+    t.idleSince = null;
+    if (away >= 60000) t.idleMs = (t.idleMs || 0) + away;
+    return away >= 60000 ? away : 0;
+  },
+  markBack() {
+    const away = this.settle();
+    if (!away) { save(); return; }
+    touchTimer();
+    save();
+    persistTimerBackground(true);
+    updateTimerUI();
+    showToast(`Простой ${fmtDuration(away / 3600000)} — можно вычесть при остановке`);
+  },
+
+  /** Весь простой сессии, включая ещё не закрытый отрезок. */
+  totalMs() {
+    const t = state.timer;
+    const open = t.idleSince ? Math.max(0, Date.now() - t.idleSince) : 0;
+    return (t.idleMs || 0) + open;
+  },
+};
+
 function getTimerElapsedMs() {
   const t = state.timer;
   if (!t.running || !t.startTime) return 0;
@@ -4170,6 +4198,7 @@ function resetTimerState() {
   // recognized as newer than a stale "still running" state cached on another
   // device — see mergeTimers, which does plain last-write-wins by updatedAt.
   state.timer = normalizeTimer({ updatedAt: Date.now() });
+  idleWatch.stop();
   clearInterval(timerInterval);
   closeMobileTimerScreen();
   save();
@@ -4255,6 +4284,11 @@ const timerBg = {
 
 function reconcileTimerOnWake() {
   if (!state.timer.running) return;
+  // Приложение снова открыто — значит человек вернулся: закрываем отрезок
+  // простоя, который остался висеть с прошлого раза, и поднимаем слежение
+  // (детектор не переживает перезагрузку страницы).
+  idleWatch.settle();
+  if (!idleWatch._detector) void idleWatch.start();
   if (state.timer.paused && state.timer.pauseStart) {
     // freeze elapsed while paused — no change needed
   }
@@ -4288,7 +4322,15 @@ function handleTimerNotifAction(action) {
   if (!action || !state.timer.running) return;
   if (action === 'pause' && !state.timer.paused) pauseTimer();
   else if (action === 'resume' && state.timer.paused) resumeTimer();
-  else if (action === 'stop') stopTimer();
+  else if (action === 'stop') {
+    // Из уведомления решение уже принято. Раньше здесь открывался диалог,
+    // которого пользователь мог не увидеть (приложение в фоне) — таймер
+    // продолжал идти, а уведомление уже исчезло.
+    if (!commitTimerEntry(getTimerElapsedHours())) {
+      resetTimerState();
+      showToast('Таймер остановлен — слишком мало времени для записи');
+    }
+  }
 }
 
 async function requestTimerNotifications() {
@@ -4402,6 +4444,13 @@ function updateMobileTimerScreen() {
 }
 
 function startTimer(projectId, task, taskId) {
+  // Единственная точка входа для всех кнопок «Старт». Раньше повторный
+  // запуск просто перезаписывал state.timer — идущая сессия исчезала
+  // вместе с уже отработанным временем.
+  if (state.timer.running) {
+    showToast('Уже идёт запись — сначала остановите текущий таймер', 'error');
+    return;
+  }
   if (taskId) {
     const bt = getBoardTask(taskId);
     if (bt && bt.status === 'todo') {
@@ -4414,6 +4463,7 @@ function startTimer(projectId, task, taskId) {
   state.timer = normalizeTimer({ running: true, startTime: Date.now(), projectId, task, taskId: taskId || null });
   touchTimer();
   save();
+  void idleWatch.start();
   requestTimerNotifications().then(granted => {
     if (!granted && isMobileView()) {
       showToast('Разрешите уведомления — таймер будет в шторке', 'error');
@@ -4479,6 +4529,7 @@ function togglePauseTimer() {
   else pauseTimer();
 }
 function pauseTimer() {
+  idleWatch.settle();   // простой до паузы был внутри учтённого времени
   state.timer.paused = true;
   state.timer.pauseStart = Date.now();
   touchTimer();
@@ -4500,12 +4551,54 @@ function resumeTimer() {
 }
 function stopTimer() {
   if (!state.timer.running) return;
-  if (state.timer.paused) resumeTimer();
+  // Раньше здесь снималась пауза — и если пользователь закрывал диалог,
+  // таймер оставался идти дальше, накручивая время, которого не было.
+  // getTimerElapsedMs() и так корректно замораживает счёт на паузе.
   openStopTimerModal();
 }
+// Точное измеренное значение. Поля ввода — с точностью до минуты, поэтому
+// пока пользователь их не трогал, в запись идёт именно измеренное время,
+// без потери секунд.
+let stopTimerMeasuredH = 0;   // что намерил таймер
+let stopTimerIdleH = 0;       // из них простой
+// Поля ч/м — единственный источник правды для записи. Раньше за ними
+// пряталось точное значение с секундами, и таймер, показавший «3ч 0м», при
+// округлении вверх выставлял 3ч15м из-за четырёх лишних секунд: на экране
+// одно, в счёте другое. Секунды всё равно не переживают шаг округления
+// (минимум 15 минут), поэтому храним ровно то, что видит человек.
+function getStopTimerRawHours() {
+  const h = Math.max(0, parseInt(document.getElementById('stop-timer-h')?.value, 10) || 0);
+  const m = Math.max(0, parseInt(document.getElementById('stop-timer-m')?.value, 10) || 0);
+  return h + m / 60;
+}
+function setStopTimerFields(hours) {
+  const totalM = Math.round(Math.max(0, hours) * 60);
+  const hEl = document.getElementById('stop-timer-h');
+  const mEl = document.getElementById('stop-timer-m');
+  if (hEl) hEl.value = Math.floor(totalM / 60);
+  if (mEl) mEl.value = totalM % 60;
+}
+function applyStopTimerIdle() {
+  const sub = document.getElementById('stop-timer-idle-sub')?.checked;
+  setStopTimerFields(stopTimerMeasuredH - (sub ? stopTimerIdleH : 0));
+  updateStopTimerPreview();
+}
+const LONG_SESSION_H = 12;
 function openStopTimerModal() {
   const rawH = getTimerElapsedHours();
   if (rawH < 1 / 3600) { showToast('Слишком мало времени', 'error'); return; }
+  stopTimerMeasuredH = rawH;
+  // Простой предлагается вычесть по умолчанию — он на то и простой; галочку
+  // видно, значение показано, вернуть одним кликом.
+  const idleH = idleWatch.totalMs() / 3600000;
+  stopTimerIdleH = (idleH >= 1 / 60 && rawH - idleH > 0) ? idleH : 0;
+  const idleRow = document.getElementById('stop-timer-idle-row');
+  const idleSub = document.getElementById('stop-timer-idle-sub');
+  if (idleSub) idleSub.checked = true;
+  if (idleRow) idleRow.style.display = stopTimerIdleH ? 'flex' : 'none';
+  const idleVal = document.getElementById('stop-timer-idle-val');
+  if (idleVal) idleVal.textContent = '− ' + fmtDuration(stopTimerIdleH);
+  setStopTimerFields(rawH - stopTimerIdleH);
   const project = getProject(state.timer.projectId);
   document.getElementById('stop-timer-task').textContent = state.timer.task || 'Без описания';
   document.getElementById('stop-timer-project').textContent = project ? project.name + (project.client ? ' · ' + project.client : '') : '';
@@ -4513,7 +4606,7 @@ function openStopTimerModal() {
   openModal('modal-stop-timer');
 }
 function updateStopTimerPreview() {
-  const rawH = getTimerElapsedHours();
+  const rawH = getStopTimerRawHours();
   const billH = roundBillableHours(rawH);
   const project = getProject(state.timer.projectId);
   const amount = calcEntryAmount(state.timer.projectId, billH);
@@ -4521,7 +4614,15 @@ function updateStopTimerPreview() {
   const billEl = document.getElementById('stop-timer-billable');
   const amtRow = document.getElementById('stop-timer-amount-row');
   const amtEl = document.getElementById('stop-timer-amount');
-  if (rawEl) rawEl.textContent = fmtDuration(rawH);
+  if (rawEl) {
+    // Забытый на ночь таймер — самая частая причина неверной записи.
+    // Показываем измеренное значение отдельно, чтобы его можно было
+    // осознанно поправить прямо здесь, а не редактировать запись потом.
+    rawEl.textContent = stopTimerMeasuredH >= LONG_SESSION_H
+      ? `⚠ Таймер намерил ${fmtDuration(stopTimerMeasuredH)} — проверьте, не забыт ли он`
+      : `Таймер намерил ${fmtDuration(stopTimerMeasuredH)}`;
+    rawEl.style.color = stopTimerMeasuredH >= LONG_SESSION_H ? 'var(--red, #dc2626)' : '';
+  }
   if (billEl) billEl.textContent = fmtHours(billH);
   if (amtRow && amtEl) {
     if (project?.rate && amount > 0) {
@@ -4533,11 +4634,22 @@ function updateStopTimerPreview() {
   }
 }
 function confirmStopTimer() {
-  const rawH = getTimerElapsedHours();
+  if (commitTimerEntry(getStopTimerRawHours())) closeModal('modal-stop-timer');
+}
+
+/**
+ * Записывает текущую сессию таймера как запись времени и сбрасывает таймер.
+ * rawH — фактические часы (из диалога их можно поправить).
+ * Возвращает false, если писать нечего.
+ */
+function commitTimerEntry(rawH) {
+  if (!state.timer.running) return false;
   const billH = roundBillableHours(rawH);
-  if (billH <= 0) { showToast('Слишком мало времени', 'error'); return; }
-  const endMs = Date.now();
-  const startMs = endMs - getTimerElapsedMs();
+  if (billH <= 0) { showToast('Слишком мало времени', 'error'); return false; }
+  // Реальное время старта, а не «конец минус отработанное»: при паузах
+  // второе рисовало интервал, которого не было.
+  const startMs = state.timer.startTime || (Date.now() - rawH * 3600000);
+  const endMs = startMs + Math.round(rawH * 3600000);
   const entry = {
     id: uid(), projectId: state.timer.projectId, task: state.timer.task,
     taskId: state.timer.taskId || null,
@@ -4554,7 +4666,6 @@ function confirmStopTimer() {
   if (sb.isEnabled()) sb.upsertEntry(entry);
   const project = getProject(state.timer.projectId);
   const amount = calcEntryAmount(state.timer.projectId, billH);
-  closeModal('modal-stop-timer');
   resetTimerState();
   renderPage();
   checkProjectHourLimit(entry.projectId);
@@ -4562,6 +4673,7 @@ function confirmStopTimer() {
     ? `✓ ${fmtHours(billH)} · ${fmtMoney(amount)} · ${project?.name || ''}`
     : `✓ ${fmtHours(billH)} · ${project?.name || ''}`;
   showToast(msg, 'success');
+  return true;
 }
 function updateTimerUI() {
   const disp = document.getElementById('sidebar-timer');
@@ -5609,8 +5721,8 @@ function startBoardTimer(taskId) {
   if (state.timer.running) {
     if (state.timer.taskId === taskId) { stopTimer(); return; }
     if (!confirm('Остановить текущий таймер и начать новую задачу?')) return;
-    if (state.timer.paused) resumeTimer();
-    confirmStopTimer();
+    // Не confirmStopTimer(): тот читает поля диалога, который здесь не открыт.
+    if (!commitTimerEntry(getTimerElapsedHours())) resetTimerState();
   }
   startTimer(t.projectId, t.title, t.id);
   finishTimerStartUI();
@@ -6089,15 +6201,16 @@ function getDefaultSchedule() {
 function normalizeSchedule(s) {
   const d = getDefaultSchedule();
   if (!s) return d;
-  const overrides = Object.assign({}, s.overrides || {});
-  for (const key of Object.keys(overrides)) {
-    const o = overrides[key];
-    if (o && o.hours != null) overrides[key] = { ...o, hours: Number(o.hours) };
+  const overrides = {};
+  for (const [key, o] of Object.entries(s.overrides || {})) {
+    // The key IS the date, so an ISO-timestamp key made the override
+    // unreachable by every getScheduleOverride(dateStr) lookup.
+    overrides[dateOnly(key)] = (o && o.hours != null) ? { ...o, hours: Number(o.hours) } : o;
   }
   return {
     weekTemplate: Object.assign({}, d.weekTemplate, s.weekTemplate || {}),
     overrides,
-    blocks: Array.isArray(s.blocks) ? s.blocks.slice() : []
+    blocks: Array.isArray(s.blocks) ? s.blocks.map(b => ({ ...b, date: dateOnly(b.date) })) : []
   };
 }
 function getDayKeyFromDate(dateStr) {
@@ -6821,30 +6934,26 @@ function buildTelegramReportText(entries, title) {
   const groups = groupEntriesByProject(entries);
   const totalH = sum(entries.map(e => e.hours));
   const totalAmount = entries.reduce((acc, e) => acc + calcSavedEntryAmount(e), 0);
-  const reportTitleLine = title || getDefaultReportTitle(reportProject || null);
+  const reportTitleLine = `${title || getDefaultReportTitle(reportProject || null)} (${fmtHoursTelegram(totalH)})`;
   const lines = [];
 
-  lines.push(`${reportTitleLine} (${fmtHoursTelegram(totalH)})`);
+  lines.push(reportTitleLine);
 
+  // Оглавление имеет смысл только когда проектов больше одного.
   if (groups.length > 1) {
-    groups.forEach(g => {
-      lines.push(`• ${g.name} (${fmtHoursTelegram(g.hours)})`);
-    });
-    lines.push('');
+    groups.forEach(g => lines.push(`• ${g.name} (${fmtHoursTelegram(g.hours)})`));
   }
 
-  groups.forEach((g, idx) => {
-    if (idx > 0 || groups.length > 1) lines.push('');
-    lines.push(`${g.name} (${fmtHoursTelegram(g.hours)})`);
-    if (g.entries.length === 1) {
-      const task = (g.entries[0].task || 'Без описания').replace(/\s+/g, ' ').trim();
-      lines.push(` - ${task}`);
-    } else {
-      g.entries.forEach(e => {
-        const task = (e.task || 'Без описания').replace(/\s+/g, ' ').trim();
-        lines.push(`• ${task}`);
-      });
-    }
+  groups.forEach(g => {
+    lines.push('');
+    // Отчёт по одному проекту называется его именем, и заголовок блока
+    // получался дословной копией первой строки — печатаем его только когда
+    // он несёт что-то новое.
+    const groupHead = `${g.name} (${fmtHoursTelegram(g.hours)})`;
+    if (groupHead !== reportTitleLine) lines.push(groupHead);
+    g.entries.forEach(e => {
+      lines.push(`• ${(e.task || 'Без описания').replace(/\s+/g, ' ').trim()}`);
+    });
   });
 
   lines.push('');
@@ -6889,6 +6998,7 @@ function collectReport() {
     entries.forEach(e => sb.upsertEntry(e));
   }
   selectedReportId = report.id;
+  reportTitle = '';           // следующий отчёт получает своё название, не прошлое
   renderPage();
   showToast(`Отчёт собран: ${entries.length} записей`);
 }
@@ -7025,21 +7135,27 @@ function selectReport(id) {
   renderPage();
 }
 
-async function copyReportText(reportId) {
-  const report = state.reports.find(r => r.id === reportId);
-  if (!report) return;
+// Единственный путь копирования: раньше предпросмотр вклеивал текст прямо в
+// атрибут onclick через JSON.stringify — кавычки от stringify закрывали сам
+// атрибут, и кнопка не работала никогда.
+async function copyToClipboard(text, okMsg = 'Скопировано') {
   try {
-    await navigator.clipboard.writeText(report.text);
-    showToast('Скопировано для Telegram');
+    await navigator.clipboard.writeText(text);
   } catch {
+    // clipboard API недоступен (не-HTTPS, старый WebView) — старый путь
     const ta = document.createElement('textarea');
-    ta.value = report.text;
+    ta.value = text;
     document.body.appendChild(ta);
     ta.select();
     document.execCommand('copy');
     ta.remove();
-    showToast('Скопировано для Telegram');
   }
+  showToast(okMsg);
+}
+
+function copyReportText(reportId) {
+  const report = state.reports.find(r => r.id === reportId);
+  if (report) copyToClipboard(report.text, 'Скопировано для Telegram');
 }
 
 function renderReports() {
@@ -7152,7 +7268,9 @@ function previewReportText() {
   if (!entries.length) return;
   const title = getReportTitleInput() || getDefaultReportTitle(reportProject || null);
   const text = buildTelegramReportText(entries, title);
+  document.getElementById('rep-preview')?.remove();
   const preview = document.createElement('div');
+  preview.id = 'rep-preview';
   preview.className = 'card';
   preview.style.cssText = 'position:fixed;inset:20px;z-index:1000;max-width:640px;margin:auto;max-height:80vh;overflow:auto;padding:20px';
   preview.innerHTML = `
@@ -7161,39 +7279,35 @@ function previewReportText() {
       <button class="btn btn-ghost btn-sm" onclick="this.closest('.card').remove()">Закрыть</button>
     </div>
     <div class="telegram-preview">${escHtml(text)}</div>
-    <button class="btn btn-primary btn-sm mt12" onclick="navigator.clipboard.writeText(${JSON.stringify(text)}).then(()=>showToast('Скопировано'))">Копировать</button>
+    <button class="btn btn-primary btn-sm mt12" id="rep-preview-copy">Копировать</button>
   `;
+  preview.querySelector('#rep-preview-copy').onclick = () => copyToClipboard(text, 'Скопировано для Telegram');
   document.body.appendChild(preview);
 }
 
+// Название, которое подставилось само, обязано следовать за фильтрами.
+// Иначе оно оставалось от прошлого отчёта: собрал по проекту А, переключил
+// на Б — и отчёт по Б уходил в Telegram озаглавленным как А.
+function dropAutoReportTitle(prevDefault) {
+  if (reportTitle === prevDefault) reportTitle = '';
+}
 function updateReport() {
+  const prevDefault = getDefaultReportTitle(reportProject || null);
   reportFrom = document.getElementById('rep-from')?.value || reportFrom;
   reportTo = document.getElementById('rep-to')?.value || reportTo;
   reportProject = document.getElementById('rep-project')?.value || '';
+  dropAutoReportTitle(prevDefault);
   renderPage();
 }
 function setReportPeriod(period) {
+  const prevDefault = getDefaultReportTitle(reportProject || null);
   const today = toDateStr(new Date());
   if (period==='week') { const w=getWeekDates(); reportFrom=w.start; reportTo=w.end; }
   else if (period==='month') { reportFrom=today.slice(0,7)+'-01'; reportTo=today; }
   else if (period==='all') { reportFrom='2020-01-01'; reportTo=today; }
+  dropAutoReportTitle(prevDefault);
   renderPage();
 }
-function printReport() {
-  const report = state.reports.find(r => r.id === selectedReportId);
-  if (!report) { showToast('Сначала выберите отчёт', 'error'); return; }
-  const printWin = window.open('', '_blank');
-  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Отчёт ${fmtDate(report.from)} — ${fmtDate(report.to)}</title>
-  <style>body{font-family:-apple-system,sans-serif;padding:24px;font-size:14px;white-space:pre-wrap;line-height:1.6}
-  h1{font-size:20px;margin-bottom:8px}.meta{color:#666;font-size:13px;margin-bottom:20px}</style></head><body>
-  <h1>Отчёт по рабочему времени</h1>
-  <div class="meta">${fmtDate(report.from)} — ${fmtDate(report.to)} · ${report.status === 'paid' ? 'Оплачено' : 'Не оплачен'}</div>
-  <pre>${report.text.replace(/</g,'&lt;')}</pre>
-  </body></html>`);
-  printWin.document.close();
-  setTimeout(()=>printWin.print(),300);
-}
-
 // ─── PAYMENTS ─────────────────────────────────────────────────────────────
 function renderPayments() {
   const totalEarned = calcTotalEarned();
@@ -7922,6 +8036,28 @@ function setDefaultRatePreset(v) {
   updateRatePreview();
 }
 
+async function toggleIdleDetection(on) {
+  if (on) {
+    if (!idleWatch.supported()) { showToast('Браузер не умеет определять простой', 'error'); return; }
+    // requestPermission() обязан вызываться из жеста пользователя — этот клик им и является.
+    if (!await idleWatch.requestPermission()) {
+      showToast('Нужно разрешить определение простоя в браузере', 'error');
+      return;
+    }
+  }
+  state.settings.idleDetection = !!on;
+  save({ syncSettingsNow: true });
+  if (on) void idleWatch.start(); else idleWatch.stop();
+  renderPage();
+  showToast(on ? 'Простой будет определяться' : 'Определение простоя выключено', on ? 'success' : undefined);
+}
+
+function setIdleThreshold(value) {
+  state.settings.idleThresholdMin = Number(value) || 10;
+  save({ syncSettingsNow: true });
+  if (state.timer.running) void idleWatch.start();   // порог задаётся при старте детектора
+}
+
 function applyDefaultRateToProjects() {
   const rate = state.settings.defaultRate || 0;
   if (!rate) { showToast('Сначала укажите ставку', 'error'); return; }
@@ -8028,6 +8164,9 @@ async function profileSaveCredentials() {
 function renderSettings() {
   const s = state.settings;
   const or = s.openrouter;
+  const idleSupported = idleWatch.supported();
+  const idleOn = idleSupported && !!s.idleDetection;
+  const idleMin = Number(s.idleThresholdMin) || 10;
   const sym = currencySymbol();
   const rate = s.defaultRate || 0;
   const projectsNoRate = state.projects.filter(p => !p.rate).length;
@@ -8167,6 +8306,36 @@ function renderSettings() {
         </select>
         <div class="text-xs text-muted mt4">Пример: 10 мин работы → ${fmtHours(roundBillableHours(10/60))} к оплате</div>
       </div>
+    </div>
+
+    <div class="section-title">⏱ Таймер</div>
+    <div class="card mb16">
+      <div class="settings-toggle-row">
+        <div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:4px">Определять простой</div>
+          <div class="text-sm text-muted">Если вас не было за компьютером (нет ввода, экран заблокирован), это время предложат вычесть при остановке таймера. Смена окна или вкладки простоем не считается.</div>
+          ${idleSupported ? '' : '<div class="text-xs mt4" style="color:var(--muted)">Недоступно в этом браузере — нужен Chrome или Edge. Длительность всё равно можно поправить вручную при остановке.</div>'}
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0">
+          <div style="position:relative;display:inline-block">
+            <input type="checkbox" id="s-idle-enabled" ${idleOn?'checked':''} ${idleSupported?'':'disabled'} onchange="toggleIdleDetection(this.checked)" style="width:0;height:0;opacity:0;position:absolute">
+            <div style="width:40px;height:22px;background:${idleOn?'var(--accent)':'var(--border2)'};border-radius:11px;transition:.2s;cursor:${idleSupported?'pointer':'not-allowed'};opacity:${idleSupported?1:.5}" onclick="${idleSupported?"toggleIdleDetection(!document.getElementById('s-idle-enabled').checked)":''}">
+              <div style="width:18px;height:18px;background:#fff;border-radius:50%;margin:2px;transition:.2s;transform:translateX(${idleOn?'18px':'0'})"></div>
+            </div>
+          </div>
+          <span class="text-sm">${idleOn?'Включено':'Выключено'}</span>
+        </label>
+      </div>
+      ${idleOn ? `
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Считать простоем бездействие дольше</label>
+        <select class="form-select" onchange="setIdleThreshold(this.value)">
+          <option value="5" ${idleMin===5?'selected':''}>5 минут</option>
+          <option value="10" ${idleMin===10?'selected':''}>10 минут</option>
+          <option value="15" ${idleMin===15?'selected':''}>15 минут</option>
+          <option value="30" ${idleMin===30?'selected':''}>30 минут</option>
+        </select>
+      </div>` : ''}
     </div>
 
     <div class="section-title">Интеграция — OpenRouter AI</div>
@@ -8616,7 +8785,13 @@ function openAIResultModal(entryId, original, improved) {
   document.getElementById('ai-improved-text').textContent = improved;
   document.getElementById('ai-apply-btn').onclick = () => {
     const entry = state.entries.find(e=>e.id===entryId);
-    if (entry) { entry.task = improved; save(); renderPage(); showToast('Описание обновлено'); }
+    if (entry) {
+      entry.task = improved;
+      save();
+      if (sb.isEnabled()) sb.upsertEntry(entry);
+      renderPage();
+      showToast('Описание обновлено');
+    }
     closeModal('modal-ai-result');
   };
   openModal('modal-ai-result');
@@ -8769,6 +8944,7 @@ function initApp() {
   load();
   applyDockerConfig();
   state.timer = normalizeTimer(state.timer);
+  if (state.timer.running) { idleWatch.settle(); void idleWatch.start(); }
   timerBg.init().then(() => {
     if (state.timer.running) startTimerTick();
     updateTimerUI();
@@ -8779,6 +8955,8 @@ function initApp() {
   updateTopbarUser();
   checkAllProjectHourLimits();
   if (sb.isEnabled()) {
+    sb.restoreOutbox();   // writes that never reached the server last session
+    markUserSettingsSynced();
     syncWithServer({ silent: true }).catch(() => showToast('Не удалось синхронизировать с БД', 'error'));
     startBackgroundSync();
   }

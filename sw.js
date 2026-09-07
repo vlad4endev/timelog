@@ -1,10 +1,11 @@
-const CACHE_NAME = 'timelog-v15';
+const CACHE_NAME = 'timelog-v17';
 const IS_IOS = /iPad|iPhone|iPod/.test(self.navigator?.userAgent || '');
 const TIMER_DB = 'timelog-timer';
 const TIMER_STORE = 'timer';
 const TIMER_NOTIF_TAG = 'timelog-active-timer';
 
 const OFFLINE_ASSETS = [
+  '/',
   '/apple-touch-icon.png',
   '/icon-192.png',
   '/icon-512.png'
@@ -44,7 +45,10 @@ function isIconRequest(request) {
 function cachePut(request, response) {
   if (!response || response.status !== 200) return;
   const path = requestPath(request);
-  if (SHELL_PATHS.has(path) || path.endsWith('.html') || path.endsWith('.js')) return;
+  // The shell IS cached now: it stays network-first, so an online load always
+  // gets the fresh copy and the cache is only ever used when the network is
+  // gone — where the alternative was a blank page.
+  if (!SHELL_PATHS.has(path) && (path.endsWith('.html') || path.endsWith('.js'))) return;
   const clone = response.clone();
   caches.open(CACHE_NAME).then(cache => cache.put(request, clone)).catch(() => {});
 }
@@ -55,7 +59,10 @@ function networkFirst(request) {
       cachePut(request, response);
       return response;
     })
-    .catch(() => caches.match(request).then(cached => cached || caches.match('/index.html')));
+    .catch(() => caches.match(request, { ignoreSearch: true })
+      .then(cached => cached
+        || caches.match('/index.html', { ignoreSearch: true })
+             .then(idx => idx || caches.match('/'))));
 }
 
 function staleWhileRevalidate(request) {
@@ -252,8 +259,18 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+// API responses must NEVER touch the cache. /auth/sync/pull is a same-origin
+// GET, so the catch-all staleWhileRevalidate below used to answer it from the
+// cache on reload: the client got the pre-edit dataset, replaced state with it
+// and wrote that back to localStorage — every edit "came back" after a refresh.
+function isApiRequest(request) {
+  const path = requestPath(request);
+  return path.startsWith('/auth/') || path.startsWith('/rest/v1/');
+}
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  if (isApiRequest(event.request)) return;   // straight to the network, uncached
   if (isShellRequest(event.request) || isIconRequest(event.request)) {
     event.respondWith(networkFirst(event.request));
     return;
