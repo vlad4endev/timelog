@@ -488,5 +488,65 @@ globalThis.__state = state;
   check('новая задача создаётся не архивной', !created.archived, true);
 }
 
+// ── saveEntry / saveProject: правка не должна терять поля вне формы ────────
+// Обе раньше пересобирали объект литералом. saveEntry() из-за этого отвязывала
+// запись от отчёта (исправлено ранее перечислением полей руками), saveProject()
+// пока случайно перечисляет все колонки. Спред делает свойство структурным,
+// поэтому тест проверяет именно его: поле, которого нет в форме, обязано выжить.
+{
+  const stub = (fields, extra) => ({
+    document: { getElementById: (id) => (id in fields ? { value: fields[id] } : null) },
+    showToast: () => {}, save: () => {}, closeModal: () => {}, renderPage: () => {},
+    checkProjectHourLimit: () => {}, fmtDuration: () => '',
+    ...extra
+  });
+  const call = (names, env) =>
+    new Function(...Object.keys(env), names.map(extractFunction).join('\n') + `; return ${names[0]};`)
+      (...Object.values(env))();
+
+  {
+    const state = {
+      settings: { billableIncrement: 0.25, roundMode: 'up', minBillable: 0 },
+      projects: [{ id: 'p1', name: 'Альфа', rate: 1000 }],
+      boardTasks: [],
+      entries: [{ id: 'e1', projectId: 'p1', task: 'Старое', date: '2026-01-05', hours: 1,
+                  rate: 900, start: '', end: '', notes: '', taskId: null,
+                  reportId: 'r1', archived: true, createdAt: 111, invoiceId: 'inv-9' }]
+    };
+    const pushed = [];
+    call(['saveEntry', 'roundBillableHours', 'getBillingSettings', 'getProject', 'getBoardTask', 'uid'],
+      stub({ 'entry-project': 'p1', 'entry-task': 'Новое название', 'entry-date': '2026-01-06',
+             'entry-hours': '2', 'entry-edit-id': 'e1', 'entry-notes': '', 'entry-task-id': '',
+             'entry-start': '', 'entry-end': '' },
+        { state, sb: { isEnabled: () => true, upsertEntry: (e) => pushed.push(e), upsertBoardTask: () => {} } }));
+
+    // reportId/archived уже закрыты проверками выше (см. "an edit keeps the
+    // entry linked to its report") — здесь только то, чего они не ловят:
+    // поле, которого в форме нет вовсе, то есть любая будущая колонка.
+    const e = state.entries[0];
+    check('правка записи сохраняет поле вне формы', e.invoiceId, 'inv-9');
+    check('поле вне формы уходит и на сервер', pushed[0].invoiceId, 'inv-9');
+  }
+
+  {
+    const state = {
+      settings: { projectHourAlerts: {} },
+      projects: [{ id: 'p1', name: 'Старое', client: '', rate: 500, color: '#000', desc: '',
+                   status: 'active', maxHours: 0, specText: '', specFileName: '', specFileMime: '',
+                   specFileData: '', createdAt: 222, updatedAt: 222, archivedAt: 'keep-me' }]
+    };
+    call(['saveProject', 'getProject', 'uid'],
+      stub({ 'project-name': 'Новое', 'project-edit-id': 'p1', 'project-max-hours': '',
+             'project-client': 'ООО', 'project-rate': '1500', 'project-color': '#fff',
+             'project-desc': '', 'project-status': 'active', 'project-spec-text': '' },
+        { state, projectSpecDraft: { fileName: '', fileMime: '', fileData: '' },
+          sb: { isEnabled: () => false, upsertProject: () => {} } }));
+
+    const p = state.projects[0];
+    check('правка проекта сохраняет поле вне формы', p.archivedAt, 'keep-me');
+    check('правка проекта применилась', [p.name, p.rate, p.createdAt], ['Новое', 1500, 222]);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

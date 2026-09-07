@@ -7611,17 +7611,18 @@ function saveEntry() {
     ? existingEntry.rate
     : (getProject(projectId)?.rate || 0);
   const entry = {
+    // Merge onto the existing record, never rebuild it: entryToRow() maps every
+    // column, including ones the form has no input for (reportId, archived), and
+    // a bare literal pushes report_id=null/archived=false — silently unlinking a
+    // billed entry from its report. Spreading carries them without naming them,
+    // so a column added to time_entries later is safe by default.
+    ...(existingEntry || {}),
     id: editId || uid(), projectId, task, date, hours, rate,
     taskId: document.getElementById('entry-task-id')?.value || null,
     start: document.getElementById('entry-start').value,
     end: document.getElementById('entry-end').value,
     notes,
-    // Carried over, not rebuilt from the form: entryToRow() maps every column,
-    // so omitting these would push report_id=null/archived=false and silently
-    // unlink a billed entry from its report.
-    reportId: existingEntry?.reportId || null,
-    archived: !!existingEntry?.archived,
-    createdAt: existingEntry ? (existingEntry.createdAt||Date.now()) : Date.now()
+    createdAt: existingEntry?.createdAt || Date.now()
   };
   const linkedTask = entry.taskId ? getBoardTask(entry.taskId) : null;
   if (linkedTask && linkedTask.status === 'todo') {
@@ -7701,7 +7702,12 @@ function saveProject() {
     showToast('Лимит часов должен быть больше 0', 'error');
     return;
   }
+  const existingProject = editId ? getProject(editId) : null;
   const project = {
+    // Same merge-don't-rebuild rule as saveEntry/savePayment. This literal does
+    // happen to name every projects column today, so nothing is lost right now —
+    // spreading is what keeps that true after the next column is added.
+    ...(existingProject || {}),
     id: editId || uid(),
     name, client: document.getElementById('project-client').value.trim(),
     rate: parseFloat(document.getElementById('project-rate').value)||0,
@@ -7713,11 +7719,14 @@ function saveProject() {
     specFileName: projectSpecDraft.fileName,
     specFileMime: projectSpecDraft.fileMime,
     specFileData: projectSpecDraft.fileData,
-    createdAt: editId ? (getProject(editId)?.createdAt||Date.now()) : Date.now(),
+    createdAt: existingProject?.createdAt || Date.now(),
     updatedAt: Date.now()
   };
   if (editId) {
-    const old = getProject(editId);
+    // existingProject is the pre-edit object; spreading it above copied its
+    // fields into a new object rather than mutating it, so this still compares
+    // the old limit against the new one.
+    const old = existingProject;
     if (old && old.maxHours !== project.maxHours && state.settings.projectHourAlerts?.[editId]) {
       delete state.settings.projectHourAlerts[editId];
     }
