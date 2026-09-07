@@ -1,4 +1,22 @@
+# Behind a reverse proxy $remote_addr is the PROXY's address, so every user
+# shared one rate-limit bucket (and the auth server saw one IP too). Trust the
+# forwarded address only from the docker networks the proxy can live on.
+set_real_ip_from 172.16.0.0/12;
+set_real_ip_from 192.168.0.0/16;
+set_real_ip_from 10.0.0.0/8;
+set_real_ip_from 127.0.0.1;
+real_ip_header X-Forwarded-For;
+real_ip_recursive on;
+
+# Credential endpoints stay tight — this zone exists to stop password
+# guessing, and nothing legitimate calls them in a loop.
 limit_req_zone $binary_remote_addr zone=auth_api:10m rate=20r/m;
+# /auth/sync/* is the DATA path: a pull on every app focus plus one batched
+# push per edit burst, and a rejected push retries every 5s. Under the 20r/m
+# credential limit a few minutes of normal editing pinned every write at 429
+# — the client kept saying "not sent to the server yet" while the retry loop
+# itself ate the whole budget.
+limit_req_zone $binary_remote_addr zone=sync_api:10m rate=120r/m;
 limit_req_status 429;
 
 server {
@@ -22,6 +40,18 @@ server {
 
   location /rest/v1/ {
     proxy_pass http://postgrest:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 30s;
+  }
+
+  # More specific than /auth/ below, so nginx routes the sync traffic here.
+  location /auth/sync/ {
+    limit_req zone=sync_api burst=60 nodelay;
+    proxy_pass http://auth:3001/auth/sync/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;

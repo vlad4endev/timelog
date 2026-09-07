@@ -3450,11 +3450,18 @@ const sb = {
 
   _serverWrites() { return auth.useServerAuth() && !!auth.getApiToken(); },
 
+  _lastSendStatus: 0,
   async _send(body) {
     const res = await auth.authFetch('/auth/sync/push', body);
+    this._lastSendStatus = res?.status || 0;
     if (res?.status === 401) this._warnSessionExpired();
     return !!res?.ok;
   },
+
+  // A 429 is the server's rate limiter, not a dead connection: retrying every
+  // 5s keeps its bucket empty, so every write stays rejected and the app says
+  // "not sent yet" forever. Back off past the limiter's window instead.
+  _retryDelayFor(status) { return status === 429 ? 60000 : 5000; },
 
   _direct() {
     save();                              // cache the optimistic change for instant boot
@@ -3472,13 +3479,17 @@ const sb = {
   },
 
   _writeFailWarned: false,
-  _warnWriteFailed() {
+  _warnWriteFailed(status = 0) {
     // Never silent: a write the server didn't accept must tell the user. It
     // stays in the outbox and is retried, so this is "not yet", not "gone" —
-    // and the retry loop must not toast on every attempt.
+    // and the retry loop must not toast on every attempt. Say WHICH kind of
+    // "not yet" it is: blaming the connection when the server is throttling
+    // sent the user hunting for a network problem that wasn't there.
     if (this._writeFailWarned) return;
     this._writeFailWarned = true;
-    showToast('Изменения пока не отправлены на сервер — повторим при связи.', 'error');
+    showToast(status === 429
+      ? 'Сервер ограничивает частоту запросов — отправим через минуту. Данные сохранены на устройстве.'
+      : 'Изменения пока не отправлены на сервер — повторим при связи.', 'error');
   },
 
   _queueUpsert(table, id, row) {
@@ -3542,8 +3553,8 @@ const sb = {
           showToast('✓ Изменения сохранены на сервере', 'success');
         }
       } else {
-        this._warnWriteFailed();
-        this._scheduleFlush(5000);
+        this._warnWriteFailed(this._lastSendStatus);
+        this._scheduleFlush(this._retryDelayFor(this._lastSendStatus));
       }
       this._persistOut();
       return ok;

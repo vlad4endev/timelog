@@ -66,7 +66,7 @@ function makeApp(opts = {}) {
   const auth = {
     getLogin: () => 'u', dataKey: (l) => `timelog_v1_${l}`,
     useServerAuth: () => true, isLoggedIn: () => true, getApiToken: () => 'tok',
-    authFetch: async (_p, body) => { stats.sends++; stats.bodies.push(body); return { ok: opts.sendOk, status: opts.sendOk ? 200 : 500 }; },
+    authFetch: async (_p, body) => { stats.sends++; stats.bodies.push(body); return { ok: opts.sendOk, status: opts.sendOk ? 200 : (opts.status || 500) }; },
   };
   const src = [
     'function userSettingsForRemote()' , 'let userSettingsSyncTimer = null;', 'function save(opts = {}) {',
@@ -189,6 +189,22 @@ console.log('\nthe service worker never answers an API GET from its cache');
   check('/rest/v1/time_entries is not intercepted', intercepted('/rest/v1/time_entries'), false);
   check('the app shell still is (offline boot)', intercepted('/index.html'), true);
   check('icons still are', intercepted('/icon-192.png'), true);
+}
+
+console.log('\na throttled write backs off instead of hammering');
+{
+  // 429 is the rate limiter, not a dead link. Retrying every 5s kept its
+  // bucket empty, so every save stayed rejected and the app told the user
+  // there was no connection — for as long as they kept working.
+  const app = makeApp({ sendOk: false, status: 429 });
+  app.sb._queueUpsert('projects', 'p1', { id: 'p1' });
+  await tick(700);
+  check('the write is still pending', app.sb.hasPendingWrites(), true);
+  check('retry waits out the limiter window', app.sb._retryDelayFor(429), 60000);
+  check('a plain failure still retries fast', app.sb._retryDelayFor(500), 5000);
+  const sendsAfterFirstTry = app.stats.sends;
+  await tick(600);
+  check('and it does not retry in the meantime', app.stats.sends, sendsAfterFirstTry);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
