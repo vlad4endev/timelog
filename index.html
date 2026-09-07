@@ -7444,6 +7444,11 @@ function saveEntry() {
     start: document.getElementById('entry-start').value,
     end: document.getElementById('entry-end').value,
     notes,
+    // Carried over, not rebuilt from the form: entryToRow() maps every column,
+    // so omitting these would push report_id=null/archived=false and silently
+    // unlink a billed entry from its report.
+    reportId: existingEntry?.reportId || null,
+    archived: !!existingEntry?.archived,
     createdAt: existingEntry ? (existingEntry.createdAt||Date.now()) : Date.now()
   };
   const linkedTask = entry.taskId ? getBoardTask(entry.taskId) : null;

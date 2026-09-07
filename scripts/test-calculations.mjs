@@ -100,5 +100,48 @@ check('no time logged bills nothing', t.roundBillableHours(0), 0);
   check('missing local takes remote', t.mergeTimers(null, freshRunning), freshRunning);
 }
 
+// ── saveEntry: an edit must not silently unlink a billed entry ─────────────
+// sb.entryToRow() maps every column on every write (report_id, archived
+// included), so any field saveEntry forgets to carry over from the existing
+// entry gets pushed to the server as its falsy default. Editing an entry that
+// belongs to a paid report would then hand it back as unbilled and deletable.
+{
+  const saveEntrySource = ['getBillingSettings', 'roundBillableHours', 'saveEntry'].map(extractFunction).join('\n\n');
+  const fields = {
+    'entry-project': 'p1', 'entry-task': 'Reworded task', 'entry-date': '2026-07-04',
+    'entry-hours': '3', 'entry-edit-id': 'e1', 'entry-notes': 'edited',
+    'entry-task-id': '', 'entry-start': '', 'entry-end': ''
+  };
+  const billed = {
+    id: 'e1', projectId: 'p1', task: 'Original task', date: '2026-07-01', hours: 2,
+    rate: 50, start: '', end: '', notes: '', taskId: null,
+    reportId: 'r1', archived: true, createdAt: 1700000000000
+  };
+  const pushed = [];
+  const saveEntryHarness = `
+let state = { entries: [${JSON.stringify(billed)}], settings: { billableIncrement: 0.25, roundMode: 'up', minBillable: 0 } };
+const document = { getElementById: (id) => (${JSON.stringify(fields)}).hasOwnProperty(id) ? { value: ${JSON.stringify(fields)}[id] } : null };
+const sb = { isEnabled: () => true, upsertEntry: (e) => globalThis.__pushed.push(e), upsertBoardTask: () => {} };
+const getProject = () => ({ rate: 99 });
+const getBoardTask = () => null;
+const uid = () => 'new-id';
+const fmtDuration = (h) => String(h);
+const showToast = () => {}, save = () => {}, closeModal = () => {}, renderPage = () => {}, checkProjectHourLimit = () => {};
+${saveEntrySource}
+globalThis.__saveEntry = saveEntry;
+globalThis.__state = state;
+`;
+  globalThis.__pushed = pushed;
+  // eslint-disable-next-line no-eval
+  (0, eval)(saveEntryHarness);
+  globalThis.__saveEntry();
+
+  const saved = globalThis.__state.entries.find(e => e.id === 'e1');
+  check('an edit keeps the entry linked to its report', saved.reportId, 'r1');
+  check('an edit keeps a paid entry archived', saved.archived, true);
+  check('the edit actually applied', [saved.task, saved.hours], ['Reworded task', 3]);
+  check('the row pushed to the server still carries the report link', [pushed.length, pushed[0]?.reportId, pushed[0]?.archived], [1, 'r1', true]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
