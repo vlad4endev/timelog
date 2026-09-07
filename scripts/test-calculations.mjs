@@ -447,6 +447,54 @@ globalThis.__state = state;
   }
 }
 
+// ── reconcilePaidReportEntries: записи оплаченного отчёта уходят в архив ──
+// Regression: отчёт помечен «оплачено», а его записи остались активными
+// (частично потерянная запись в БД либо старая версия markReportPaid) — и
+// оплаченная работа продолжала висеть в «Записях времени» как неоплаченная.
+{
+  const state = {
+    reports: [
+      { id: 'r1', status: 'paid', entryIds: ['e1', 'e2'] },
+      { id: 'r2', status: 'unpaid', entryIds: ['e4'] }
+    ],
+    entries: [
+      { id: 'e1', taskId: 't1', reportId: 'r1', archived: false },   // связь с двух сторон
+      { id: 'e2', taskId: null, reportId: null, archived: false },   // только entryIds отчёта
+      { id: 'e3', taskId: 't2', reportId: 'r1', archived: false },   // только reportId записи
+      { id: 'e4', taskId: 't3', reportId: 'r2', archived: false },   // отчёт не оплачен
+      { id: 'e5', taskId: null, reportId: null, archived: false }    // вне отчётов
+    ],
+    boardTasks: [
+      { id: 't1', archived: false, updatedAt: 1 },
+      { id: 't2', archived: false, updatedAt: 1 },
+      { id: 't3', archived: false, updatedAt: 1 }
+    ]
+  };
+  const pushedEntries = [], pushedTasks = [];
+  let saves = 0;
+  const fn = new Function('state', 'sb', 'save',
+    extractFunction('reconcilePaidReportEntries') + '; return reconcilePaidReportEntries;');
+  const reconcile = fn(state, {
+    isEnabled: () => true,
+    upsertEntry: (e) => pushedEntries.push(e.id),
+    upsertBoardTask: (t) => pushedTasks.push(t.id)
+  }, () => { saves++; });
+
+  reconcile();
+  check('записи оплаченного отчёта уехали в архив',
+    state.entries.filter(e => e.archived).map(e => e.id), ['e1', 'e2', 'e3']);
+  check('запись неоплаченного отчёта не тронута', state.entries.find(e => e.id === 'e4').archived, false);
+  check('запись вне отчётов не тронута', state.entries.find(e => e.id === 'e5').archived, false);
+  check('задачи оплаченных записей закрыты',
+    state.boardTasks.filter(t => t.archived).map(t => t.id), ['t1', 't2']);
+  check('починенное улетает в БД', [pushedEntries, pushedTasks], [['e1', 'e2', 'e3'], ['t1', 't2']]);
+  check('починка сохранена локально один раз', saves, 1);
+
+  // Идемпотентность: второй проход ничего не делает и не пишет лишнего.
+  reconcile();
+  check('повторный проход ничего не меняет', [pushedEntries.length, saves], [3, 1]);
+}
+
 // ── saveBoardTask: правка задачи не должна воскрешать её из архива ─────────
 // Regression: тот же класс бага, что у savePayment/saveEntry — объект задачи
 // пересобирался из полей формы, а `archived` поля в форме нет. boardTaskToRow()

@@ -3187,6 +3187,40 @@ function backfillPaidReportPayments() {
   if (changed) save();
 }
 
+// The other half of "the report says paid": markReportPaid() archives the
+// report's entries, but data written before it did that — and from the burst
+// of dropped writes the outbox now prevents (report marked paid, half its
+// entries never archived) — still has those entries sitting in the active
+// list, so billed work keeps showing up as outstanding. Re-archive them.
+function reconcilePaidReportEntries() {
+  const paidReportIds = new Set(state.reports.filter(r => r.status === 'paid').map(r => r.id));
+  if (!paidReportIds.size) return;
+  const paidEntryIds = new Set();
+  state.reports.forEach(r => {
+    if (paidReportIds.has(r.id)) (r.entryIds || []).forEach(id => paidEntryIds.add(id));
+  });
+  const taskIds = new Set();
+  let changed = false;
+  state.entries.forEach(e => {
+    if (e.archived) return;
+    // Linked either way round: entryIds is the report's own list, reportId is
+    // the entry's — a partial write can leave only one of the two.
+    if (!paidEntryIds.has(e.id) && !paidReportIds.has(e.reportId)) return;
+    e.archived = true;
+    if (e.taskId) taskIds.add(e.taskId);
+    if (sb.isEnabled()) sb.upsertEntry(e);
+    changed = true;
+  });
+  state.boardTasks.forEach(t => {
+    if (t.archived || !taskIds.has(t.id)) return;
+    t.archived = true;
+    t.updatedAt = Date.now();
+    if (sb.isEnabled()) sb.upsertBoardTask(t);
+    changed = true;
+  });
+  if (changed) save();
+}
+
 function applyLocalData(d) {
   state.projects = d.projects || [];
   state.entries  = d.entries  || [];
@@ -3195,6 +3229,7 @@ function applyLocalData(d) {
   state.reports = d.reports || [];
   coerceNumericFields();
   backfillPaidReportPayments();
+  reconcilePaidReportEntries();
   state.schedule = normalizeSchedule(d.schedule);
   state.timer    = normalizeTimer(d.timer);
   if (d.settings) {
@@ -3850,6 +3885,11 @@ let serverSyncPollTimer = null;
 let serverSyncListenersBound = false;
 
 function applyServerPull() {
+  // The pull replaces the collections wholesale, so the paid-report repairs
+  // have to run over the server copy too — not just over what was in
+  // localStorage at boot.
+  backfillPaidReportPayments();
+  reconcilePaidReportEntries();
   if (state.timer.running) startTimerTick();
   updateTimerUI();
   renderPage();
