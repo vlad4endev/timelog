@@ -447,5 +447,46 @@ globalThis.__state = state;
   }
 }
 
+// ── saveBoardTask: правка задачи не должна воскрешать её из архива ─────────
+// Regression: тот же класс бага, что у savePayment/saveEntry — объект задачи
+// пересобирался из полей формы, а `archived` поля в форме нет. boardTaskToRow()
+// эту колонку отправляет, так что правка задачи, закрытой оплаченным отчётом,
+// вернула бы её на доску (archived=false).
+{
+  const names = ['saveBoardTask', 'getBoardTask', 'getNextBoardPosition', 'getProject', 'uid'];
+  const fields = { 'board-task-title': 'Починить синк', 'board-task-project': 'p1',
+    'board-task-edit-id': 't1', 'board-task-status': 'done',
+    'board-task-desc': 'описание', 'board-task-priority': 'high' };
+  const state = {
+    projects: [{ id: 'p1', name: 'Альфа', rate: 1000 }],
+    boardTasks: [{ id: 't1', projectId: 'p1', title: 'Старое название', desc: '', status: 'done',
+                   position: 3, priority: 'medium', archived: true, createdAt: 111, updatedAt: 111 }]
+  };
+  const pushed = [];
+  // Заглушки ровно того, что трогает функция — сама функция настоящая, из index.html.
+  const env = {
+    state,
+    document: { getElementById: (id) => (id in fields ? { value: fields[id] } : null) },
+    boardFilterProject: '',
+    showToast: () => {}, save: () => {}, closeModal: () => {}, renderPage: () => {},
+    sb: { isEnabled: () => true, upsertBoardTask: (t) => pushed.push(t) }
+  };
+  const fn = new Function(...Object.keys(env),
+    names.map(extractFunction).join('\n') + '; return saveBoardTask;');
+  fn(...Object.values(env))();
+
+  const t = state.boardTasks[0];
+  check('правка задачи не снимает архив', t.archived, true);
+  check('то же уходит на сервер, а не archived=false', pushed[0].archived, true);
+  check('правка из формы всё же применилась', [t.title, t.priority], ['Починить синк', 'high']);
+  check('позиция и дата создания сохранены', [t.position, t.createdAt], [3, 111]);
+
+  // новая задача архивной не рождается
+  fields['board-task-edit-id'] = '';
+  fn(...Object.values(env))();
+  const created = state.boardTasks.find(x => x.id !== 't1');
+  check('новая задача создаётся не архивной', !created.archived, true);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

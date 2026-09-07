@@ -5638,15 +5638,21 @@ function saveBoardTask() {
   if (!projectId || !getProject(projectId)) { showToast('Выберите проект', 'error'); return; }
   if (!title) { showToast('Введите название задачи', 'error'); return; }
   const status = document.getElementById('board-task-status').value;
+  const existingTask = editId ? getBoardTask(editId) : null;
   const task = {
+    // Merge onto the existing record, never rebuild it: boardTaskToRow() maps
+    // `archived` too, and a literal without it pushes archived=false — pulling
+    // a task closed by a paid report back onto the board. Same bug savePayment
+    // and saveEntry each had; spreading makes the next added column safe too.
+    ...(existingTask || {}),
     id: editId || uid(),
     projectId,
     title,
     desc: document.getElementById('board-task-desc').value.trim(),
     status,
-    position: editId ? (getBoardTask(editId)?.position ?? 0) : getNextBoardPosition(status, projectId),
+    position: editId ? (existingTask?.position ?? 0) : getNextBoardPosition(status, projectId),
     priority: document.getElementById('board-task-priority').value,
-    createdAt: editId ? (getBoardTask(editId)?.createdAt || Date.now()) : Date.now(),
+    createdAt: editId ? (existingTask?.createdAt || Date.now()) : Date.now(),
     updatedAt: Date.now()
   };
   if (editId) {
